@@ -1,7 +1,10 @@
 ---
+import { Image } from 'astro:assets';
 import { getEntry, render } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
 import { siteConfig } from '../config';
+import headshotImg from '../assets/photos/abey-headshot.png';
+import bioPhoto from '../assets/photos/abey-about.png';
 
 const aboutEntry = await getEntry('about', 'index');
 const { Content } = aboutEntry ? await render(aboutEntry) : { Content: null };
@@ -30,20 +33,46 @@ const onwardLinks = [
 ];
 ---
 
-<Layout title="About" description="Personal website of Abey John, a software engineer.">
+<Layout
+  title="About"
+  description="Personal website of Abey John, a software engineer."
+>
   <article class="about-page">
     <header class="about-header">
-      <h1 class="about-name">{siteConfig.name}</h1>
-      <p class="about-meta">
-        <span>{siteConfig.role}</span>
-        <span class="meta-separator">•</span>
-        <span>{siteConfig.location}</span>
-      </p>
+      <div class="header-avatar-container">
+        <Image
+          src={headshotImg}
+          alt={siteConfig.name}
+          width={160}
+          class="header-avatar"
+          loading="eager"
+        />
+      </div>
+      <div class="header-info">
+        <h1 class="about-name">{siteConfig.name}</h1>
+        <p class="about-meta">
+          <span>{siteConfig.role}</span>
+          <span class="meta-separator">•</span>
+          <span>{siteConfig.location}</span>
+        </p>
+      </div>
     </header>
 
     <div class="prose about-intro">
       {Content && <Content />}
     </div>
+
+    <figure class="bio-photo-card">
+      <Image
+        src={bioPhoto}
+        alt="Abey exploring The Narrows in Zion National Park"
+        class="bio-photo"
+        loading="lazy"
+      />
+      <figcaption class="bio-photo-caption">
+        The Narrows, Zion National Park
+      </figcaption>
+    </figure>
 
     <section class="onward-section" aria-labelledby="onward-heading">
       <h2 id="onward-heading" class="onward-heading">Explore</h2>
@@ -74,6 +103,26 @@ const onwardLinks = [
   }
 
   .about-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+  }
+
+  .header-avatar-container {
+    flex-shrink: 0;
+  }
+
+  .header-avatar {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: 50% -13px;
+    border: 2px solid var(--color-border);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .header-info {
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
@@ -107,6 +156,31 @@ const onwardLinks = [
     display: flex;
     flex-direction: column;
     gap: var(--space-md);
+  }
+
+  .bio-photo-card {
+    margin: 0;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-border-subtle);
+  }
+
+  .bio-photo {
+    width: 100%;
+    height: auto;
+    max-height: 480px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .bio-photo-caption {
+    padding: var(--space-xs) var(--space-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    background-color: var(--color-bg);
+    border-top: 1px solid var(--color-border);
+    font-style: italic;
   }
 
   .onward-section {
@@ -166,5 +240,13 @@ const onwardLinks = [
     font-size: var(--font-size-sm);
     color: var(--color-text-muted);
     line-height: 1.4;
+  }
+
+  @media (max-width: 480px) {
+    .about-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-md);
+    }
   }
 </style>

@@ -10,10 +10,10 @@ export interface SiteConfig {
 
 export const siteConfig: SiteConfig = {
   name: 'Abey John',
-  role: 'PLACEHOLDER: role line',
-  location: 'PLACEHOLDER: location line',
-  email: 'PLACEHOLDER: email address',
+  role: 'Software Development Engineer II at AWS',
+  location: 'Seattle, WA',
+  email: 'abeyjohnv@gmail.com',
   github: 'https://github.com/abey-john',
-  linkedin: 'PLACEHOLDER: linkedin profile URL',
+  linkedin: 'https://www.linkedin.com/in/abey-john/',
   ratingMax: 10,
 };
