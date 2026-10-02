@@ -47,13 +47,14 @@ const places = defineCollection({
 const music = defineCollection({
   loader: file('src/data/music.json'),
   schema: z.object({
+    updated: z.coerce.date(),
     favorites: z
       .array(
         z.object({
           title: z.string(),
           artist: z.string(),
           cover: z.string(),
-          blurb: z.string(),
+          blurb: z.string().optional().default(''),
         })
       )
       .length(10),
@@ -63,7 +64,7 @@ const music = defineCollection({
       cover: z.string(),
       rating: z.number().max(siteConfig.ratingMax),
       note: z.string().optional(),
-      date: z.string(),
+      date: z.string().optional(),
     }),
     recentListen: z.object({
       title: z.string(),
@@ -71,7 +72,7 @@ const music = defineCollection({
       cover: z.string(),
       rating: z.number().max(siteConfig.ratingMax),
       note: z.string().optional(),
-      date: z.string(),
+      date: z.string().optional(),
     }),
   }),
 });

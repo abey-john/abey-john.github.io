@@ -1,82 +1,79 @@
 {
   "content": {
+    "updated": "2026-10-02",
     "favorites": [
       {
-        "title": "PLACEHOLDER: Favorite Album 1",
-        "artist": "PLACEHOLDER: Artist 1",
-        "cover": "/assets/covers/placeholder-cover.svg",
-        "blurb": "PLACEHOLDER: Why this album matters to Abey"
+        "title": "I Didn't Mean to Haunt You",
+        "artist": "Quadeca",
+        "cover": "/assets/covers/quadeca-idmthy.webp",
+        "blurb": ""
       },
       {
-        "title": "PLACEHOLDER: Favorite Album 2",
-        "artist": "PLACEHOLDER: Artist 2",
-        "cover": "/assets/covers/placeholder-cover.svg",
-        "blurb": "PLACEHOLDER: Why this album matters to Abey"
+        "title": "Imaginal Disk",
+        "artist": "Magdalena Bay",
+        "cover": "/assets/covers/magdalena-bay-imaginal-disk.webp",
+        "blurb": ""
       },
       {
-        "title": "PLACEHOLDER: Favorite Album 3",
-        "artist": "PLACEHOLDER: Artist 3",
-        "cover": "/assets/covers/placeholder-cover.svg",
-        "blurb": "PLACEHOLDER: Why this album matters to Abey"
+        "title": "Ants From Up There",
+        "artist": "Black Country, New Road",
+        "cover": "/assets/covers/bcnr-ants-from-up-there.webp",
+        "blurb": ""
       },
       {
-        "title": "PLACEHOLDER: Favorite Album 4",
-        "artist": "PLACEHOLDER: Artist 4",
-        "cover": "/assets/covers/placeholder-cover.svg",
-        "blurb": "PLACEHOLDER: Why this album matters to Abey"
+        "title": "To Pimp a Butterfly",
+        "artist": "Kendrick Lamar",
+        "cover": "/assets/covers/kendrick-tpab.webp",
+        "blurb": ""
       },
       {
-        "title": "PLACEHOLDER: Favorite Album 5",
-        "artist": "PLACEHOLDER: Artist 5",
-        "cover": "/assets/covers/placeholder-cover.svg",
-        "blurb": "PLACEHOLDER: Why this album matters to Abey"
+        "title": "E•MO•TION",
+        "artist": "Carly Rae Jepsen",
+        "cover": "/assets/covers/carly-rae-jepsen-emotion.webp",
+        "blurb": ""
       },
       {
-        "title": "PLACEHOLDER: Favorite Album 6",
-        "artist": "PLACEHOLDER: Artist 6",
-        "cover": "/assets/covers/placeholder-cover.svg",
-        "blurb": "PLACEHOLDER: Why this album matters to Abey"
+        "title": "American Idiot",
+        "artist": "Green Day",
+        "cover": "/assets/covers/green-day-american-idiot.webp",
+        "blurb": ""
       },
       {
-        "title": "PLACEHOLDER: Favorite Album 7",
-        "artist": "PLACEHOLDER: Artist 7",
-        "cover": "/assets/covers/placeholder-cover.svg",
-        "blurb": "PLACEHOLDER: Why this album matters to Abey"
+        "title": "Vanisher, Horizon Scraper",
+        "artist": "Quadeca",
+        "cover": "/assets/covers/quadeca-vanisher.webp",
+        "blurb": ""
       },
       {
-        "title": "PLACEHOLDER: Favorite Album 8",
-        "artist": "PLACEHOLDER: Artist 8",
-        "cover": "/assets/covers/placeholder-cover.svg",
-        "blurb": "PLACEHOLDER: Why this album matters to Abey"
+        "title": "Where the Light Is: Live in Los Angeles",
+        "artist": "John Mayer",
+        "cover": "/assets/covers/john-mayer-wtli.webp",
+        "blurb": ""
       },
       {
-        "title": "PLACEHOLDER: Favorite Album 9",
-        "artist": "PLACEHOLDER: Artist 9",
-        "cover": "/assets/covers/placeholder-cover.svg",
-        "blurb": "PLACEHOLDER: Why this album matters to Abey"
+        "title": "good kid, m.A.A.d city",
+        "artist": "Kendrick Lamar",
+        "cover": "/assets/covers/kendrick-gkmc.webp",
+        "blurb": ""
       },
       {
-        "title": "PLACEHOLDER: Favorite Album 10",
-        "artist": "PLACEHOLDER: Artist 10",
-        "cover": "/assets/covers/placeholder-cover.svg",
-        "blurb": "PLACEHOLDER: Why this album matters to Abey"
+        "title": "Continuum",
+        "artist": "John Mayer",
+        "cover": "/assets/covers/john-mayer-continuum.webp",
+        "blurb": ""
       }
     ],
     "recommendation": {
-      "title": "PLACEHOLDER: Recommendation Album",
-      "artist": "PLACEHOLDER: Recommendation Artist",
-      "cover": "/assets/covers/placeholder-cover.svg",
-      "rating": 8.5,
-      "note": "PLACEHOLDER: One-line note about recommendation",
-      "date": "2026-10-01"
+      "title": "I Love My Computer",
+      "artist": "Ninajirachi",
+      "cover": "/assets/covers/ninajirachi-ilmc.webp",
+      "rating": 8.8
     },
     "recentListen": {
-      "title": "PLACEHOLDER: Recent Listen Album",
-      "artist": "PLACEHOLDER: Recent Listen Artist",
-      "cover": "/assets/covers/placeholder-cover.svg",
-      "rating": 7.5,
-      "note": "PLACEHOLDER: One-line note about recent listen",
-      "date": "2026-10-01"
+      "title": "Love & Tears",
+      "artist": "GENER8ION",
+      "cover": "/assets/covers/gener8ion-love-tears.webp",
+      "rating": 8.6
     }
   }
 }

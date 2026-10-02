@@ -9,20 +9,32 @@ if (!musicEntry) {
   throw new Error('Music data not found in content collection');
 }
 
-const { favorites, recommendation, recentListen } = musicEntry.data;
+const { favorites, recommendation, recentListen, updated } = musicEntry.data;
 
-function formatAsOf(dateStr: string) {
-  const [year, month] = dateStr.split('-');
-  const date = new Date(Date.UTC(Number(year), Number(month) - 1, 1));
-  const monthName = date.toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' });
-  return `As of ${monthName} ${year}`;
-}
+const formattedDate = updated
+  ? new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(updated)
+  : null;
 ---
 
 <Layout title="Music" description="Ranked top ten albums and recent listens.">
   <article class="music-page">
     <header class="music-header">
       <h1 class="music-title">Music</h1>
+      {
+        formattedDate && (
+          <p class="music-updated">
+            <span class="updated-label">Updated</span>
+            <time datetime={updated.toISOString().split('T')[0]}>
+              {formattedDate}
+            </time>
+          </p>
+        )
+      }
     </header>
 
     <section class="favorites-section" aria-labelledby="favorites-heading">
@@ -46,7 +58,7 @@ function formatAsOf(dateStr: string) {
               <div class="favorite-details">
                 <h3 class="album-title">{album.title}</h3>
                 <p class="album-artist">{album.artist}</p>
-                <p class="album-blurb">{album.blurb}</p>
+                {album.blurb && <p class="album-blurb">{album.blurb}</p>}
               </div>
             </li>
           ))
@@ -76,7 +88,6 @@ function formatAsOf(dateStr: string) {
               <span class="rating-max">/ {siteConfig.ratingMax}</span>
             </p>
             {recommendation.note && <p class="slot-note">{recommendation.note}</p>}
-            <time class="slot-date">{formatAsOf(recommendation.date)}</time>
           </div>
         </div>
 
@@ -99,7 +110,6 @@ function formatAsOf(dateStr: string) {
               <span class="rating-max">/ {siteConfig.ratingMax}</span>
             </p>
             {recentListen.note && <p class="slot-note">{recentListen.note}</p>}
-            <time class="slot-date">{formatAsOf(recentListen.date)}</time>
           </div>
         </div>
       </div>
@@ -115,8 +125,27 @@ function formatAsOf(dateStr: string) {
   }
 
   .music-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
     border-bottom: 1px solid var(--color-border);
     padding-bottom: var(--space-lg);
+  }
+
+  .music-updated {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  .updated-label {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
   }
 
   .music-title {
