@@ -1,0 +1,15 @@
+[
+  {
+    "id": "launch-placeholder-1",
+    "title": "PLACEHOLDER: Public Launch 1",
+    "url": "https://example.com/PLACEHOLDER-1",
+    "role": "PLACEHOLDER: Worked on feature X",
+    "date": "2026-01-01"
+  },
+  {
+    "id": "launch-placeholder-2",
+    "title": "PLACEHOLDER: Public Launch 2",
+    "url": "https://example.com/PLACEHOLDER-2",
+    "role": "PLACEHOLDER: Built service Y"
+  }
+]

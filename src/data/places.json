@@ -1,0 +1,21 @@
+[
+  {
+    "id": "place-city-1",
+    "name": "PLACEHOLDER: City 1",
+    "type": "city",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "country": "United States",
+    "blurb": "PLACEHOLDER: Blurb about City 1",
+    "photo": "../assets/placeholder-photo.svg",
+    "link": "/travel#PLACEHOLDER"
+  },
+  {
+    "id": "place-park-1",
+    "name": "PLACEHOLDER: National Park 1",
+    "type": "park",
+    "lat": 37.8651,
+    "lng": -119.5383,
+    "country": "United States"
+  }
+]
