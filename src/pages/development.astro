@@ -1,6 +1,9 @@
 ---
+import { Image } from 'astro:assets';
 import { getCollection } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
+import devopsAgentImg from '../assets/photos/devops-agent.png';
+import githubLogoImg from '../assets/photos/github-logo.png';
 
 const allLaunches = await getCollection('launches');
 
@@ -25,8 +28,7 @@ function formatDisplayUrl(url: string) {
     <header class="page-header">
       <h1 class="page-title">Development</h1>
       <p class="framing-line">
-        PLACEHOLDER: Short framing line introducing professional work and
-        personal projects.
+        A selection of systems I've contributed to professionally and personal experiments I've built on the side.
       </p>
     </header>
 
@@ -41,36 +43,84 @@ function formatDisplayUrl(url: string) {
 
         <ul class="items-list">
           {
-            professionalItems.map((item) => (
-              <li class="item-card">
-                <div class="item-header">
-                  <h3 class="item-title">
-                    <a
-                      href={item.data.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="item-link"
-                    >
-                      <span>{item.data.title}</span>
-                      <span class="external-icon" aria-hidden="true">
-                        &nearr;
-                      </span>
-                    </a>
-                  </h3>
-                </div>
-                <p class="item-role">{item.data.role}</p>
-                <div class="item-url-wrapper">
+            professionalItems.map((item) =>
+              item.data.id === 'aws-devops-agent-ga' ? (
+                <li class="item-card item-card-featured">
                   <a
                     href={item.data.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="item-url"
+                    class="featured-media"
+                    tabindex="-1"
+                    aria-hidden="true"
                   >
-                    {formatDisplayUrl(item.data.url)}
+                    <Image
+                      src={devopsAgentImg}
+                      alt="AWS DevOps Agent"
+                      class="featured-image"
+                      loading="eager"
+                    />
                   </a>
-                </div>
-              </li>
-            ))
+                  <div class="featured-content">
+                    <div class="item-header">
+                      <h3 class="item-title">
+                        <a
+                          href={item.data.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="item-link"
+                        >
+                          <span>{item.data.title}</span>
+                          <span class="external-icon" aria-hidden="true">
+                            &nearr;
+                          </span>
+                        </a>
+                      </h3>
+                    </div>
+                    <p class="item-role">{item.data.role}</p>
+                    <div class="item-url-wrapper">
+                      <a
+                        href={item.data.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="item-url"
+                      >
+                        {formatDisplayUrl(item.data.url)}
+                      </a>
+                    </div>
+                  </div>
+                </li>
+              ) : (
+                <li class="item-card">
+                  <div class="item-header">
+                    <h3 class="item-title">
+                      <a
+                        href={item.data.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="item-link"
+                      >
+                        <span>{item.data.title}</span>
+                        <span class="external-icon" aria-hidden="true">
+                          &nearr;
+                        </span>
+                      </a>
+                    </h3>
+                  </div>
+                  <p class="item-role">{item.data.role}</p>
+                  <div class="item-url-wrapper">
+                    <a
+                      href={item.data.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="item-url"
+                    >
+                      {formatDisplayUrl(item.data.url)}
+                    </a>
+                  </div>
+                </li>
+              )
+            )
           }
         </ul>
       </section>
@@ -85,36 +135,86 @@ function formatDisplayUrl(url: string) {
 
         <ul class="items-list">
           {
-            personalItems.map((item) => (
-              <li class="item-card">
-                <div class="item-header">
-                  <h3 class="item-title">
-                    <a
-                      href={item.data.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="item-link"
-                    >
-                      <span>{item.data.title}</span>
-                      <span class="external-icon" aria-hidden="true">
-                        &nearr;
-                      </span>
-                    </a>
-                  </h3>
-                </div>
-                <p class="item-role">{item.data.role}</p>
-                <div class="item-url-wrapper">
+            personalItems.map((item) =>
+              item.data.id === 'project-personal-site' ? (
+                <li class="item-card item-card-featured item-card-featured-reverse">
+                  <div class="featured-content">
+                    <div class="item-header">
+                      <h3 class="item-title">
+                        <a
+                          href={item.data.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="item-link"
+                        >
+                          <span>{item.data.title}</span>
+                          <span class="external-icon" aria-hidden="true">
+                            &nearr;
+                          </span>
+                        </a>
+                      </h3>
+                    </div>
+                    <p class="item-role">{item.data.role}</p>
+                    <div class="item-url-wrapper">
+                      <a
+                        href={item.data.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="item-url"
+                      >
+                        {formatDisplayUrl(item.data.url)}
+                      </a>
+                    </div>
+                  </div>
                   <a
                     href={item.data.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="item-url"
+                    class="featured-media featured-media-icon"
+                    tabindex="-1"
+                    aria-hidden="true"
                   >
-                    {formatDisplayUrl(item.data.url)}
+                    <Image
+                      src={githubLogoImg}
+                      alt="GitHub logo"
+                      width={140}
+                      height={140}
+                      class="featured-image github-logo"
+                      loading="lazy"
+                    />
                   </a>
-                </div>
-              </li>
-            ))
+                </li>
+              ) : (
+                <li class="item-card">
+                  <div class="item-header">
+                    <h3 class="item-title">
+                      <a
+                        href={item.data.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="item-link"
+                      >
+                        <span>{item.data.title}</span>
+                        <span class="external-icon" aria-hidden="true">
+                          &nearr;
+                        </span>
+                      </a>
+                    </h3>
+                  </div>
+                  <p class="item-role">{item.data.role}</p>
+                  <div class="item-url-wrapper">
+                    <a
+                      href={item.data.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="item-url"
+                    >
+                      {formatDisplayUrl(item.data.url)}
+                    </a>
+                  </div>
+                </li>
+              )
+            )
           }
         </ul>
       </section>
@@ -266,5 +366,80 @@ function formatDisplayUrl(url: string) {
 
   .item-url:hover {
     color: var(--color-accent-hover);
+  }
+
+  .item-card-featured {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: var(--space-lg);
+    align-items: center;
+  }
+
+  .featured-media {
+    display: block;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-border-subtle);
+    aspect-ratio: 1021 / 870;
+  }
+
+  .featured-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.2s ease;
+  }
+
+  .item-card-featured:hover .featured-image {
+    transform: scale(1.02);
+  }
+
+  .featured-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .featured-media-icon {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-md);
+  }
+
+  .featured-media-icon .featured-image {
+    object-fit: contain;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .item-card-featured-reverse {
+    grid-template-columns: 1fr 140px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .github-logo {
+      filter: invert(1);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .item-card-featured {
+      grid-template-columns: 1fr;
+      gap: var(--space-md);
+    }
+
+    .item-card-featured-reverse .featured-media-icon {
+      order: -1;
+    }
+
+    .featured-media-icon {
+      max-width: 140px;
+    }
   }
 </style>

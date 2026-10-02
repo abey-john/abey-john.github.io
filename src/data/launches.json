@@ -1,18 +1,24 @@
 [
   {
-    "id": "launch-professional-1",
+    "id": "aws-devops-agent-ga",
     "category": "professional",
-    "title": "PLACEHOLDER: Public Launch 1",
-    "url": "https://example.com/PLACEHOLDER-1",
-    "role": "PLACEHOLDER: Worked on feature X",
-    "date": "2026-01-01"
+    "title": "AWS DevOps Agent — General Availability",
+    "url": "https://aws.amazon.com/blogs/mt/announcing-general-availability-of-aws-devops-agent/",
+    "role": "Contributed to AWS DevOps Agent from initial development through general availability, helping operators investigate incidents and improve application reliability."
   },
   {
-    "id": "launch-professional-2",
+    "id": "aws-devops-agent-integrations",
     "category": "professional",
-    "title": "PLACEHOLDER: Public Launch 2",
-    "url": "https://example.com/PLACEHOLDER-2",
-    "role": "PLACEHOLDER: Built service Y"
+    "title": "Third-Party Incident Integrations",
+    "url": "https://docs.aws.amazon.com/devopsagent/latest/userguide/configuring-integrations-and-knowledge-connecting-to-ticketing-and-chat-index.html",
+    "role": "Engineered integrations connecting AWS DevOps Agent to ticketing and incident system to launch investigations directly from external incidents."
+  },
+  {
+    "id": "aws-devops-agent-security",
+    "category": "professional",
+    "title": "Encryption at Rest for AWS DevOps Agent",
+    "url": "https://docs.aws.amazon.com/devopsagent/latest/userguide/aws-devops-agent-security-encryption-at-rest-for-devops-agent.html",
+    "role": "Implemented encryption at rest for customer data in AWS DevOps Agent to ensure security and compliance across operational data."
   },
   {
     "id": "project-personal-site",
@@ -20,12 +26,5 @@
     "title": "Personal Website",
     "url": "https://abey-john.github.io",
     "role": "You may already be a little familiar with this one."
-  },
-  {
-    "id": "project-personal-placeholder",
-    "category": "personal",
-    "title": "PLACEHOLDER: Personal Project 2",
-    "url": "https://example.com/PLACEHOLDER-PROJECT",
-    "role": "PLACEHOLDER: Built side project Z"
   }
 ]
