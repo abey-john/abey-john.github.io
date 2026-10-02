@@ -37,8 +37,67 @@ const formattedDate = updated
       }
     </header>
 
+    <section class="slots-section" aria-labelledby="slots-heading">
+      <h2 id="slots-heading" class="section-heading">Spotlight & Recent</h2>
+      <div class="slots-grid">
+        <div class="slot-card">
+          <span class="slot-badge">Recommendation</span>
+          <div class="slot-cover">
+            <MediaImage
+              src={recommendation.cover}
+              alt={`${recommendation.title} by ${recommendation.artist}`}
+              aspectRatio="1 / 1"
+              width={200}
+              height={200}
+            />
+          </div>
+          <div class="slot-content">
+            <h3 class="album-title">{recommendation.title}</h3>
+            <p class="album-artist">{recommendation.artist}</p>
+            <p class="slot-rating">
+              <span class="rating-value">{recommendation.rating}</span>
+              <span class="rating-max">/ {siteConfig.ratingMax}</span>
+            </p>
+            {
+              (recommendation.blurb || recommendation.note) && (
+                <p class="slot-blurb">{recommendation.blurb || recommendation.note}</p>
+              )
+            }
+          </div>
+        </div>
+
+        <div class="slot-card">
+          <span class="slot-badge">Recent Listen</span>
+          <div class="slot-cover">
+            <MediaImage
+              src={recentListen.cover}
+              alt={`${recentListen.title} by ${recentListen.artist}`}
+              aspectRatio="1 / 1"
+              width={200}
+              height={200}
+            />
+          </div>
+          <div class="slot-content">
+            <h3 class="album-title">{recentListen.title}</h3>
+            <p class="album-artist">{recentListen.artist}</p>
+            <p class="slot-rating">
+              <span class="rating-value">{recentListen.rating}</span>
+              <span class="rating-max">/ {siteConfig.ratingMax}</span>
+            </p>
+            {
+              (recentListen.blurb || recentListen.note) && (
+                <p class="slot-blurb">{recentListen.blurb || recentListen.note}</p>
+              )
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="favorites-section" aria-labelledby="favorites-heading">
-      <h2 id="favorites-heading" class="section-heading">Top Ten Favorites</h2>
+      <h2 id="favorites-heading" class="section-heading">
+        Personal All-Time Favorites
+      </h2>
       <ol class="favorites-list">
         {
           favorites.map((album, index) => (
@@ -64,55 +123,6 @@ const formattedDate = updated
           ))
         }
       </ol>
-    </section>
-
-    <section class="slots-section" aria-labelledby="slots-heading">
-      <h2 id="slots-heading" class="section-heading">Spotlight & Recent</h2>
-      <div class="slots-grid">
-        <div class="slot-card">
-          <span class="slot-badge">Recommendation</span>
-          <div class="slot-cover">
-            <MediaImage
-              src={recommendation.cover}
-              alt={`${recommendation.title} by ${recommendation.artist}`}
-              aspectRatio="1 / 1"
-              width={200}
-              height={200}
-            />
-          </div>
-          <div class="slot-content">
-            <h3 class="album-title">{recommendation.title}</h3>
-            <p class="album-artist">{recommendation.artist}</p>
-            <p class="slot-rating">
-              <span class="rating-value">{recommendation.rating}</span>
-              <span class="rating-max">/ {siteConfig.ratingMax}</span>
-            </p>
-            {recommendation.note && <p class="slot-note">{recommendation.note}</p>}
-          </div>
-        </div>
-
-        <div class="slot-card">
-          <span class="slot-badge">Recent Listen</span>
-          <div class="slot-cover">
-            <MediaImage
-              src={recentListen.cover}
-              alt={`${recentListen.title} by ${recentListen.artist}`}
-              aspectRatio="1 / 1"
-              width={200}
-              height={200}
-            />
-          </div>
-          <div class="slot-content">
-            <h3 class="album-title">{recentListen.title}</h3>
-            <p class="album-artist">{recentListen.artist}</p>
-            <p class="slot-rating">
-              <span class="rating-value">{recentListen.rating}</span>
-              <span class="rating-max">/ {siteConfig.ratingMax}</span>
-            </p>
-            {recentListen.note && <p class="slot-note">{recentListen.note}</p>}
-          </div>
-        </div>
-      </div>
     </section>
   </article>
 </Layout>
@@ -241,7 +251,7 @@ const formattedDate = updated
     color: var(--color-text);
   }
 
-  .slots-section {
+  .favorites-section {
     border-top: 1px solid var(--color-border);
     padding-top: var(--space-xl);
   }
@@ -255,6 +265,8 @@ const formattedDate = updated
   .slot-card {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    text-align: center;
     gap: var(--space-md);
     padding: var(--space-lg);
     border: 1px solid var(--color-border);
@@ -263,7 +275,7 @@ const formattedDate = updated
   }
 
   .slot-badge {
-    align-self: flex-start;
+    align-self: center;
     font-family: var(--font-mono);
     font-size: 0.75rem;
     text-transform: uppercase;
@@ -276,15 +288,19 @@ const formattedDate = updated
 
   .slot-cover {
     width: 100%;
-    max-width: 180px;
+    max-width: 220px;
+    margin: 0 auto;
     border-radius: var(--radius-sm);
     overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
 
   .slot-content {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: var(--space-xs);
+    width: 100%;
   }
 
   .slot-rating {
@@ -302,17 +318,11 @@ const formattedDate = updated
     color: var(--color-text-muted);
   }
 
+  .slot-blurb,
   .slot-note {
     font-size: var(--font-size-sm);
-    color: var(--color-text-muted);
-    margin: 0;
-    font-style: italic;
-  }
-
-  .slot-date {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
-    margin-top: var(--space-xs);
+    line-height: 1.5;
+    color: var(--color-text);
+    margin: var(--space-xs) 0 0 0;
   }
 </style>

@@ -6,74 +6,76 @@
         "title": "I Didn't Mean to Haunt You",
         "artist": "Quadeca",
         "cover": "/assets/covers/quadeca-idmthy.webp",
-        "blurb": ""
+        "blurb": "This album was my gateway drug to more experimental and maximalist music, and it holds a special place in my heart for that. I'm also a sucker for a good concept album."
       },
       {
         "title": "Imaginal Disk",
         "artist": "Magdalena Bay",
         "cover": "/assets/covers/magdalena-bay-imaginal-disk.webp",
-        "blurb": ""
+        "blurb": "Just missed out on the #1 spot, but in my opinion its the best pop album ever made. I feel like I'm floating everytime I listen to it."
       },
       {
         "title": "Ants From Up There",
         "artist": "Black Country, New Road",
         "cover": "/assets/covers/bcnr-ants-from-up-there.webp",
-        "blurb": ""
+        "blurb": "The instrumentation is so lush and the songwriting is just something else, you can feel the raw emotion in every song."
       },
       {
         "title": "To Pimp a Butterfly",
         "artist": "Kendrick Lamar",
         "cover": "/assets/covers/kendrick-tpab.webp",
-        "blurb": ""
+        "blurb": "This album is so unbelievably well written both musically and lyrically, I wrote a philosophy paper on it back in college."
       },
       {
-        "title": "E•MO•TION",
+        "title": "Emotion",
         "artist": "Carly Rae Jepsen",
         "cover": "/assets/covers/carly-rae-jepsen-emotion.webp",
-        "blurb": ""
+        "blurb": "Synth pop perfection, just banger after banger after banger."
       },
       {
         "title": "American Idiot",
         "artist": "Green Day",
         "cover": "/assets/covers/green-day-american-idiot.webp",
-        "blurb": ""
+        "blurb": "A childhood favorite of mine that still holds up. Like I said before, I'm a sucker for a good concept album."
       },
       {
         "title": "Vanisher, Horizon Scraper",
         "artist": "Quadeca",
         "cover": "/assets/covers/quadeca-vanisher.webp",
-        "blurb": ""
+        "blurb": "The musical ideas on this album are so ambitious, and Quadeca executes them so well. He's come a long way from YouTube diss tracks."
       },
       {
         "title": "Where the Light Is: Live in Los Angeles",
         "artist": "John Mayer",
         "cover": "/assets/covers/john-mayer-wtli.webp",
-        "blurb": ""
+        "blurb": "I'm not typically one for live albums but the guitar playing here is just so unreal. In my opinion, John Mayer is the best guitarist of my generation."
       },
       {
         "title": "good kid, m.A.A.d city",
         "artist": "Kendrick Lamar",
         "cover": "/assets/covers/kendrick-gkmc.webp",
-        "blurb": ""
+        "blurb": "Such vivid storytelling in music this good shouldn't be possible. It's why I think Kendrick's the GOAT when it comes to rap."
       },
       {
         "title": "Continuum",
         "artist": "John Mayer",
         "cover": "/assets/covers/john-mayer-continuum.webp",
-        "blurb": ""
+        "blurb": "Incredible songwriting and guitar playing, with a really comforting and relaxing sound."
       }
     ],
     "recommendation": {
       "title": "I Love My Computer",
       "artist": "Ninajirachi",
       "cover": "/assets/covers/ninajirachi-ilmc.webp",
-      "rating": 8.8
+      "rating": 8.8,
+      "blurb": "One of the first electronic albums that I really got into, and it's been a favorite ever since. iPod Touch sounds so nostalgic even though it came out last year."
     },
     "recentListen": {
       "title": "Love & Tears",
       "artist": "GENER8ION",
       "cover": "/assets/covers/gener8ion-love-tears.webp",
-      "rating": 8.6
+      "rating": 8.6,
+      "blurb": "I'd never heard of this artist before but I saw the VMA performance of STORM II and was blown away. The whole album is just as good."
     }
   }
 }
