@@ -1,23 +1,140 @@
 ---
+import { getCollection } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
+
+const allLaunches = await getCollection('launches');
+
+const professionalItems = allLaunches.filter(
+  (item) => item.data.category === 'professional'
+);
+
+const personalItems = allLaunches.filter(
+  (item) => item.data.category === 'personal'
+);
+
+function formatDisplayUrl(url: string) {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+}
 ---
 
-<Layout title="Development">
-  <article class="page-container">
+<Layout
+  title="Development"
+  description="Public software launches and personal engineering projects."
+>
+  <article class="dev-page">
     <header class="page-header">
       <h1 class="page-title">Development</h1>
+      <p class="framing-line">
+        PLACEHOLDER: Short framing line introducing professional work and
+        personal projects.
+      </p>
     </header>
-    <div class="placeholder-box">
-      <p>PLACEHOLDER: Development page content and public launches list.</p>
+
+    <div class="sections-container">
+      <section class="dev-section" aria-labelledby="heading-professional">
+        <header class="section-header">
+          <h2 id="heading-professional" class="section-title">Professional</h2>
+          <p class="section-subtitle">
+            Some of the things I've built professionally as a software engineer.
+          </p>
+        </header>
+
+        <ul class="items-list">
+          {
+            professionalItems.map((item) => (
+              <li class="item-card">
+                <div class="item-header">
+                  <h3 class="item-title">
+                    <a
+                      href={item.data.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="item-link"
+                    >
+                      <span>{item.data.title}</span>
+                      <span class="external-icon" aria-hidden="true">
+                        &nearr;
+                      </span>
+                    </a>
+                  </h3>
+                </div>
+                <p class="item-role">{item.data.role}</p>
+                <div class="item-url-wrapper">
+                  <a
+                    href={item.data.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="item-url"
+                  >
+                    {formatDisplayUrl(item.data.url)}
+                  </a>
+                </div>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <section class="dev-section" aria-labelledby="heading-personal">
+        <header class="section-header">
+          <h2 id="heading-personal" class="section-title">Personal</h2>
+          <p class="section-subtitle">
+            Solo work for a bit of fun and experimentation.
+          </p>
+        </header>
+
+        <ul class="items-list">
+          {
+            personalItems.map((item) => (
+              <li class="item-card">
+                <div class="item-header">
+                  <h3 class="item-title">
+                    <a
+                      href={item.data.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="item-link"
+                    >
+                      <span>{item.data.title}</span>
+                      <span class="external-icon" aria-hidden="true">
+                        &nearr;
+                      </span>
+                    </a>
+                  </h3>
+                </div>
+                <p class="item-role">{item.data.role}</p>
+                <div class="item-url-wrapper">
+                  <a
+                    href={item.data.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="item-url"
+                  >
+                    {formatDisplayUrl(item.data.url)}
+                  </a>
+                </div>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
     </div>
   </article>
 </Layout>
 
 <style>
-  .page-container {
+  .dev-page {
     display: flex;
     flex-direction: column;
-    gap: var(--space-xl);
+    gap: var(--space-2xl);
+  }
+
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: var(--space-lg);
   }
 
   .page-title {
@@ -28,14 +145,126 @@ import Layout from '../layouts/Layout.astro';
     letter-spacing: -0.02em;
   }
 
-  .placeholder-box {
-    padding: var(--space-xl);
-    border: 1px dashed var(--color-border);
-    border-radius: var(--radius-md);
+  .framing-line {
+    font-size: var(--font-size-lg);
     color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.6;
   }
 
-  .placeholder-box p {
+  .sections-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xl);
+  }
+
+  .dev-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .section-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .section-title {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
     margin: 0;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+
+  .section-subtitle {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  .items-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .item-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    background-color: var(--color-bg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    transition: border-color 0.15s ease;
+  }
+
+  .item-card:hover {
+    border-color: var(--color-accent);
+  }
+
+  .item-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .item-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .item-link {
+    text-decoration: none;
+    color: var(--color-text);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  .item-link:hover {
+    color: var(--color-accent);
+  }
+
+  .external-icon {
+    font-size: 0.9em;
+    opacity: 0.7;
+    transition: transform 0.15s ease;
+  }
+
+  .item-link:hover .external-icon {
+    transform: translate(2px, -2px);
+    opacity: 1;
+  }
+
+  .item-role {
+    font-size: var(--font-size-base);
+    color: var(--color-text-muted);
+    margin: var(--space-xs) 0;
+    line-height: 1.5;
+  }
+
+  .item-url-wrapper {
+    margin-top: var(--space-xs);
+  }
+
+  .item-url {
+    font-size: var(--font-size-sm);
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    word-break: break-all;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .item-url:hover {
+    color: var(--color-accent-hover);
   }
 </style>

@@ -21,6 +21,7 @@ const launches = defineCollection({
   loader: file('src/data/launches.json'),
   schema: z.object({
     id: z.string(),
+    category: z.enum(['professional', 'personal']).default('professional'),
     title: z.string(),
     url: z.url(),
     role: z.string(),

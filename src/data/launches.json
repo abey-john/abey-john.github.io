@@ -1,15 +1,31 @@
 [
   {
-    "id": "launch-placeholder-1",
+    "id": "launch-professional-1",
+    "category": "professional",
     "title": "PLACEHOLDER: Public Launch 1",
     "url": "https://example.com/PLACEHOLDER-1",
     "role": "PLACEHOLDER: Worked on feature X",
     "date": "2026-01-01"
   },
   {
-    "id": "launch-placeholder-2",
+    "id": "launch-professional-2",
+    "category": "professional",
     "title": "PLACEHOLDER: Public Launch 2",
     "url": "https://example.com/PLACEHOLDER-2",
     "role": "PLACEHOLDER: Built service Y"
+  },
+  {
+    "id": "project-personal-site",
+    "category": "personal",
+    "title": "Personal Website",
+    "url": "https://abey-john.github.io",
+    "role": "You may already be a little familiar with this one."
+  },
+  {
+    "id": "project-personal-placeholder",
+    "category": "personal",
+    "title": "PLACEHOLDER: Personal Project 2",
+    "url": "https://example.com/PLACEHOLDER-PROJECT",
+    "role": "PLACEHOLDER: Built side project Z"
   }
 ]
