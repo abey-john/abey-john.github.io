@@ -1,7 +1,170 @@
 ---
+import { getEntry, render } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
+import { siteConfig } from '../config';
+
+const aboutEntry = await getEntry('about', 'index');
+const { Content } = aboutEntry ? await render(aboutEntry) : { Content: null };
+
+const onwardLinks = [
+  {
+    href: '/development',
+    title: 'Development',
+    description: 'Some of my technical work.',
+  },
+  {
+    href: '/travel',
+    title: 'Travel',
+    description: "I've got things to do and places to be.",
+  },
+  {
+    href: '/music',
+    title: 'Music',
+    description: 'Put the headphones on.',
+  },
+  {
+    href: '/now',
+    title: 'Now',
+    description: "What I'm currently up to.",
+  },
+];
 ---
 
 <Layout title="About">
-	<p>PLACEHOLDER: initial baseline</p>
+  <article class="about-page">
+    <header class="about-header">
+      <h1 class="about-name">{siteConfig.name}</h1>
+      <p class="about-meta">
+        <span>{siteConfig.role}</span>
+        <span class="meta-separator">•</span>
+        <span>{siteConfig.location}</span>
+      </p>
+    </header>
+
+    <div class="prose about-intro">
+      {Content && <Content />}
+    </div>
+
+    <section class="onward-section" aria-labelledby="onward-heading">
+      <h2 id="onward-heading" class="onward-heading">Explore</h2>
+      <ul class="onward-list">
+        {
+          onwardLinks.map((link) => (
+            <li class="onward-item">
+              <a href={link.href} class="onward-link">
+                <span class="link-title">{link.title}</span>
+                <span class="link-arrow" aria-hidden="true">
+                  →
+                </span>
+              </a>
+              <p class="link-desc">{link.description}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+  </article>
 </Layout>
+
+<style>
+  .about-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+  }
+
+  .about-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .about-name {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .about-meta {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  .meta-separator {
+    color: var(--color-border);
+  }
+
+  .about-intro {
+    font-size: var(--font-size-lg);
+    line-height: 1.7;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .onward-section {
+    margin-top: var(--space-lg);
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-xl);
+  }
+
+  .onward-heading {
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin: 0 0 var(--space-md) 0;
+  }
+
+  .onward-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space-md);
+  }
+
+  .onward-item {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    background-color: var(--color-bg);
+  }
+
+  .onward-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--color-text);
+    margin-bottom: var(--space-xs);
+  }
+
+  .onward-link:hover {
+    color: var(--color-accent);
+  }
+
+  .link-arrow {
+    transition: transform 0.15s ease;
+  }
+
+  .onward-link:hover .link-arrow {
+    transform: translateX(3px);
+  }
+
+  .link-desc {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    line-height: 1.4;
+  }
+</style>

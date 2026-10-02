@@ -3,6 +3,13 @@ import { z } from 'astro/zod';
 import { glob, file } from 'astro/loaders';
 import { siteConfig } from './config';
 
+const about = defineCollection({
+  loader: glob({ pattern: '*.md', base: 'src/content/about' }),
+  schema: z.object({
+    title: z.string().optional(),
+  }),
+});
+
 const now = defineCollection({
   loader: glob({ pattern: '*.md', base: 'src/content/now' }),
   schema: z.object({
@@ -71,6 +78,7 @@ const music = defineCollection({
 });
 
 export const collections = {
+  about,
   now,
   launches,
   places,
