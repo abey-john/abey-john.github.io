@@ -1,26 +1,72 @@
 ---
+import { getEntry, render } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
+
+const nowEntry = await getEntry('now', 'index');
+const { Content } = nowEntry ? await render(nowEntry) : { Content: null };
+
+const formattedDate = nowEntry?.data.updated
+  ? new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(nowEntry.data.updated)
+  : null;
 ---
 
-<Layout title="Now">
-  <article class="page-container">
-    <header class="page-header">
-      <h1 class="page-title">Now</h1>
+<Layout title="Now" description="What I am currently focused on.">
+  <article class="now-page">
+    <header class="now-header">
+      <h1 class="now-title">Now</h1>
+      {
+        formattedDate && nowEntry && (
+          <p class="now-updated">
+            <span class="updated-label">Updated</span>
+            <time datetime={nowEntry.data.updated.toISOString().split('T')[0]}>
+              {formattedDate}
+            </time>
+          </p>
+        )
+      }
     </header>
-    <div class="placeholder-box">
-      <p>PLACEHOLDER: Now page updates and focus.</p>
+
+    <div class="prose now-body">
+      {Content && <Content />}
     </div>
+
+    <footer class="now-colophon">
+      <p>
+        Inspired by <a
+          href="https://sive.rs/now2"
+          target="_blank"
+          rel="noopener noreferrer">Derek Sivers</a
+        > and the <a
+          href="https://nownownow.com/about"
+          target="_blank"
+          rel="noopener noreferrer">nownownow</a
+        > movement.
+      </p>
+    </footer>
   </article>
 </Layout>
 
 <style>
-  .page-container {
+  .now-page {
     display: flex;
     flex-direction: column;
     gap: var(--space-xl);
   }
 
-  .page-title {
+  .now-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: var(--space-lg);
+  }
+
+  .now-title {
     font-size: var(--font-size-2xl);
     font-weight: 700;
     margin: 0;
@@ -28,14 +74,39 @@ import Layout from '../layouts/Layout.astro';
     letter-spacing: -0.02em;
   }
 
-  .placeholder-box {
-    padding: var(--space-xl);
-    border: 1px dashed var(--color-border);
-    border-radius: var(--radius-md);
+  .now-updated {
+    font-size: var(--font-size-sm);
     color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
   }
 
-  .placeholder-box p {
+  .updated-label {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+  }
+
+  .now-body {
+    font-size: var(--font-size-lg);
+    line-height: 1.7;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .now-colophon {
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-md);
+    margin-top: var(--space-lg);
+  }
+
+  .now-colophon p {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
     margin: 0;
   }
 </style>
