@@ -1,0 +1,448 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  places: CollectionEntry<'places'>[];
+}
+
+const { places } = Astro.props;
+
+const placesData = places.map((p) => ({
+  id: p.data.id,
+  name: p.data.name,
+  type: p.data.type,
+  lat: p.data.lat,
+  lng: p.data.lng,
+  country: p.data.country,
+  blurb: p.data.blurb,
+  photo: p.data.photo,
+  link: p.data.link,
+}));
+---
+
+<div class="map-wrapper" id="map-wrapper">
+  <div
+    id="travel-map"
+    class="travel-map"
+    data-places={JSON.stringify(placesData)}
+    role="region"
+    aria-label="Interactive map showing visited places across the United States and the world"
+    tabindex="0"
+  >
+  </div>
+
+  <div class="map-controls-overlay">
+    <div class="map-legend" role="note" aria-label="Map Legend">
+      <div class="legend-item">
+        <span class="legend-icon park-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+            <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z"></path>
+          </svg>
+        </span>
+        <span class="legend-text">Nature</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-icon city-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+            <path
+              d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"
+            ></path>
+          </svg>
+        </span>
+        <span class="legend-text">City</span>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="map-subtext">
+  Map data &copy; <a
+    href="https://www.openstreetmap.org/copyright"
+    target="_blank"
+    rel="noopener noreferrer">OpenStreetMap</a
+  > contributors
+</p>
+
+<script>
+  import 'leaflet/dist/leaflet.css';
+  import L from 'leaflet';
+
+  const mapEl = document.getElementById('travel-map');
+
+  if (mapEl && mapEl.dataset.places) {
+    const rawPlaces = JSON.parse(mapEl.dataset.places);
+
+    const map = L.map(mapEl, {
+      center: [39.5, -98.35],
+      zoom: 4,
+      minZoom: 2,
+      maxZoom: 18,
+      scrollWheelZoom: false,
+      zoomControl: true,
+      attributionControl: false,
+    });
+
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    mapEl.addEventListener('click', () => {
+      map.scrollWheelZoom.enable();
+    });
+
+    mapEl.addEventListener('focus', () => {
+      map.scrollWheelZoom.enable();
+    });
+
+    mapEl.addEventListener('mouseleave', () => {
+      map.scrollWheelZoom.disable();
+    });
+
+    for (const place of rawPlaces) {
+      const hasBlurb = Boolean(place.blurb && place.blurb.trim().length > 0);
+      const isPark = place.type === 'park';
+
+      const iconHtml = isPark
+        ? `<div class="pin-marker pin-park" title="${place.name}">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z"/>
+            </svg>
+          </div>`
+        : `<div class="pin-marker pin-city" title="${place.name}">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <path d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/>
+            </svg>
+          </div>`;
+
+      const customIcon = L.divIcon({
+        html: iconHtml,
+        className: 'custom-map-icon',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        popupAnchor: [0, -14],
+      });
+
+      const popupContent = hasBlurb
+        ? `<div class="popup-card">
+            <header class="popup-header">
+              <span class="popup-type-tag ${isPark ? 'tag-park' : 'tag-city'}">
+                ${isPark ? 'Nature' : 'City'}
+              </span>
+              <h3 class="popup-title">${place.name}</h3>
+            </header>
+            ${
+              place.photo
+                ? `<div class="popup-photo-container">
+                    <img src="${place.photo}" alt="${place.name}" class="popup-img" loading="lazy" />
+                  </div>`
+                : ''
+            }
+            <p class="popup-blurb">${place.blurb}</p>
+            ${
+              place.link
+                ? `<div class="popup-footer"><a href="${place.link}" class="popup-link">Read full story &rarr;</a></div>`
+                : ''
+            }
+          </div>`
+        : `<div class="popup-compact">
+            <span class="popup-type-tag ${isPark ? 'tag-park' : 'tag-city'}">
+              ${isPark ? 'Nature' : 'City'}
+            </span>
+            <h3 class="popup-title">${place.name}</h3>
+          </div>`;
+
+      const marker = L.marker([place.lat, place.lng], {
+        icon: customIcon,
+        title: place.name,
+      }).addTo(map);
+
+      marker.bindPopup(popupContent, {
+        maxWidth: 300,
+        className: 'custom-leaflet-popup',
+      });
+
+      marker.bindTooltip(place.name, {
+        direction: 'top',
+        offset: [0, -14],
+        className: 'custom-leaflet-tooltip',
+      });
+    }
+
+    if (rawPlaces.length > 0) {
+      const usBounds = L.latLngBounds([24.39, -125.0], [49.38, -66.93]);
+      map.fitBounds(usBounds, { padding: [40, 40] });
+    }
+  }
+</script>
+
+<style>
+  .map-wrapper {
+    position: relative;
+    width: 100%;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .travel-map {
+    width: 100%;
+    height: 580px;
+    background-color: var(--color-bg);
+    z-index: 1;
+  }
+
+  .travel-map:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
+  }
+
+  .map-controls-overlay {
+    position: absolute;
+    bottom: var(--space-md);
+    right: var(--space-md);
+    z-index: 500;
+    pointer-events: none;
+  }
+
+  .map-legend {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-size-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    pointer-events: auto;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  .legend-icon {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+  }
+
+  .park-icon {
+    background-color: #059669;
+    color: #ffffff;
+    border-radius: 50%;
+  }
+
+  .city-icon {
+    background-color: #2563eb;
+    color: #ffffff;
+    border-radius: 3px;
+  }
+
+  .legend-text {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .map-subtext {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin: var(--space-xs) 0 0 0;
+    text-align: right;
+  }
+
+  .map-subtext a {
+    color: inherit;
+    text-decoration: underline;
+  }
+  @media (prefers-color-scheme: dark) {
+    :global(.travel-map .leaflet-tile-pane) {
+      filter: brightness(0.75) invert(100%) contrast(1.2) hue-rotate(190deg)
+        saturate(0.45);
+    }
+
+    :global(.travel-map) {
+      background-color: #1a1d21;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .travel-map {
+      height: 440px;
+    }
+
+    .map-controls-overlay {
+      bottom: var(--space-sm);
+      right: var(--space-sm);
+    }
+  }
+
+  :global(.custom-map-icon) {
+    background: transparent;
+    border: none;
+  }
+
+  :global(.pin-marker) {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  :global(.pin-marker:hover) {
+    transform: scale(1.18);
+    z-index: 1000 !important;
+  }
+
+  :global(.pin-park) {
+    background-color: #059669;
+    color: #ffffff;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+  }
+
+  :global(.pin-city) {
+    background-color: #2563eb;
+    color: #ffffff;
+    border-radius: 6px;
+    border: 2px solid #ffffff;
+  }
+
+  :global(.custom-leaflet-popup .leaflet-popup-content-wrapper) {
+    background-color: var(--color-bg) !important;
+    color: var(--color-text) !important;
+    border-radius: var(--radius-md) !important;
+    border: 1px solid var(--color-border) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+    padding: 0 !important;
+    overflow: hidden;
+  }
+
+  :global(.custom-leaflet-popup .leaflet-popup-content) {
+    margin: 0 !important;
+    line-height: 1.4 !important;
+  }
+
+  :global(.custom-leaflet-popup .leaflet-popup-tip) {
+    background-color: var(--color-bg) !important;
+    border: 1px solid var(--color-border) !important;
+  }
+
+  :global(.custom-leaflet-popup .leaflet-popup-close-button) {
+    color: var(--color-text-muted) !important;
+    padding: 6px !important;
+  }
+
+  :global(.custom-leaflet-popup .leaflet-popup-close-button:hover) {
+    color: var(--color-text) !important;
+  }
+
+  :global(.popup-card) {
+    padding: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    font-family: var(--font-sans);
+  }
+
+  :global(.popup-compact) {
+    padding: var(--space-sm) var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    font-family: var(--font-sans);
+  }
+
+  :global(.popup-header) {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  :global(.popup-type-tag) {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: inline-block;
+  }
+
+  :global(.tag-park) {
+    color: #059669;
+  }
+
+  :global(.tag-city) {
+    color: #2563eb;
+  }
+
+  :global(.popup-title) {
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+    color: var(--color-text);
+  }
+
+  :global(.popup-photo-container) {
+    margin: var(--space-xs) 0;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background-color: var(--color-border-subtle);
+    max-height: 140px;
+  }
+
+  :global(.popup-img) {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    display: block;
+  }
+
+  :global(.popup-blurb) {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  :global(.popup-footer) {
+    margin-top: var(--space-xs);
+    padding-top: var(--space-xs);
+    border-top: 1px solid var(--color-border);
+  }
+
+  :global(.popup-link) {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-accent);
+    text-decoration: underline;
+  }
+
+  :global(.custom-leaflet-tooltip) {
+    background-color: var(--color-bg) !important;
+    color: var(--color-text) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-sm) !important;
+    font-family: var(--font-sans) !important;
+    font-size: var(--font-size-sm) !important;
+    font-weight: 600 !important;
+    padding: 2px 8px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+  }
+
+  :global(.custom-leaflet-tooltip::before) {
+    border-top-color: var(--color-border) !important;
+  }
+</style>

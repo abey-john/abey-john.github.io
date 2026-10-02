@@ -1,21 +1,55 @@
 [
   {
     "id": "place-city-1",
-    "name": "PLACEHOLDER: City 1",
+    "name": "PLACEHOLDER: San Francisco",
     "type": "city",
     "lat": 37.7749,
     "lng": -122.4194,
     "country": "United States",
-    "blurb": "PLACEHOLDER: Blurb about City 1",
+    "blurb": "PLACEHOLDER: A few memorable notes about visiting San Francisco.",
     "photo": "/assets/photos/placeholder-photo.svg",
     "link": "/travel#PLACEHOLDER"
   },
   {
     "id": "place-park-1",
-    "name": "PLACEHOLDER: National Park 1",
+    "name": "PLACEHOLDER: Yosemite National Park",
     "type": "park",
     "lat": 37.8651,
     "lng": -119.5383,
     "country": "United States"
+  },
+  {
+    "id": "place-city-2",
+    "name": "PLACEHOLDER: Seattle",
+    "type": "city",
+    "lat": 47.6062,
+    "lng": -122.3321,
+    "country": "United States"
+  },
+  {
+    "id": "place-park-2",
+    "name": "PLACEHOLDER: Zion National Park",
+    "type": "park",
+    "lat": 37.2982,
+    "lng": -113.0263,
+    "country": "United States",
+    "blurb": "PLACEHOLDER: Hiking Angel's Landing and the Narrows."
+  },
+  {
+    "id": "place-city-3",
+    "name": "PLACEHOLDER: New York City",
+    "type": "city",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "United States"
+  },
+  {
+    "id": "place-park-3",
+    "name": "PLACEHOLDER: Grand Canyon National Park",
+    "type": "park",
+    "lat": 36.1069,
+    "lng": -112.1129,
+    "country": "United States",
+    "blurb": "PLACEHOLDER: Looking out over the South Rim at sunrise."
   }
 ]

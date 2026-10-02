@@ -49,3 +49,12 @@ Photos must never be committed with embedded location metadata (EXIF GPS):
 1. **Strip metadata**: Run `npm run strip:exif` before committing new images.
 2. **Verify cleanliness**: Run `npm run check:exif`. This check will fail if any asset contains EXIF metadata.
 3. **Optional Git hook**: Add `npm run check:exif` to `.git/hooks/pre-commit` to prevent committing unstripped assets.
+
+## Travel Map & Basemaps
+
+The travel page uses **Leaflet** (`leaflet`) as an isolated client-side island:
+- **Library**: Leaflet (`leaflet` ~40KB gzipped) chosen for minimal overhead, zero WebGL baggage, and pure client-side execution.
+- **Tiles**: OpenStreetMap standard tile layer (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`).
+- **Attribution & Terms**: Free for low-traffic personal sites with zero API keys or accounts required. Required attribution:
+  `© OpenStreetMap contributors`. Dark mode styling is handled via custom CSS tile filtering.
+- **Privacy**: Coordinates in `src/data/places.json` are strictly city or park center level—never residential, workplace, or private lodging coordinates.

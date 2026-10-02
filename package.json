@@ -16,13 +16,15 @@
     "strip:exif": "node scripts/strip-exif.mjs"
   },
   "dependencies": {
-    "astro": "^7.3.5"
+    "astro": "^7.3.5",
+    "leaflet": "^1.9.4"
   },
   "allowScripts": {
     "esbuild": true
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@types/leaflet": "^1.9.22",
     "typescript": "^6.0.3"
   }
 }
