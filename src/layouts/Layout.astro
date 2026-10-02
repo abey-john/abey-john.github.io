@@ -12,6 +12,10 @@ interface Props {
 
 const { title, description, wide = false } = Astro.props;
 const pageTitle = title ? `${title} — ${siteConfig.name}` : siteConfig.name;
+const defaultDescription = `${siteConfig.name} — software engineer. Personal website featuring engineering projects, travel, music, and current focus.`;
+const metaDescription = description || defaultDescription;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://abey-john.github.io');
 ---
 
 <!doctype html>
@@ -20,9 +24,20 @@ const pageTitle = title ? `${title} — ${siteConfig.name}` : siteConfig.name;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="canonical" href={canonicalURL} />
     <meta name="generator" content={Astro.generator} />
-    {description && <meta name="description" content={description} />}
+    <meta name="description" content={metaDescription} />
+
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={metaDescription} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={siteConfig.name} />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={metaDescription} />
+
     <title>{pageTitle}</title>
   </head>
   <body>

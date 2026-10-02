@@ -1,0 +1,106 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Page Not Found" description="The requested page could not be found.">
+  <article class="not-found-page">
+    <header class="page-header">
+      <span class="status-code">404</span>
+      <h1 class="page-title">Page not found</h1>
+      <p class="page-desc">
+        The page you are looking for doesn't exist, has been moved, or is temporarily unavailable.
+      </p>
+    </header>
+
+    <div class="helpful-links">
+      <h2 class="links-heading">Explore the site</h2>
+      <ul class="routes-list">
+        <li><a href="/" class="route-link">About &rarr;</a></li>
+        <li><a href="/development" class="route-link">Development &rarr;</a></li>
+        <li><a href="/travel" class="route-link">Travel &rarr;</a></li>
+        <li><a href="/music" class="route-link">Music &rarr;</a></li>
+        <li><a href="/now" class="route-link">Now &rarr;</a></li>
+      </ul>
+    </div>
+  </article>
+</Layout>
+
+<style>
+  .not-found-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xl);
+    padding: var(--space-xl) 0;
+  }
+
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: var(--space-xl);
+  }
+
+  .status-code {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+    color: var(--color-accent);
+    letter-spacing: 0.1em;
+  }
+
+  .page-title {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .page-desc {
+    font-size: var(--font-size-lg);
+    color: var(--color-text-muted);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .helpful-links {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .links-heading {
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  .routes-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+  }
+
+  .route-link {
+    display: inline-block;
+    padding: var(--space-xs) var(--space-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--color-text);
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .route-link:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+</style>
