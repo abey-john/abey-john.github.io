@@ -30,51 +30,49 @@ const launches = defineCollection({
 
 const places = defineCollection({
   loader: file('src/data/places.json'),
-  schema: ({ image }) =>
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      type: z.enum(['city', 'park']),
-      lat: z.number(),
-      lng: z.number(),
-      country: z.string(),
-      blurb: z.string().optional(),
-      photo: image().optional(),
-      link: z.string().optional(),
-    }),
+  schema: z.object({
+    id: z.string(),
+    name: z.string(),
+    type: z.enum(['city', 'park']),
+    lat: z.number(),
+    lng: z.number(),
+    country: z.string(),
+    blurb: z.string().optional(),
+    photo: z.string().optional(),
+    link: z.string().optional(),
+  }),
 });
 
 const music = defineCollection({
   loader: file('src/data/music.json'),
-  schema: ({ image }) =>
-    z.object({
-      favorites: z
-        .array(
-          z.object({
-            title: z.string(),
-            artist: z.string(),
-            cover: image(),
-            blurb: z.string(),
-          })
-        )
-        .length(10),
-      recommendation: z.object({
-        title: z.string(),
-        artist: z.string(),
-        cover: image(),
-        rating: z.number().max(siteConfig.ratingMax),
-        note: z.string().optional(),
-        date: z.string(),
-      }),
-      recentListen: z.object({
-        title: z.string(),
-        artist: z.string(),
-        cover: image(),
-        rating: z.number().max(siteConfig.ratingMax),
-        note: z.string().optional(),
-        date: z.string(),
-      }),
+  schema: z.object({
+    favorites: z
+      .array(
+        z.object({
+          title: z.string(),
+          artist: z.string(),
+          cover: z.string(),
+          blurb: z.string(),
+        })
+      )
+      .length(10),
+    recommendation: z.object({
+      title: z.string(),
+      artist: z.string(),
+      cover: z.string(),
+      rating: z.number().max(siteConfig.ratingMax),
+      note: z.string().optional(),
+      date: z.string(),
     }),
+    recentListen: z.object({
+      title: z.string(),
+      artist: z.string(),
+      cover: z.string(),
+      rating: z.number().max(siteConfig.ratingMax),
+      note: z.string().optional(),
+      date: z.string(),
+    }),
+  }),
 });
 
 export const collections = {

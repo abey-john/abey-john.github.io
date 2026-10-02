@@ -1,26 +1,125 @@
 ---
+import { getEntry } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
+import MediaImage from '../components/MediaImage.astro';
+import { siteConfig } from '../config';
+
+const musicEntry = await getEntry('music', 'content');
+if (!musicEntry) {
+  throw new Error('Music data not found in content collection');
+}
+
+const { favorites, recommendation, recentListen } = musicEntry.data;
+
+function formatAsOf(dateStr: string) {
+  const [year, month] = dateStr.split('-');
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, 1));
+  const monthName = date.toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' });
+  return `As of ${monthName} ${year}`;
+}
 ---
 
-<Layout title="Music">
-  <article class="page-container">
-    <header class="page-header">
-      <h1 class="page-title">Music</h1>
+<Layout title="Music" description="Ranked top ten albums and recent listens.">
+  <article class="music-page">
+    <header class="music-header">
+      <h1 class="music-title">Music</h1>
     </header>
-    <div class="placeholder-box">
-      <p>PLACEHOLDER: Music favorites ranking and recent listens.</p>
-    </div>
+
+    <section class="favorites-section" aria-labelledby="favorites-heading">
+      <h2 id="favorites-heading" class="section-heading">Top Ten Favorites</h2>
+      <ol class="favorites-list">
+        {
+          favorites.map((album, index) => (
+            <li class="favorite-item">
+              <div class="rank-badge" aria-label={`Rank ${index + 1}`}>
+                #{index + 1}
+              </div>
+              <div class="favorite-cover">
+                <MediaImage
+                  src={album.cover}
+                  alt={`${album.title} by ${album.artist}`}
+                  aspectRatio="1 / 1"
+                  width={140}
+                  height={140}
+                />
+              </div>
+              <div class="favorite-details">
+                <h3 class="album-title">{album.title}</h3>
+                <p class="album-artist">{album.artist}</p>
+                <p class="album-blurb">{album.blurb}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+
+    <section class="slots-section" aria-labelledby="slots-heading">
+      <h2 id="slots-heading" class="section-heading">Spotlight & Recent</h2>
+      <div class="slots-grid">
+        <div class="slot-card">
+          <span class="slot-badge">Recommendation</span>
+          <div class="slot-cover">
+            <MediaImage
+              src={recommendation.cover}
+              alt={`${recommendation.title} by ${recommendation.artist}`}
+              aspectRatio="1 / 1"
+              width={200}
+              height={200}
+            />
+          </div>
+          <div class="slot-content">
+            <h3 class="album-title">{recommendation.title}</h3>
+            <p class="album-artist">{recommendation.artist}</p>
+            <p class="slot-rating">
+              <span class="rating-value">{recommendation.rating}</span>
+              <span class="rating-max">/ {siteConfig.ratingMax}</span>
+            </p>
+            {recommendation.note && <p class="slot-note">{recommendation.note}</p>}
+            <time class="slot-date">{formatAsOf(recommendation.date)}</time>
+          </div>
+        </div>
+
+        <div class="slot-card">
+          <span class="slot-badge">Recent Listen</span>
+          <div class="slot-cover">
+            <MediaImage
+              src={recentListen.cover}
+              alt={`${recentListen.title} by ${recentListen.artist}`}
+              aspectRatio="1 / 1"
+              width={200}
+              height={200}
+            />
+          </div>
+          <div class="slot-content">
+            <h3 class="album-title">{recentListen.title}</h3>
+            <p class="album-artist">{recentListen.artist}</p>
+            <p class="slot-rating">
+              <span class="rating-value">{recentListen.rating}</span>
+              <span class="rating-max">/ {siteConfig.ratingMax}</span>
+            </p>
+            {recentListen.note && <p class="slot-note">{recentListen.note}</p>}
+            <time class="slot-date">{formatAsOf(recentListen.date)}</time>
+          </div>
+        </div>
+      </div>
+    </section>
   </article>
 </Layout>
 
 <style>
-  .page-container {
+  .music-page {
     display: flex;
     flex-direction: column;
-    gap: var(--space-xl);
+    gap: var(--space-2xl);
   }
 
-  .page-title {
+  .music-header {
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: var(--space-lg);
+  }
+
+  .music-title {
     font-size: var(--font-size-2xl);
     font-weight: 700;
     margin: 0;
@@ -28,14 +127,163 @@ import Layout from '../layouts/Layout.astro';
     letter-spacing: -0.02em;
   }
 
-  .placeholder-box {
-    padding: var(--space-xl);
-    border: 1px dashed var(--color-border);
+  .section-heading {
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin: 0 0 var(--space-lg) 0;
+  }
+
+  .favorites-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+
+  .favorite-item {
+    display: grid;
+    grid-template-columns: 2.5rem 6.5rem 1fr;
+    gap: var(--space-md);
+    align-items: start;
+    padding: var(--space-md);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
+    background-color: var(--color-bg);
+  }
+
+  @media (max-width: 480px) {
+    .favorite-item {
+      grid-template-columns: 2rem 1fr;
+    }
+
+    .favorite-cover {
+      grid-column: 2;
+      width: 100%;
+      max-width: 120px;
+    }
+
+    .favorite-details {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .rank-badge {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    padding-top: var(--space-xs);
+  }
+
+  .favorite-cover {
+    width: 100%;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .favorite-details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .album-title {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.3;
+    color: var(--color-text);
+  }
+
+  .album-artist {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  .album-blurb {
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+    margin: var(--space-xs) 0 0 0;
+    color: var(--color-text);
+  }
+
+  .slots-section {
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-xl);
+  }
+
+  .slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-lg);
+  }
+
+  .slot-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg);
+  }
+
+  .slot-badge {
+    align-self: flex-start;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: var(--space-xs) var(--space-sm);
+    background-color: var(--color-border-subtle);
+    color: var(--color-text-muted);
+    border-radius: var(--radius-sm);
+  }
+
+  .slot-cover {
+    width: 100%;
+    max-width: 180px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .slot-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .slot-rating {
+    margin: var(--space-xs) 0;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+  }
+
+  .rating-value {
+    font-weight: 700;
+  }
+
+  .rating-max {
     color: var(--color-text-muted);
   }
 
-  .placeholder-box p {
+  .slot-note {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
     margin: 0;
+    font-style: italic;
+  }
+
+  .slot-date {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-top: var(--space-xs);
   }
 </style>

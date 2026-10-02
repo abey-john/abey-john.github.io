@@ -28,25 +28,27 @@ const resolvedHeight = height ?? (isMetadata ? (src as ImageMetadata).height : u
 ---
 
 <div class:list={['image-wrapper', className]} style={aspectRatio ? `aspect-ratio: ${aspectRatio};` : undefined}>
-  {isMetadata ? (
-    <Image
-      src={src as ImageMetadata}
-      alt={alt}
-      width={resolvedWidth}
-      height={resolvedHeight}
-      loading={loading}
-      class="media-image"
-    />
-  ) : (
-    <img
-      src={src as string}
-      alt={alt}
-      width={resolvedWidth}
-      height={resolvedHeight}
-      loading={loading}
-      class="media-image"
-    />
-  )}
+  {
+    isMetadata ? (
+      <Image
+        src={src as ImageMetadata}
+        alt={alt}
+        width={resolvedWidth}
+        height={resolvedHeight}
+        loading={loading}
+        class="media-image"
+      />
+    ) : (
+      <img
+        src={src as string}
+        alt={alt}
+        width={resolvedWidth}
+        height={resolvedHeight}
+        loading={loading}
+        class="media-image"
+      />
+    )
+  }
 </div>
 
 <style>
