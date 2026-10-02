@@ -1,0 +1,85 @@
+---
+import { siteConfig } from '../config';
+
+const pathname = Astro.url.pathname.replace(/\/$/, '') || '/';
+
+const navItems = [
+  { href: '/', label: 'About' },
+  { href: '/development', label: 'Development' },
+  { href: '/travel', label: 'Travel' },
+  { href: '/music', label: 'Music' },
+  { href: '/now', label: 'Now' },
+];
+---
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="site-title">{siteConfig.name}</a>
+    <nav aria-label="Main Navigation">
+      <ul class="nav-list">
+        {navItems.map((item) => {
+          const isCurrent = item.href === '/' 
+            ? pathname === '/' 
+            : pathname === item.href || pathname.startsWith(item.href + '/');
+          return (
+            <li>
+              <a 
+                href={item.href} 
+                class:list={['nav-link', { active: isCurrent }]}
+                aria-current={isCurrent ? 'page' : undefined}
+              >
+                {item.label}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-md) 0;
+  }
+
+  .header-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+  }
+
+  .site-title {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--color-text);
+  }
+
+  .nav-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .nav-link {
+    color: var(--color-text-muted);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+  }
+
+  .nav-link:hover {
+    color: var(--color-text);
+  }
+
+  .nav-link.active {
+    color: var(--color-text);
+    font-weight: 600;
+  }
+</style>
