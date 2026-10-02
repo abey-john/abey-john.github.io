@@ -1,0 +1,41 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Music">
+  <article class="page-container">
+    <header class="page-header">
+      <h1 class="page-title">Music</h1>
+    </header>
+    <div class="placeholder-box">
+      <p>PLACEHOLDER: Music favorites ranking and recent listens.</p>
+    </div>
+  </article>
+</Layout>
+
+<style>
+  .page-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+  }
+
+  .page-title {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .placeholder-box {
+    padding: var(--space-xl);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+  }
+
+  .placeholder-box p {
+    margin: 0;
+  }
+</style>
