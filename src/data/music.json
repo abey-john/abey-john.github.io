@@ -4,68 +4,68 @@
       {
         "title": "PLACEHOLDER: Favorite Album 1",
         "artist": "PLACEHOLDER: Artist 1",
-        "cover": "../assets/placeholder-cover.svg",
+        "cover": "../assets/covers/placeholder-cover.svg",
         "blurb": "PLACEHOLDER: Why this album matters to Abey"
       },
       {
         "title": "PLACEHOLDER: Favorite Album 2",
         "artist": "PLACEHOLDER: Artist 2",
-        "cover": "../assets/placeholder-cover.svg",
+        "cover": "../assets/covers/placeholder-cover.svg",
         "blurb": "PLACEHOLDER: Why this album matters to Abey"
       },
       {
         "title": "PLACEHOLDER: Favorite Album 3",
         "artist": "PLACEHOLDER: Artist 3",
-        "cover": "../assets/placeholder-cover.svg",
+        "cover": "../assets/covers/placeholder-cover.svg",
         "blurb": "PLACEHOLDER: Why this album matters to Abey"
       },
       {
         "title": "PLACEHOLDER: Favorite Album 4",
         "artist": "PLACEHOLDER: Artist 4",
-        "cover": "../assets/placeholder-cover.svg",
+        "cover": "../assets/covers/placeholder-cover.svg",
         "blurb": "PLACEHOLDER: Why this album matters to Abey"
       },
       {
         "title": "PLACEHOLDER: Favorite Album 5",
         "artist": "PLACEHOLDER: Artist 5",
-        "cover": "../assets/placeholder-cover.svg",
+        "cover": "../assets/covers/placeholder-cover.svg",
         "blurb": "PLACEHOLDER: Why this album matters to Abey"
       },
       {
         "title": "PLACEHOLDER: Favorite Album 6",
         "artist": "PLACEHOLDER: Artist 6",
-        "cover": "../assets/placeholder-cover.svg",
+        "cover": "../assets/covers/placeholder-cover.svg",
         "blurb": "PLACEHOLDER: Why this album matters to Abey"
       },
       {
         "title": "PLACEHOLDER: Favorite Album 7",
         "artist": "PLACEHOLDER: Artist 7",
-        "cover": "../assets/placeholder-cover.svg",
+        "cover": "../assets/covers/placeholder-cover.svg",
         "blurb": "PLACEHOLDER: Why this album matters to Abey"
       },
       {
         "title": "PLACEHOLDER: Favorite Album 8",
         "artist": "PLACEHOLDER: Artist 8",
-        "cover": "../assets/placeholder-cover.svg",
+        "cover": "../assets/covers/placeholder-cover.svg",
         "blurb": "PLACEHOLDER: Why this album matters to Abey"
       },
       {
         "title": "PLACEHOLDER: Favorite Album 9",
         "artist": "PLACEHOLDER: Artist 9",
-        "cover": "../assets/placeholder-cover.svg",
+        "cover": "../assets/covers/placeholder-cover.svg",
         "blurb": "PLACEHOLDER: Why this album matters to Abey"
       },
       {
         "title": "PLACEHOLDER: Favorite Album 10",
         "artist": "PLACEHOLDER: Artist 10",
-        "cover": "../assets/placeholder-cover.svg",
+        "cover": "../assets/covers/placeholder-cover.svg",
         "blurb": "PLACEHOLDER: Why this album matters to Abey"
       }
     ],
     "recommendation": {
       "title": "PLACEHOLDER: Recommendation Album",
       "artist": "PLACEHOLDER: Recommendation Artist",
-      "cover": "../assets/placeholder-cover.svg",
+      "cover": "../assets/covers/placeholder-cover.svg",
       "rating": 8.5,
       "note": "PLACEHOLDER: One-line note about recommendation",
       "date": "2026-10-01"
@@ -73,7 +73,7 @@
     "recentListen": {
       "title": "PLACEHOLDER: Recent Listen Album",
       "artist": "PLACEHOLDER: Recent Listen Artist",
-      "cover": "../assets/placeholder-cover.svg",
+      "cover": "../assets/covers/placeholder-cover.svg",
       "rating": 7.5,
       "note": "PLACEHOLDER: One-line note about recent listen",
       "date": "2026-10-01"

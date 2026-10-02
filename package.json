@@ -11,7 +11,9 @@
     "preview": "astro preview",
     "astro": "astro",
     "check": "astro check",
-    "check:placeholders": "node scripts/check-placeholders.mjs"
+    "check:placeholders": "node scripts/check-placeholders.mjs",
+    "check:exif": "node scripts/check-exif.mjs",
+    "strip:exif": "node scripts/strip-exif.mjs"
   },
   "dependencies": {
     "astro": "^7.3.5"
