@@ -38,6 +38,12 @@ jobs:
       - name: Run type checks
         run: npm run check
 
+      - name: Check placeholders (strict)
+        run: npm run check:placeholders -- --strict
+
+      - name: Check EXIF metadata
+        run: npm run check:exif
+
       - name: Build static site with Notion data
         env:
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}

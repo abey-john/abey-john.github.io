@@ -5,7 +5,9 @@ import TravelMap from '../components/TravelMap.astro';
 
 const places = await getCollection('places');
 
-const sortedPlaces = places.slice().sort((a, b) => a.data.name.localeCompare(b.data.name));
+const sortedPlaces = places
+  .slice()
+  .sort((a, b) => a.data.name.localeCompare(b.data.name));
 ---
 
 <Layout
@@ -17,7 +19,7 @@ const sortedPlaces = places.slice().sort((a, b) => a.data.name.localeCompare(b.d
     <header class="travel-header">
       <h1 class="travel-title">Travel</h1>
       <p class="travel-framing">
-        A map of cities, national parks, and public lands I've spent time in.
+        A map of some of the cool places I've been to.
       </p>
     </header>
 
@@ -25,10 +27,15 @@ const sortedPlaces = places.slice().sort((a, b) => a.data.name.localeCompare(b.d
       <TravelMap places={places} />
     </section>
 
-    <section class="places-fallback-section" aria-label="Directory of visited places">
+    <section
+      class="places-fallback-section"
+      aria-label="Directory of visited places"
+    >
       <details class="places-details">
         <summary class="places-summary">
-          <span class="summary-title">View full list of places ({sortedPlaces.length})</span>
+          <span class="summary-title"
+            >View full list of places ({sortedPlaces.length})</span
+          >
           <span class="summary-tag">Text list</span>
         </summary>
         <div class="places-grid">
@@ -43,7 +50,9 @@ const sortedPlaces = places.slice().sort((a, b) => a.data.name.localeCompare(b.d
                   </span>
                   <h2 class="place-name">{place.data.name}</h2>
                 </div>
-                {place.data.blurb && <p class="place-blurb" set:html={place.data.blurb} />}
+                {place.data.blurb && (
+                  <p class="place-blurb" set:html={place.data.blurb} />
+                )}
               </div>
             ))
           }
