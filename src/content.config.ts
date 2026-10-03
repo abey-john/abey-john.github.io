@@ -88,6 +88,15 @@ const music = defineCollection({
       note: z.string().optional(),
       date: z.string().optional(),
     }),
+    vinyl: z
+      .array(
+        z.object({
+          title: z.string(),
+          artist: z.string(),
+          cover: z.string(),
+        })
+      )
+      .default([]),
   }),
 });
 

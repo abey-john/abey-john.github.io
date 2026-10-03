@@ -11,7 +11,31 @@ if (!musicEntry) {
   throw new Error('Music data not found in content collection');
 }
 
-const { favorites, recommendation, recentListen, updated } = musicEntry.data;
+const {
+  favorites,
+  recommendation,
+  recentListen,
+  vinyl = [],
+  updated,
+} = musicEntry.data;
+
+// Sort vinyl records alphabetically by artist (ignoring leading "The "), then by title
+const getSortKey = (name: string) =>
+  (name || '')
+    .replace(/^the\s+/i, '')
+    .trim()
+    .toLowerCase();
+const sortedVinyl = [...vinyl].sort((a, b) => {
+  const artistComp = getSortKey(a.artist).localeCompare(
+    getSortKey(b.artist),
+    undefined,
+    { sensitivity: 'base' }
+  );
+  if (artistComp !== 0) return artistComp;
+  return (a.title || '').localeCompare(b.title || '', undefined, {
+    sensitivity: 'base',
+  });
+});
 
 const formattedDate = updated
   ? new Intl.DateTimeFormat('en-US', {
@@ -23,7 +47,10 @@ const formattedDate = updated
   : null;
 ---
 
-<Layout title="Music" description="Ranked top ten albums and recent listens.">
+<Layout
+  title="Music"
+  description="Ranked top ten albums, vinyl collection, and recent listens."
+>
   <article class="music-page">
     <header class="music-header">
       <h1 class="music-title">Music</h1>
@@ -62,7 +89,10 @@ const formattedDate = updated
             </p>
             {
               (recommendation.blurb || recommendation.note) && (
-                <p class="slot-blurb">{recommendation.blurb || recommendation.note}</p>
+                <p
+                  class="slot-blurb"
+                  set:html={recommendation.blurb || recommendation.note}
+                />
               )
             }
           </div>
@@ -88,7 +118,10 @@ const formattedDate = updated
             </p>
             {
               (recentListen.blurb || recentListen.note) && (
-                <p class="slot-blurb">{recentListen.blurb || recentListen.note}</p>
+                <p
+                  class="slot-blurb"
+                  set:html={recentListen.blurb || recentListen.note}
+                />
               )
             }
           </div>
@@ -97,34 +130,106 @@ const formattedDate = updated
     </section>
 
     <section class="favorites-section" aria-labelledby="favorites-heading">
-      <h2 id="favorites-heading" class="section-heading">
-        Personal All-Time Favorites
-      </h2>
-      <ol class="favorites-list">
+      <details class="favorites-accordion">
+        <summary class="favorites-summary">
+          <div class="summary-left">
+            <h2 id="favorites-heading" class="favorites-summary-title">
+              Personal All-Time Favorites
+            </h2>
+            <span class="count-badge">{favorites.length} albums</span>
+          </div>
+          <span class="accordion-hint">
+            <span class="hint-action">list</span>
+            <svg
+              class="chevron-icon"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </span>
+        </summary>
+        <div class="favorites-expanded">
+          <ol class="favorites-list">
+            {
+              favorites.map((album, index) => (
+                <li class="favorite-item">
+                  <div class="rank-badge" aria-label={`Rank ${index + 1}`}>
+                    #{index + 1}
+                  </div>
+                  <div class="favorite-cover">
+                    <MediaImage
+                      src={album.cover}
+                      alt={`${album.title} by ${album.artist}`}
+                      aspectRatio="1 / 1"
+                      width={140}
+                      height={140}
+                    />
+                  </div>
+                  <div class="favorite-details">
+                    <h3 class="album-title">{album.title}</h3>
+                    <p class="album-artist">{album.artist}</p>
+                    {album.blurb && (
+                      <p class="album-blurb" set:html={album.blurb} />
+                    )}
+                  </div>
+                </li>
+              ))
+            }
+          </ol>
+        </div>
+      </details>
+    </section>
+
+    <section class="vinyl-section" aria-labelledby="vinyl-heading">
+      <div class="vinyl-header">
+        <h2 id="vinyl-heading" class="section-heading">Vinyl Collection</h2>
         {
-          favorites.map((album, index) => (
-            <li class="favorite-item">
-              <div class="rank-badge" aria-label={`Rank ${index + 1}`}>
-                #{index + 1}
-              </div>
-              <div class="favorite-cover">
-                <MediaImage
-                  src={album.cover}
-                  alt={`${album.title} by ${album.artist}`}
-                  aspectRatio="1 / 1"
-                  width={140}
-                  height={140}
-                />
-              </div>
-              <div class="favorite-details">
-                <h3 class="album-title">{album.title}</h3>
-                <p class="album-artist">{album.artist}</p>
-                {album.blurb && <p class="album-blurb">{album.blurb}</p>}
-              </div>
-            </li>
-          ))
+          sortedVinyl.length > 0 && (
+            <span class="vinyl-count">{sortedVinyl.length} records</span>
+          )
         }
-      </ol>
+      </div>
+
+      {
+        sortedVinyl.length > 0 ? (
+          <div class="vinyl-grid">
+            {sortedVinyl.map((record) => (
+              <div class="vinyl-card" tabindex="0">
+                <div class="vinyl-jacket">
+                  <MediaImage
+                    src={record.cover}
+                    alt={`${record.title} by ${record.artist}`}
+                    aspectRatio="1 / 1"
+                    width={240}
+                    height={240}
+                    class="vinyl-cover-image"
+                  />
+                  <div class="vinyl-hover-overlay">
+                    <p class="vinyl-title">{record.title}</p>
+                    <p class="vinyl-artist">{record.artist}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div class="vinyl-empty-card">
+            <p class="vinyl-empty-title">Your Vinyl Shelf</p>
+            <p class="vinyl-empty-desc">
+              Check the <code>Vinyl</code> box next to any album in your
+              database to showcase it here.
+            </p>
+          </div>
+        )
+      }
     </section>
   </article>
 </Layout>
@@ -174,6 +279,166 @@ const formattedDate = updated
     letter-spacing: 0.05em;
     color: var(--color-text-muted);
     margin: 0 0 var(--space-lg) 0;
+  }
+
+  .slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-lg);
+  }
+
+  .slot-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg);
+  }
+
+  .slot-badge {
+    align-self: center;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: var(--space-xs) var(--space-sm);
+    background-color: var(--color-border-subtle);
+    color: var(--color-text-muted);
+    border-radius: var(--radius-sm);
+  }
+
+  .slot-cover {
+    width: 100%;
+    max-width: 220px;
+    margin: 0 auto;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .slot-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+    width: 100%;
+  }
+
+  .slot-rating {
+    margin: var(--space-xs) 0;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+  }
+
+  .rating-value {
+    font-weight: 700;
+  }
+
+  .rating-max {
+    color: var(--color-text-muted);
+  }
+
+  .slot-blurb,
+  .slot-note {
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+    color: var(--color-text);
+    margin: var(--space-xs) 0 0 0;
+  }
+
+  /* Favorites Accordion */
+  .favorites-section {
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-xl);
+  }
+
+  .favorites-accordion {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg);
+    overflow: hidden;
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .favorites-accordion:hover {
+    border-color: var(--color-text-muted);
+  }
+
+  .favorites-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-md) var(--space-lg);
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    gap: var(--space-md);
+  }
+
+  .favorites-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .summary-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+  }
+
+  .favorites-summary-title {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    margin: 0;
+    color: var(--color-text);
+  }
+
+  .count-badge {
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    color: var(--color-text-muted);
+    background-color: var(--color-border-subtle);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+  }
+
+  .accordion-hint {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+  }
+
+  .favorites-accordion[open] .hint-action::before {
+    content: 'Hide ';
+  }
+
+  .favorites-accordion:not([open]) .hint-action::before {
+    content: 'View ';
+  }
+
+  .chevron-icon {
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+
+  .favorites-accordion[open] .chevron-icon {
+    transform: rotate(180deg);
+  }
+
+  .favorites-expanded {
+    padding: 0 var(--space-lg) var(--space-lg) var(--space-lg);
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-lg);
   }
 
   .favorites-list {
@@ -253,78 +518,162 @@ const formattedDate = updated
     color: var(--color-text);
   }
 
-  .favorites-section {
+  /* Vinyl Collection */
+  .vinyl-section {
     border-top: 1px solid var(--color-border);
     padding-top: var(--space-xl);
   }
 
-  .slots-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--space-lg);
-  }
-
-  .slot-card {
+  .vinyl-header {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
     align-items: center;
-    text-align: center;
-    gap: var(--space-md);
-    padding: var(--space-lg);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background-color: var(--color-bg);
+    margin-bottom: var(--space-lg);
   }
 
-  .slot-badge {
-    align-self: center;
+  .vinyl-header .section-heading {
+    margin: 0;
+  }
+
+  .vinyl-count {
+    font-size: var(--font-size-sm);
     font-family: var(--font-mono);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: var(--space-xs) var(--space-sm);
-    background-color: var(--color-border-subtle);
     color: var(--color-text-muted);
-    border-radius: var(--radius-sm);
   }
 
-  .slot-cover {
-    width: 100%;
-    max-width: 220px;
-    margin: 0 auto;
+  .vinyl-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-sm);
+  }
+
+  @media (min-width: 440px) {
+    .vinyl-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-sm);
+    }
+  }
+
+  @media (min-width: 600px) {
+    .vinyl-grid {
+      grid-template-columns: repeat(5, 1fr);
+      gap: var(--space-sm);
+    }
+  }
+
+  @media (min-width: 768px) {
+    .vinyl-grid {
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.75rem;
+    }
+  }
+
+  .vinyl-card {
+    position: relative;
+    border-radius: var(--radius-sm);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .vinyl-jacket {
+    position: relative;
+    aspect-ratio: 1 / 1;
     border-radius: var(--radius-sm);
     overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    background-color: var(--color-border-subtle);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    transition:
+      transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .slot-content {
+  .vinyl-card:hover .vinyl-jacket,
+  .vinyl-card:focus-visible .vinyl-jacket {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  }
+
+  .vinyl-cover-image {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .vinyl-hover-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.94) 0%,
+      rgba(0, 0, 0, 0.65) 50%,
+      rgba(0, 0, 0, 0.15) 100%
+    );
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: var(--space-xs);
-    width: 100%;
+    justify-content: flex-end;
+    padding: 0.5rem;
+    opacity: 0;
+    transform: translateY(4px);
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease;
+    pointer-events: none;
   }
 
-  .slot-rating {
-    margin: var(--space-xs) 0;
-    font-family: var(--font-mono);
-    font-size: var(--font-size-sm);
+  .vinyl-card:hover .vinyl-hover-overlay,
+  .vinyl-card:focus-visible .vinyl-hover-overlay {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .vinyl-title {
+    color: #ffffff;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0 0 2px 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .vinyl-artist {
+    color: #d1d5db;
+    font-size: 0.7rem;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .vinyl-empty-card {
+    padding: var(--space-xl);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    text-align: center;
+    background-color: var(--color-border-subtle);
+  }
+
+  .vinyl-empty-title {
+    font-weight: 600;
+    margin: 0 0 var(--space-xs) 0;
     color: var(--color-text);
   }
 
-  .rating-value {
-    font-weight: 700;
-  }
-
-  .rating-max {
+  .vinyl-empty-desc {
+    font-size: var(--font-size-sm);
     color: var(--color-text-muted);
+    margin: 0;
   }
 
-  .slot-blurb,
-  .slot-note {
-    font-size: var(--font-size-sm);
-    line-height: 1.5;
-    color: var(--color-text);
-    margin: var(--space-xs) 0 0 0;
+  .vinyl-empty-desc code {
+    background-color: var(--color-bg);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    font-family: var(--font-mono);
   }
 </style>

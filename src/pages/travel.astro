@@ -43,7 +43,7 @@ const sortedPlaces = places.slice().sort((a, b) => a.data.name.localeCompare(b.d
                   </span>
                   <h2 class="place-name">{place.data.name}</h2>
                 </div>
-                {place.data.blurb && <p class="place-blurb">{place.data.blurb}</p>}
+                {place.data.blurb && <p class="place-blurb" set:html={place.data.blurb} />}
               </div>
             ))
           }

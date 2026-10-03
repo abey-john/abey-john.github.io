@@ -177,6 +177,68 @@ function richTextToMarkdown(richTexts: any[]): string {
     .join('');
 }
 
+function escapeHtml(str: string): string {
+  return (str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Convert Notion rich text array to safe, formatted HTML.
+ * Supports Notion hyperlinks, bold, italics, strikethrough, code, and raw typed Markdown.
+ */
+function richTextToHtml(richTexts: any[]): string {
+  if (!Array.isArray(richTexts) || richTexts.length === 0) return '';
+
+  let html = richTexts
+    .map((t) => {
+      let text = escapeHtml(t.plain_text || '');
+      if (!text) return '';
+
+      // Support Notion's native formatting annotations
+      if (t.annotations?.code) text = `<code>${text}</code>`;
+      if (t.annotations?.bold) text = `<strong>${text}</strong>`;
+      if (t.annotations?.italic) text = `<em>${text}</em>`;
+      if (t.annotations?.strikethrough) text = `<s>${text}</s>`;
+      if (t.annotations?.underline) text = `<u>${text}</u>`;
+      if (t.href) {
+        const safeHref = escapeHtml(t.href);
+        text = `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+      }
+      return text;
+    })
+    .join('');
+
+  // 1. Fix [text](<a href="url"...>...</a>) (when Notion auto-hyperlinked the URL inside typed [text](url))
+  html = html.replace(
+    /\[([^\]]+)\]\(<a\s+href="([^"]+)"[^>]*>.*?<\/a>\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+  );
+
+  // 2. Fix accidentally nested [text]([url](url))
+  html = html.replace(
+    /\[([^\]]+)\]\(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)\)/g,
+    '<a href="$3" target="_blank" rel="noopener noreferrer">$1</a>'
+  );
+
+  // 3. Fix standard typed markdown links [text](url)
+  html = html.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+  );
+
+  // 4. Raw markdown bold, italic, code
+  html = html
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  return html;
+}
+
 /**
  * Convert Notion page blocks to Markdown text.
  */
@@ -438,7 +500,7 @@ export function notionPlacesLoader(): Loader {
               lat,
               lng,
               country,
-              blurb: p.Blurb?.rich_text?.[0]?.plain_text || undefined,
+              blurb: richTextToHtml(p.Blurb?.rich_text) || undefined,
               photo: photo || undefined,
               link: undefined,
             };
@@ -478,6 +540,7 @@ export function notionMusicLoader(): Loader {
           store.clear();
 
           const favoritesList: Array<{ title: string; artist: string; cover: string; blurb?: string; rank: number }> = [];
+          const vinylList: Array<{ title: string; artist: string; cover: string }> = [];
           let recommendation: any = null;
           let recentListen: any = null;
 
@@ -487,17 +550,26 @@ export function notionMusicLoader(): Loader {
             const artist = p.Artist?.rich_text?.[0]?.plain_text || 'Unknown Artist';
             const category = p.Category?.select?.name;
             const cover = (await extractImageSource(p.Cover, p.CoverPath)) || '/assets/covers/placeholder-album.svg';
-            const blurb = p.Blurb?.rich_text?.[0]?.plain_text || '';
+            const blurb = richTextToHtml(p.Blurb?.rich_text) || '';
+            const note = richTextToHtml(p.Note?.rich_text) || '';
             const rank = p.Rank?.number ?? 99;
             const rating = p.Rating?.number ?? 8.0;
             const date = p.Date?.rich_text?.[0]?.plain_text || 'October 2026';
 
+            // Support vinyl checkbox property (e.g. "Vinyl", "vinyl", "On Vinyl") or Category = 'Vinyl'
+            const vinylProp = p.Vinyl || p.vinyl || Object.entries(p).find(([k]) => k.toLowerCase().includes('vinyl'))?.[1];
+            const isVinyl = (vinylProp as any)?.checkbox === true || category === 'Vinyl';
+
             if (category === 'Top 10') {
               favoritesList.push({ title, artist, cover, blurb, rank });
             } else if (category === 'Recommendation') {
-              recommendation = { title, artist, cover, blurb, rating, date };
+              recommendation = { title, artist, cover, blurb, note, rating, date };
             } else if (category === 'Recent Listen') {
-              recentListen = { title, artist, cover, blurb, rating, date };
+              recentListen = { title, artist, cover, blurb, note, rating, date };
+            }
+
+            if (isVinyl) {
+              vinylList.push({ title, artist, cover });
             }
           }
 
@@ -505,9 +577,20 @@ export function notionMusicLoader(): Loader {
           favoritesList.sort((a, b) => a.rank - b.rank);
           const topTen = favoritesList.slice(0, 10).map(({ rank, ...rest }) => rest);
 
+          // Sort vinyl collection: alphabetical by artist (ignoring leading "The "), then by title
+          const getArtistSortKey = (name: string) => (name || '').replace(/^the\s+/i, '').trim().toLowerCase();
+          vinylList.sort((a, b) => {
+            const artistComp = getArtistSortKey(a.artist).localeCompare(getArtistSortKey(b.artist), undefined, {
+              sensitivity: 'base',
+            });
+            if (artistComp !== 0) return artistComp;
+            return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' });
+          });
+
           const fullMusicContent = {
             updated: new Date(),
             favorites: topTen,
+            vinyl: vinylList,
             recommendation: recommendation || {
               title: 'Unknown',
               artist: 'Unknown',
@@ -525,7 +608,7 @@ export function notionMusicLoader(): Loader {
           const data = await parseData({ id: 'content', data: fullMusicContent });
           store.set({ id: 'content', data });
 
-          logger.info(`Loaded music collection from Notion.`);
+          logger.info(`Loaded music collection (${vinylList.length} on vinyl) from Notion.`);
           return;
         } catch (err: any) {
           logger.warn(`Failed loading music from Notion: ${err.message}.`);
@@ -542,6 +625,7 @@ export function notionMusicLoader(): Loader {
       const fallbackMusic = {
         updated: new Date(),
         favorites: emptyFavorites,
+        vinyl: [],
         recommendation: {
           title: 'Recommendation',
           artist: 'Artist',
