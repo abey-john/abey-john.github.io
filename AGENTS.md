@@ -8,6 +8,10 @@ astro dev --background
 
 Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
 
+## Git Guidelines
+
+- **NEVER run `git push`**: Pushing to remote repositories is strictly reserved for the user. Agents must never execute `git push`.
+
 ## Documentation
 
 Full documentation: https://docs.astro.build
