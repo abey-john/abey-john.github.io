@@ -41,47 +41,50 @@ const navItems = [
         id="theme-toggle"
         class="theme-toggle"
         type="button"
+        role="switch"
+        aria-checked="false"
         aria-label="Toggle theme"
         title="Toggle theme"
       >
-        <svg
-          class="theme-icon sun-icon"
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="4"></circle>
-          <path d="M12 2v2"></path>
-          <path d="M12 20v2"></path>
-          <path d="m4.93 4.93 1.41 1.41"></path>
-          <path d="m17.66 17.66 1.41 1.41"></path>
-          <path d="M2 12h2"></path>
-          <path d="M20 12h2"></path>
-          <path d="m6.34 17.66-1.41 1.41"></path>
-          <path d="m19.07 4.93-1.41 1.41"></path>
-        </svg>
-        <svg
-          class="theme-icon moon-icon"
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
-        </svg>
+        <span class="toggle-track">
+          <span class="toggle-thumb">
+            <svg
+              class="toggle-icon sun-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="4"></circle>
+              <path d="M12 2v2"></path>
+              <path d="M12 20v2"></path>
+              <path d="m4.93 4.93 1.41 1.41"></path>
+              <path d="m17.66 17.66 1.41 1.41"></path>
+              <path d="M2 12h2"></path>
+              <path d="M20 12h2"></path>
+              <path d="m6.34 17.66-1.41 1.41"></path>
+              <path d="m19.07 4.93-1.41 1.41"></path>
+            </svg>
+            <svg
+              class="toggle-icon moon-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              stroke="none"
+              aria-hidden="true"
+            >
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+            </svg>
+          </span>
+        </span>
       </button>
     </div>
   </div>
@@ -101,7 +104,9 @@ const navItems = [
 
     function updateToggleState() {
       const current = getEffectiveTheme();
-      const nextTheme = current === 'dark' ? 'light' : 'dark';
+      const isDark = current === 'dark';
+      const nextTheme = isDark ? 'light' : 'dark';
+      btn.setAttribute('aria-checked', isDark ? 'true' : 'false');
       btn.setAttribute('aria-label', `Switch to ${nextTheme} mode`);
       btn.setAttribute('title', `Switch to ${nextTheme} mode`);
     }
@@ -117,6 +122,12 @@ const navItems = [
     };
 
     updateToggleState();
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (!localStorage.getItem('theme')) {
+        updateToggleState();
+      }
+    });
   }
 
   setupThemeToggle();
@@ -178,57 +189,108 @@ const navItems = [
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
     padding: 0;
     background: transparent;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    color: var(--color-text-muted);
+    border: none;
     cursor: pointer;
     flex-shrink: 0;
-    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
-  }
-
-  .theme-toggle:hover {
-    color: var(--color-text);
-    border-color: var(--color-text-muted);
-    background-color: var(--color-border-subtle);
+    border-radius: 9999px;
   }
 
   .theme-toggle:focus-visible {
     outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
+    outline-offset: 3px;
   }
 
-  .theme-icon {
-    width: 16px;
-    height: 16px;
+  .toggle-track {
+    width: 44px;
+    height: 24px;
+    border-radius: 9999px;
+    background-color: var(--color-border);
+    border: 1px solid var(--color-border);
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    box-sizing: border-box;
+    transition: background-color 0.25s ease, border-color 0.25s ease;
+  }
+
+  .theme-toggle:hover .toggle-track {
+    border-color: var(--color-text-muted);
+  }
+
+  .toggle-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    transform: translateX(0);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+
+  .toggle-icon {
+    width: 12px;
+    height: 12px;
+    transition: opacity 0.2s ease;
   }
 
   .sun-icon {
-    display: none;
+    display: block;
+    color: #d97706;
   }
 
   .moon-icon {
-    display: block;
+    display: none;
+    color: #93c5fd;
+  }
+
+  :global(html[data-theme="dark"]) .toggle-track {
+    background-color: #27272a;
+    border-color: #3f3f46;
+  }
+
+  :global(html[data-theme="dark"]) .toggle-thumb {
+    transform: translateX(20px);
+    background-color: #18181b;
+    border: 1px solid #3f3f46;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   }
 
   :global(html[data-theme="dark"]) .sun-icon {
-    display: block;
-  }
-
-  :global(html[data-theme="dark"]) .moon-icon {
     display: none;
   }
 
+  :global(html[data-theme="dark"]) .moon-icon {
+    display: block;
+  }
+
   @media (prefers-color-scheme: dark) {
+    :global(html:not([data-theme="light"])) .toggle-track {
+      background-color: #27272a;
+      border-color: #3f3f46;
+    }
+
+    :global(html:not([data-theme="light"])) .toggle-thumb {
+      transform: translateX(20px);
+      background-color: #18181b;
+      border: 1px solid #3f3f46;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    }
+
     :global(html:not([data-theme="light"])) .sun-icon {
-      display: block;
+      display: none;
     }
 
     :global(html:not([data-theme="light"])) .moon-icon {
-      display: none;
+      display: block;
     }
   }
 </style>
