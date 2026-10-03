@@ -421,9 +421,13 @@ function formatDisplayUrl(url: string) {
   }
 
   @media (prefers-color-scheme: dark) {
-    .github-logo {
+    :global(html:not([data-theme="light"])) .github-logo {
       filter: invert(1);
     }
+  }
+
+  :global(html[data-theme="dark"]) .github-logo {
+    filter: invert(1);
   }
 
   @media (max-width: 640px) {

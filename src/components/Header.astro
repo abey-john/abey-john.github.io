@@ -16,28 +16,112 @@ const navItems = [
 <header class="site-header">
   <div class="container header-inner">
     <a href="/" class="site-title">{siteConfig.name}</a>
-    <nav aria-label="Main Navigation">
-      <ul class="nav-list">
-        {navItems.map((item) => {
-          const isCurrent = item.href === '/' 
-            ? pathname === '/' 
-            : pathname === item.href || pathname.startsWith(item.href + '/');
-          return (
-            <li>
-              <a 
-                href={item.href} 
-                class:list={['nav-link', { active: isCurrent }]}
-                aria-current={isCurrent ? 'page' : undefined}
-              >
-                {item.label}
-              </a>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+    <div class="header-right">
+      <nav aria-label="Main Navigation">
+        <ul class="nav-list">
+          {navItems.map((item) => {
+            const isCurrent = item.href === '/' 
+              ? pathname === '/' 
+              : pathname === item.href || pathname.startsWith(item.href + '/');
+            return (
+              <li>
+                <a 
+                  href={item.href} 
+                  class:list={['nav-link', { active: isCurrent }]}
+                  aria-current={isCurrent ? 'page' : undefined}
+                >
+                  {item.label}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+      <button
+        id="theme-toggle"
+        class="theme-toggle"
+        type="button"
+        aria-label="Toggle theme"
+        title="Toggle theme"
+      >
+        <svg
+          class="theme-icon sun-icon"
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2"></path>
+          <path d="M12 20v2"></path>
+          <path d="m4.93 4.93 1.41 1.41"></path>
+          <path d="m17.66 17.66 1.41 1.41"></path>
+          <path d="M2 12h2"></path>
+          <path d="M20 12h2"></path>
+          <path d="m6.34 17.66-1.41 1.41"></path>
+          <path d="m19.07 4.93-1.41 1.41"></path>
+        </svg>
+        <svg
+          class="theme-icon moon-icon"
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+        </svg>
+      </button>
+    </div>
   </div>
 </header>
+
+<script>
+  function setupThemeToggle() {
+    const toggleBtn = document.getElementById('theme-toggle');
+    if (!toggleBtn) return;
+    const btn = toggleBtn;
+
+    function getEffectiveTheme() {
+      const explicit = document.documentElement.getAttribute('data-theme');
+      if (explicit) return explicit;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    function updateToggleState() {
+      const current = getEffectiveTheme();
+      const nextTheme = current === 'dark' ? 'light' : 'dark';
+      btn.setAttribute('aria-label', `Switch to ${nextTheme} mode`);
+      btn.setAttribute('title', `Switch to ${nextTheme} mode`);
+    }
+
+    btn.onclick = () => {
+      const current = getEffectiveTheme();
+      const nextTheme = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', nextTheme);
+      try {
+        localStorage.setItem('theme', nextTheme);
+      } catch (e) {}
+      updateToggleState();
+    };
+
+    updateToggleState();
+  }
+
+  setupThemeToggle();
+  document.addEventListener('astro:after-swap', setupThemeToggle);
+</script>
 
 <style>
   .site-header {
@@ -58,6 +142,12 @@ const navItems = [
     font-weight: 600;
     text-decoration: none;
     color: var(--color-text);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
   }
 
   .nav-list {
@@ -82,5 +172,63 @@ const navItems = [
   .nav-link.active {
     color: var(--color-text);
     font-weight: 600;
+  }
+
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .theme-toggle:hover {
+    color: var(--color-text);
+    border-color: var(--color-text-muted);
+    background-color: var(--color-border-subtle);
+  }
+
+  .theme-toggle:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  .theme-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .sun-icon {
+    display: none;
+  }
+
+  .moon-icon {
+    display: block;
+  }
+
+  :global(html[data-theme="dark"]) .sun-icon {
+    display: block;
+  }
+
+  :global(html[data-theme="dark"]) .moon-icon {
+    display: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(html:not([data-theme="light"])) .sun-icon {
+      display: block;
+    }
+
+    :global(html:not([data-theme="light"])) .moon-icon {
+      display: none;
+    }
   }
 </style>

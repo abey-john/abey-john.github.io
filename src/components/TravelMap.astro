@@ -262,14 +262,23 @@ const placesData = places.map((p) => ({
     text-decoration: underline;
   }
   @media (prefers-color-scheme: dark) {
-    :global(.travel-map .leaflet-tile-pane) {
+    :global(html:not([data-theme="light"]) .travel-map .leaflet-tile-pane) {
       filter: brightness(0.75) invert(100%) contrast(1.2) hue-rotate(190deg)
         saturate(0.45);
     }
 
-    :global(.travel-map) {
+    :global(html:not([data-theme="light"]) .travel-map) {
       background-color: #1a1d21;
     }
+  }
+
+  :global(html[data-theme="dark"] .travel-map .leaflet-tile-pane) {
+    filter: brightness(0.75) invert(100%) contrast(1.2) hue-rotate(190deg)
+      saturate(0.45);
+  }
+
+  :global(html[data-theme="dark"] .travel-map) {
+    background-color: #1a1d21;
   }
 
   @media (max-width: 640px) {
