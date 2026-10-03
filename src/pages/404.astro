@@ -2,30 +2,265 @@
 import Layout from '../layouts/Layout.astro';
 ---
 
-<Layout title="Page Not Found" description="The requested page could not be found.">
+<Layout
+  title="The Page is a Lie (404)"
+  description="The Aperture Science Enrichment Center regrets to inform you that this test chamber does not exist. Please step through an authorized portal below to safely return to the testing track."
+>
+  <!-- Portal runner: blue on left edge, orange on right edge -->
+  <div class="portals-overlay">
+    <a
+      href="/"
+      class="portal-edge portal-left"
+      aria-label="Step through the blue portal to return to About"
+      title="Step through the blue portal to return home"
+    >
+      <img
+        src="/assets/portal-blue.png"
+        alt="Portal blue runner emerging"
+        class="portal-img"
+        width="164"
+        height="444"
+        loading="eager"
+      />
+    </a>
+
+    <a
+      href="/"
+      class="portal-edge portal-right"
+      aria-label="Step through the orange portal to return to About"
+      title="Step through the orange portal to return home"
+    >
+      <img
+        src="/assets/portal-orange.png"
+        alt="Portal orange runner entering"
+        class="portal-img"
+        width="164"
+        height="444"
+        loading="eager"
+      />
+    </a>
+  </div>
+
   <article class="not-found-page">
     <header class="page-header">
-      <span class="status-code">404</span>
-      <h1 class="page-title">Page not found</h1>
+      <div class="status-badges">
+        <span class="portal-indicator" aria-hidden="true">
+          <span class="portal-dot portal-dot-blue"></span>
+          <span class="portal-dot portal-dot-orange"></span>
+        </span>
+        <span class="status-code">404 // TEST CHAMBER ERROR</span>
+      </div>
+
+      <h1 class="page-title">The page is a lie.</h1>
+
       <p class="page-desc">
-        The page you are looking for doesn't exist, has been moved, or is temporarily unavailable.
+        The Aperture Science Enrichment Center regrets to inform you that this test chamber does not exist.
+        Please step through an authorized portal below to safely return to the testing track.
       </p>
     </header>
 
     <div class="helpful-links">
-      <h2 class="links-heading">Explore the site</h2>
+      <h2 class="links-heading">Available Portals to Safety</h2>
       <ul class="routes-list">
-        <li><a href="/" class="route-link">About &rarr;</a></li>
-        <li><a href="/development" class="route-link">Development &rarr;</a></li>
-        <li><a href="/travel" class="route-link">Travel &rarr;</a></li>
-        <li><a href="/music" class="route-link">Music &rarr;</a></li>
-        <li><a href="/now" class="route-link">Now &rarr;</a></li>
+        <li>
+          <a href="/" class="route-link portal-blue">
+            <svg
+              class="route-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span>About</span>
+            <span class="route-arrow" aria-hidden="true">&rarr;</span>
+          </a>
+        </li>
+        <li>
+          <a href="/development" class="route-link portal-orange">
+            <svg
+              class="route-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            <span>Development</span>
+            <span class="route-arrow" aria-hidden="true">&rarr;</span>
+          </a>
+        </li>
+        <li>
+          <a href="/travel" class="route-link portal-blue">
+            <svg
+              class="route-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="10"></circle>
+              <polygon
+                points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"
+              ></polygon>
+            </svg>
+            <span>Travel</span>
+            <span class="route-arrow" aria-hidden="true">&rarr;</span>
+          </a>
+        </li>
+        <li>
+          <a href="/music" class="route-link portal-orange">
+            <svg
+              class="route-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 18V5l12-2v13"></path>
+              <circle cx="6" cy="18" r="3"></circle>
+              <circle cx="18" cy="16" r="3"></circle>
+            </svg>
+            <span>Music</span>
+            <span class="route-arrow" aria-hidden="true">&rarr;</span>
+          </a>
+        </li>
+        <li>
+          <a href="/now" class="route-link portal-blue">
+            <svg
+              class="route-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span>Now</span>
+            <span class="route-arrow" aria-hidden="true">&rarr;</span>
+          </a>
+        </li>
       </ul>
     </div>
   </article>
 </Layout>
 
 <style>
+  .portal-edge {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 50;
+    display: block;
+    text-decoration: none;
+    transition:
+      transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      filter 0.25s ease;
+  }
+
+  .portal-left {
+    left: 0;
+    filter: drop-shadow(0 0 9px rgba(0, 164, 228, 0.45)) drop-shadow(0 0 18px rgba(0, 164, 228, 0.2));
+    animation: portal-breathe-blue 4s ease-in-out infinite;
+  }
+
+  .portal-left:hover {
+    transform: translateY(-50%) scale(1.06);
+    filter: drop-shadow(0 0 18px rgba(0, 164, 228, 0.85)) drop-shadow(0 0 32px rgba(0, 164, 228, 0.45));
+    animation: none;
+  }
+
+  .portal-right {
+    right: 0;
+    filter: drop-shadow(0 0 9px rgba(255, 106, 0, 0.45)) drop-shadow(0 0 18px rgba(255, 106, 0, 0.2));
+    animation: portal-breathe-orange 4s ease-in-out infinite;
+  }
+
+  .portal-right:hover {
+    transform: translateY(-50%) scale(1.06);
+    filter: drop-shadow(0 0 18px rgba(255, 106, 0, 0.85)) drop-shadow(0 0 32px rgba(255, 106, 0, 0.45));
+    animation: none;
+  }
+
+  @keyframes portal-breathe-blue {
+    0%,
+    100% {
+      filter: drop-shadow(0 0 7px rgba(0, 164, 228, 0.35)) drop-shadow(0 0 15px rgba(0, 164, 228, 0.15));
+    }
+    50% {
+      filter: drop-shadow(0 0 13px rgba(0, 164, 228, 0.6)) drop-shadow(0 0 25px rgba(0, 164, 228, 0.3));
+    }
+  }
+
+  @keyframes portal-breathe-orange {
+    0%,
+    100% {
+      filter: drop-shadow(0 0 7px rgba(255, 106, 0, 0.35)) drop-shadow(0 0 15px rgba(255, 106, 0, 0.15));
+    }
+    50% {
+      filter: drop-shadow(0 0 13px rgba(255, 106, 0, 0.6)) drop-shadow(0 0 25px rgba(255, 106, 0, 0.3));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portal-left,
+    .portal-right {
+      animation: none;
+    }
+  }
+
+  .portal-img {
+    display: block;
+    width: clamp(75px, 9vw, 130px);
+    height: auto;
+    object-fit: contain;
+  }
+
+  @media (max-width: 640px) {
+    .portal-edge {
+      opacity: 0.35;
+    }
+
+    .portal-img {
+      width: clamp(40px, 11vw, 60px);
+    }
+  }
+
   .not-found-page {
     display: flex;
     flex-direction: column;
@@ -36,17 +271,45 @@ import Layout from '../layouts/Layout.astro';
   .page-header {
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm);
+    gap: var(--space-md);
     border-bottom: 1px solid var(--color-border);
     padding-bottom: var(--space-xl);
+  }
+
+  .status-badges {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .portal-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .portal-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+  }
+
+  .portal-dot-blue {
+    background-color: #0284c7;
+    box-shadow: 0 0 8px rgba(2, 132, 199, 0.7);
+  }
+
+  .portal-dot-orange {
+    background-color: #ea580c;
+    box-shadow: 0 0 8px rgba(234, 88, 12, 0.7);
   }
 
   .status-code {
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
     font-weight: 700;
-    color: var(--color-accent);
-    letter-spacing: 0.1em;
+    color: var(--color-text-muted);
+    letter-spacing: 0.08em;
   }
 
   .page-title {
@@ -61,7 +324,7 @@ import Layout from '../layouts/Layout.astro';
     font-size: var(--font-size-lg);
     color: var(--color-text-muted);
     margin: 0;
-    line-height: 1.5;
+    line-height: 1.6;
   }
 
   .helpful-links {
@@ -84,23 +347,67 @@ import Layout from '../layouts/Layout.astro';
     padding: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-md);
+    gap: var(--space-sm);
   }
 
   .route-link {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
     padding: var(--space-xs) var(--space-md);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
+    border-radius: 9999px;
     text-decoration: none;
     color: var(--color-text);
     font-weight: 500;
     font-size: var(--font-size-sm);
-    transition: border-color 0.15s ease, color 0.15s ease;
+    background-color: var(--color-bg);
+    transition: all 0.2s ease;
   }
 
-  .route-link:hover {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
+  .route-icon {
+    width: 15px;
+    height: 15px;
+    color: var(--color-text-muted);
+    transition: color 0.2s ease;
+  }
+
+  .route-arrow {
+    transition: transform 0.15s ease;
+    color: var(--color-text-muted);
+  }
+
+  .route-link.portal-blue {
+    border-color: rgba(2, 132, 199, 0.28);
+    box-shadow: 0 0 10px rgba(2, 132, 199, 0.1);
+  }
+
+  .route-link.portal-blue:hover {
+    border-color: #0284c7;
+    color: #0284c7;
+    box-shadow: 0 0 14px rgba(2, 132, 199, 0.3);
+  }
+
+  .route-link.portal-blue:hover .route-icon,
+  .route-link.portal-blue:hover .route-arrow {
+    color: #0284c7;
+    transform: translateX(2px);
+  }
+
+  .route-link.portal-orange {
+    border-color: rgba(234, 88, 12, 0.28);
+    box-shadow: 0 0 10px rgba(234, 88, 12, 0.1);
+  }
+
+  .route-link.portal-orange:hover {
+    border-color: #ea580c;
+    color: #ea580c;
+    box-shadow: 0 0 14px rgba(234, 88, 12, 0.3);
+  }
+
+  .route-link.portal-orange:hover .route-icon,
+  .route-link.portal-orange:hover .route-arrow {
+    color: #ea580c;
+    transform: translateX(2px);
   }
 </style>
