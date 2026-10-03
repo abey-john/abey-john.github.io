@@ -1,5 +1,7 @@
 ---
-import { siteConfig } from '../config';
+import { getSiteConfig } from '../config';
+
+const siteConfig = await getSiteConfig();
 ---
 
 <footer class="site-footer">

@@ -98,6 +98,26 @@ const formattedDate = nowEntry?.data.updated
     gap: var(--space-md);
   }
 
+  .now-body :global(img) {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-md);
+    margin: var(--space-sm) 0;
+  }
+
+  .now-body :global(p > img) {
+    margin: 0;
+  }
+
+  .now-body :global(img + em) {
+    display: block;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    font-style: normal;
+    text-align: center;
+    margin-top: calc(-1 * var(--space-xs));
+  }
+
   .now-colophon {
     border-top: 1px solid var(--color-border);
     padding-top: var(--space-md);

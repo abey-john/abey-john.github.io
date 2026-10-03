@@ -1,24 +1,35 @@
 import { defineCollection } from 'astro:content';
 import { z } from 'astro/zod';
-import { glob, file } from 'astro/loaders';
 import { siteConfig } from './config';
+import {
+  notionAboutLoader,
+  notionNowLoader,
+  notionLaunchesLoader,
+  notionPlacesLoader,
+  notionMusicLoader,
+  notionSettingsLoader,
+} from './loaders/notion';
 
 const about = defineCollection({
-  loader: glob({ pattern: '*.md', base: 'src/content/about' }),
+  loader: notionAboutLoader(),
   schema: z.object({
     title: z.string().optional(),
+    photo: z.string().optional(),
+    photoCaption: z.string().optional(),
+    photoAlt: z.string().optional(),
+    avatar: z.string().optional(),
   }),
 });
 
 const now = defineCollection({
-  loader: glob({ pattern: '*.md', base: 'src/content/now' }),
+  loader: notionNowLoader(),
   schema: z.object({
     updated: z.coerce.date(),
   }),
 });
 
 const launches = defineCollection({
-  loader: file('src/data/launches.json'),
+  loader: notionLaunchesLoader(),
   schema: z.object({
     id: z.string(),
     category: z.enum(['professional', 'personal']).default('professional'),
@@ -26,11 +37,12 @@ const launches = defineCollection({
     url: z.url(),
     role: z.string(),
     date: z.string().optional(),
+    image: z.string().optional(),
   }),
 });
 
 const places = defineCollection({
-  loader: file('src/data/places.json'),
+  loader: notionPlacesLoader(),
   schema: z.object({
     id: z.string(),
     name: z.string(),
@@ -45,7 +57,7 @@ const places = defineCollection({
 });
 
 const music = defineCollection({
-  loader: file('src/data/music.json'),
+  loader: notionMusicLoader(),
   schema: z.object({
     updated: z.coerce.date(),
     favorites: z
@@ -79,10 +91,25 @@ const music = defineCollection({
   }),
 });
 
+const settings = defineCollection({
+  loader: notionSettingsLoader(),
+  schema: z.object({
+    name: z.string(),
+    role: z.string(),
+    location: z.string(),
+    email: z.string(),
+    github: z.string(),
+    linkedin: z.string(),
+    ratingMax: z.number().default(10),
+    description: z.string().optional(),
+  }),
+});
+
 export const collections = {
   about,
   now,
   launches,
   places,
   music,
+  settings,
 };

@@ -1,7 +1,7 @@
 ---
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
-import { siteConfig } from '../config';
+import { getSiteConfig } from '../config';
 import '../styles/global.css';
 
 interface Props {
@@ -10,9 +10,10 @@ interface Props {
   wide?: boolean;
 }
 
+const siteConfig = await getSiteConfig();
 const { title, description, wide = false } = Astro.props;
 const pageTitle = title ? `${title} — ${siteConfig.name}` : siteConfig.name;
-const defaultDescription = `${siteConfig.name} — software engineer. Personal website featuring engineering projects, travel, music, and current focus.`;
+const defaultDescription = siteConfig.description || `${siteConfig.name} — software engineer. Personal website featuring engineering projects, travel, music, and current focus.`;
 const metaDescription = description || defaultDescription;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://abey-john.github.io');

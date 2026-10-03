@@ -2,7 +2,9 @@
 import { getEntry } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
 import MediaImage from '../components/MediaImage.astro';
-import { siteConfig } from '../config';
+import { getSiteConfig } from '../config';
+
+const siteConfig = await getSiteConfig();
 
 const musicEntry = await getEntry('music', 'content');
 if (!musicEntry) {

@@ -1,10 +1,15 @@
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { Buffer } from 'node:buffer';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = fileURLToPath(new URL('..', import.meta.url));
 const assetsDir = join(rootDir, 'src', 'assets');
+
+if (!existsSync(assetsDir)) {
+  console.log('No local src/assets directory found.');
+  process.exit(0);
+}
 
 function getFiles(dir) {
   const entries = readdirSync(dir, { withFileTypes: true });

@@ -1,13 +1,17 @@
 ---
-import { Image } from 'astro:assets';
 import { getEntry, render } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
-import { siteConfig } from '../config';
-import headshotImg from '../assets/photos/abey-headshot.png';
-import bioPhoto from '../assets/photos/abey-about.png';
+import { getSiteConfig } from '../config';
 
+const siteConfig = await getSiteConfig();
 const aboutEntry = await getEntry('about', 'index');
 const { Content } = aboutEntry ? await render(aboutEntry) : { Content: null };
+
+const aboutData = aboutEntry?.data;
+const photoSrc = aboutData?.photo;
+const photoAlt = aboutData?.photoAlt || 'About photo';
+const photoCaption = aboutData?.photoCaption;
+const avatarSrc = aboutData?.avatar;
 
 const onwardLinks = [
   {
@@ -40,13 +44,18 @@ const onwardLinks = [
   <article class="about-page">
     <header class="about-header">
       <div class="header-avatar-container">
-        <Image
-          src={headshotImg}
-          alt={siteConfig.name}
-          width={160}
-          class="header-avatar"
-          loading="eager"
-        />
+        {
+          avatarSrc && (
+            <img
+              src={avatarSrc}
+              alt={siteConfig.name}
+              width={84}
+              height={84}
+              class="header-avatar"
+              loading="eager"
+            />
+          )
+        }
       </div>
       <div class="header-info">
         <h1 class="about-name">{siteConfig.name}</h1>
@@ -62,17 +71,23 @@ const onwardLinks = [
       {Content && <Content />}
     </div>
 
-    <figure class="bio-photo-card">
-      <Image
-        src={bioPhoto}
-        alt="Abey at the Matterhorn"
-        class="bio-photo"
-        loading="lazy"
-      />
-      <figcaption class="bio-photo-caption">
-        The Matterhorn, Switzerland
-      </figcaption>
-    </figure>
+    {
+      photoSrc && (
+        <figure class="bio-photo-card">
+          <img
+            src={photoSrc}
+            alt={photoAlt}
+            class="bio-photo"
+            loading="lazy"
+          />
+          {photoCaption && (
+            <figcaption class="bio-photo-caption">
+              {photoCaption}
+            </figcaption>
+          )}
+        </figure>
+      )
+    }
 
     <section class="onward-section" aria-labelledby="onward-heading">
       <h2 id="onward-heading" class="onward-heading">Explore</h2>

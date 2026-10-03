@@ -1,9 +1,14 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = fileURLToPath(new URL('..', import.meta.url));
 const assetsDir = join(rootDir, 'src', 'assets');
+
+if (!existsSync(assetsDir)) {
+  console.log('No local src/assets directory found. EXIF check passed.');
+  process.exit(0);
+}
 
 function getFiles(dir) {
   const entries = readdirSync(dir, { withFileTypes: true });

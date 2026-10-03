@@ -1,3 +1,5 @@
+import { getEntry } from 'astro:content';
+
 export interface SiteConfig {
   name: string;
   role: string;
@@ -6,14 +8,43 @@ export interface SiteConfig {
   github: string;
   linkedin: string;
   ratingMax: number;
+  description?: string;
 }
 
-export const siteConfig: SiteConfig = {
-  name: 'Abey John',
-  role: 'Software Development Engineer II at AWS',
-  location: 'Seattle, WA',
-  email: 'abeyjohnv@gmail.com',
-  github: 'https://github.com/abey-john',
-  linkedin: 'https://www.linkedin.com/in/abey-john/',
+export const defaultSiteConfig: SiteConfig = {
+  name: '',
+  role: '',
+  location: '',
+  email: '',
+  github: '',
+  linkedin: '',
   ratingMax: 10,
+  description: '',
 };
+
+export const siteConfig = defaultSiteConfig;
+
+/**
+ * Fetch dynamic site config from Notion with graceful fallback to defaultSiteConfig.
+ */
+export async function getSiteConfig(): Promise<SiteConfig> {
+  try {
+    const entry = await getEntry('settings', 'config');
+    if (entry?.data) {
+      return {
+        name: entry.data.name || defaultSiteConfig.name,
+        role: entry.data.role || defaultSiteConfig.role,
+        location: entry.data.location || defaultSiteConfig.location,
+        email: entry.data.email || defaultSiteConfig.email,
+        github: entry.data.github || defaultSiteConfig.github,
+        linkedin: entry.data.linkedin || defaultSiteConfig.linkedin,
+        ratingMax: entry.data.ratingMax ?? defaultSiteConfig.ratingMax,
+        description: entry.data.description || defaultSiteConfig.description,
+      };
+    }
+  } catch {
+    // Return fallback
+  }
+  return defaultSiteConfig;
+}
+

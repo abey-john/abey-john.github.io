@@ -16,7 +16,9 @@
     "strip:exif": "node scripts/strip-exif.mjs"
   },
   "dependencies": {
+    "@notionhq/client": "^5.27.0",
     "astro": "^7.3.5",
+    "dotenv": "^18.0.5",
     "leaflet": "^1.9.4"
   },
   "allowScripts": {
@@ -25,6 +27,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@types/leaflet": "^1.9.22",
+    "@types/node": "^26.6.4",
     "typescript": "^6.0.3"
   }
 }

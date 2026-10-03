@@ -1,9 +1,6 @@
 ---
-import { Image } from 'astro:assets';
 import { getCollection } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
-import devopsAgentImg from '../assets/photos/devops-agent.png';
-import githubLogoImg from '../assets/photos/github-logo.png';
 
 const allLaunches = await getCollection('launches');
 
@@ -44,7 +41,7 @@ function formatDisplayUrl(url: string) {
         <ul class="items-list">
           {
             professionalItems.map((item) =>
-              item.data.id === 'aws-devops-agent-ga' ? (
+              item.data.image ? (
                 <li class="item-card item-card-featured">
                   <a
                     href={item.data.url}
@@ -54,9 +51,9 @@ function formatDisplayUrl(url: string) {
                     tabindex="-1"
                     aria-hidden="true"
                   >
-                    <Image
-                      src={devopsAgentImg}
-                      alt="AWS DevOps Agent"
+                    <img
+                      src={item.data.image}
+                      alt={item.data.title}
                       class="featured-image"
                       loading="eager"
                     />
@@ -136,7 +133,7 @@ function formatDisplayUrl(url: string) {
         <ul class="items-list">
           {
             personalItems.map((item) =>
-              item.data.id === 'project-personal-site' ? (
+              item.data.image ? (
                 <li class="item-card item-card-featured item-card-featured-reverse">
                   <div class="featured-content">
                     <div class="item-header">
@@ -174,9 +171,9 @@ function formatDisplayUrl(url: string) {
                     tabindex="-1"
                     aria-hidden="true"
                   >
-                    <Image
-                      src={githubLogoImg}
-                      alt="GitHub logo"
+                    <img
+                      src={item.data.image}
+                      alt={item.data.title}
                       width={140}
                       height={140}
                       class="featured-image github-logo"
