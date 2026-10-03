@@ -1,0 +1,67 @@
+name: Deploy Site to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    # Optional daily rebuild at 12:00 UTC to sync Notion updates automatically
+    - cron: '0 12 * * *'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Website
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run type checks
+        run: npm run check
+
+      - name: Build static site with Notion data
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_SETTINGS_DB_ID: ${{ secrets.NOTION_SETTINGS_DB_ID }}
+          NOTION_ABOUT_PAGE_ID: ${{ secrets.NOTION_ABOUT_PAGE_ID }}
+          NOTION_NOW_PAGE_ID: ${{ secrets.NOTION_NOW_PAGE_ID }}
+          NOTION_LAUNCHES_DB_ID: ${{ secrets.NOTION_LAUNCHES_DB_ID }}
+          NOTION_MUSIC_DB_ID: ${{ secrets.NOTION_MUSIC_DB_ID }}
+          NOTION_PLACES_DB_ID: ${{ secrets.NOTION_PLACES_DB_ID }}
+        run: npm run build
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
