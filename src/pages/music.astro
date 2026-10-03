@@ -85,7 +85,7 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
       {
         formattedDate && (
           <p class="music-updated">
-            <span class="updated-label">Updated</span>
+            <span class="updated-label">Updated:</span>
             <time datetime={updated.toISOString().split('T')[0]}>
               {formattedDate}
             </time>
@@ -339,14 +339,12 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     font-family: var(--font-mono);
     margin: 0;
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: var(--space-xs);
   }
 
   .updated-label {
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
   }
 
   .music-title {
