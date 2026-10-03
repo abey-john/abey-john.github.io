@@ -7,6 +7,11 @@ interface Props {
 
 const { places } = Astro.props;
 
+const totalCount = places.length;
+const parkCount = places.filter((p) => p.data.type === 'park').length;
+const cityCount = places.filter((p) => p.data.type === 'city').length;
+const landmarkCount = places.filter((p) => p.data.type === 'landmark').length;
+
 const placesData = places.map((p) => ({
   id: p.data.id,
   name: p.data.name,
@@ -20,36 +25,112 @@ const placesData = places.map((p) => ({
 }));
 ---
 
-<div class="map-wrapper" id="map-wrapper">
-  <div
-    id="travel-map"
-    class="travel-map"
-    data-places={JSON.stringify(placesData)}
-    role="region"
-    aria-label="Interactive map showing visited places across the United States and the world"
-    tabindex="0"
-  >
+<div class="travel-map-container">
+  <div class="map-filter-bar" role="group" aria-label="Filter places by category">
+    <button
+      type="button"
+      class="filter-pill active"
+      data-category="all"
+      aria-pressed="true"
+      id="filter-pill-all"
+    >
+      <span class="pill-icon all-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+        </svg>
+      </span>
+      <span class="pill-label">All</span>
+      <span class="pill-count">{totalCount}</span>
+    </button>
+    <button
+      type="button"
+      class="filter-pill filter-park"
+      data-category="park"
+      aria-pressed="false"
+      id="filter-pill-park"
+    >
+      <span class="pill-icon park-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+          <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z"></path>
+        </svg>
+      </span>
+      <span class="pill-label">Parks</span>
+      <span class="pill-count">{parkCount}</span>
+    </button>
+    <button
+      type="button"
+      class="filter-pill filter-city"
+      data-category="city"
+      aria-pressed="false"
+      id="filter-pill-city"
+    >
+      <span class="pill-icon city-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+          <path
+            d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"
+          ></path>
+        </svg>
+      </span>
+      <span class="pill-label">Cities</span>
+      <span class="pill-count">{cityCount}</span>
+    </button>
+    <button
+      type="button"
+      class="filter-pill filter-landmark"
+      data-category="landmark"
+      aria-pressed="false"
+      id="filter-pill-landmark"
+    >
+      <span class="pill-icon landmark-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
+          <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"></path>
+        </svg>
+      </span>
+      <span class="pill-label">Landmarks</span>
+      <span class="pill-count">{landmarkCount}</span>
+    </button>
   </div>
 
-  <div class="map-controls-overlay">
-    <div class="map-legend" role="note" aria-label="Map Legend">
-      <div class="legend-item">
-        <span class="legend-icon park-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-            <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z"></path>
-          </svg>
-        </span>
-        <span class="legend-text">Nature</span>
-      </div>
-      <div class="legend-item">
-        <span class="legend-icon city-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-            <path
-              d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"
-            ></path>
-          </svg>
-        </span>
-        <span class="legend-text">City</span>
+  <div class="map-wrapper" id="map-wrapper">
+    <div
+      id="travel-map"
+      class="travel-map"
+      data-places={JSON.stringify(placesData)}
+      role="region"
+      aria-label="Interactive map showing visited places across the United States and the world"
+      tabindex="0"
+    >
+    </div>
+
+    <div class="map-controls-overlay">
+      <div class="map-legend" role="note" aria-label="Map Legend">
+        <div class="legend-item legend-item-park" role="button" tabindex="0" title="Filter by Parks">
+          <span class="legend-icon park-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+              <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z"></path>
+            </svg>
+          </span>
+          <span class="legend-text">Park</span>
+        </div>
+        <div class="legend-item legend-item-city" role="button" tabindex="0" title="Filter by Cities">
+          <span class="legend-icon city-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+              <path
+                d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"
+              ></path>
+            </svg>
+          </span>
+          <span class="legend-text">City</span>
+        </div>
+        <div class="legend-item legend-item-landmark" role="button" tabindex="0" title="Filter by Landmarks">
+          <span class="legend-icon landmark-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
+              <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"></path>
+            </svg>
+          </span>
+          <span class="legend-text">Landmark</span>
+        </div>
       </div>
     </div>
   </div>
@@ -66,6 +147,66 @@ const placesData = places.map((p) => ({
   import L from 'leaflet';
 
   let mapInstance: L.Map | null = null;
+  let markerRecords: { marker: L.Marker; type: string }[] = [];
+  let activeFilter: 'all' | 'park' | 'city' | 'landmark' = 'all';
+
+  function applyCategoryFilter(category: 'all' | 'park' | 'city' | 'landmark') {
+    activeFilter = category;
+    if (!mapInstance) return;
+
+    // 1. Toggle Leaflet map markers
+    markerRecords.forEach(({ marker, type }) => {
+      if (category === 'all' || type === category) {
+        if (!mapInstance!.hasLayer(marker)) {
+          marker.addTo(mapInstance!);
+        }
+      } else {
+        if (mapInstance!.hasLayer(marker)) {
+          mapInstance!.removeLayer(marker);
+        }
+      }
+    });
+
+    // Close any open popup if its marker was removed
+    mapInstance.closePopup();
+
+    // 2. Update pill UI button states
+    const pills = document.querySelectorAll<HTMLButtonElement>('.filter-pill');
+    pills.forEach((pill) => {
+      const isSelected = pill.dataset.category === category;
+      pill.classList.toggle('active', isSelected);
+      pill.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    });
+
+    // 3. Update legend items visual cue
+    const legendPark = document.querySelector<HTMLElement>('.legend-item-park');
+    const legendCity = document.querySelector<HTMLElement>('.legend-item-city');
+    const legendLandmark = document.querySelector<HTMLElement>('.legend-item-landmark');
+    if (legendPark && legendCity && legendLandmark) {
+      legendPark.classList.toggle('legend-active', category === 'park');
+      legendPark.classList.toggle('legend-dimmed', category !== 'all' && category !== 'park');
+      legendCity.classList.toggle('legend-active', category === 'city');
+      legendCity.classList.toggle('legend-dimmed', category !== 'all' && category !== 'city');
+      legendLandmark.classList.toggle('legend-active', category === 'landmark');
+      legendLandmark.classList.toggle('legend-dimmed', category !== 'all' && category !== 'landmark');
+    }
+
+    // 4. Filter text directory cards below the map
+    const placeCards = document.querySelectorAll<HTMLElement>('.place-card');
+    let visibleCount = 0;
+    placeCards.forEach((card) => {
+      const cardType = card.dataset.type;
+      const visible = category === 'all' || cardType === category;
+      card.style.display = visible ? '' : 'none';
+      if (visible) visibleCount++;
+    });
+
+    // 5. Update summary count in fallback directory
+    const summaryCountEl = document.getElementById('summary-count');
+    if (summaryCountEl) {
+      summaryCountEl.textContent = `(${visibleCount})`;
+    }
+  }
 
   function initMap() {
     const mapEl = document.getElementById('travel-map');
@@ -80,6 +221,7 @@ const placesData = places.map((p) => ({
     if ((mapEl as any)._leaflet_id) {
       (mapEl as any)._leaflet_id = null;
     }
+    markerRecords = [];
 
     const rawPlaces = JSON.parse(mapEl.dataset.places);
 
@@ -113,11 +255,18 @@ const placesData = places.map((p) => ({
     for (const place of rawPlaces) {
       const hasBlurb = Boolean(place.blurb && place.blurb.trim().length > 0);
       const isPark = place.type === 'park';
+      const isLandmark = place.type === 'landmark';
 
       const iconHtml = isPark
         ? `<div class="pin-marker pin-park" title="${place.name}">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
               <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z"/>
+            </svg>
+          </div>`
+        : isLandmark
+        ? `<div class="pin-marker pin-landmark" title="${place.name}">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+              <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
             </svg>
           </div>`
         : `<div class="pin-marker pin-city" title="${place.name}">
@@ -134,11 +283,14 @@ const placesData = places.map((p) => ({
         popupAnchor: [0, -14],
       });
 
+      const typeTag = isPark ? 'Park' : isLandmark ? 'Landmark' : 'City';
+      const tagClass = isPark ? 'tag-park' : isLandmark ? 'tag-landmark' : 'tag-city';
+
       const popupContent = hasBlurb
         ? `<div class="popup-card">
             <header class="popup-header">
-              <span class="popup-type-tag ${isPark ? 'tag-park' : 'tag-city'}">
-                ${isPark ? 'Nature' : 'City'}
+              <span class="popup-type-tag ${tagClass}">
+                ${typeTag}
               </span>
               <h3 class="popup-title">${place.name}</h3>
             </header>
@@ -157,8 +309,8 @@ const placesData = places.map((p) => ({
             }
           </div>`
         : `<div class="popup-compact">
-            <span class="popup-type-tag ${isPark ? 'tag-park' : 'tag-city'}">
-              ${isPark ? 'Nature' : 'City'}
+            <span class="popup-type-tag ${tagClass}">
+              ${typeTag}
             </span>
             <h3 class="popup-title">${place.name}</h3>
           </div>`;
@@ -178,12 +330,66 @@ const placesData = places.map((p) => ({
         offset: [0, -14],
         className: 'custom-leaflet-tooltip',
       });
+
+      markerRecords.push({ marker, type: place.type });
     }
 
     if (rawPlaces.length > 0) {
       const usBounds = L.latLngBounds([24.39, -125.0], [49.38, -66.93]);
       map.fitBounds(usBounds, { padding: [40, 40] });
     }
+
+    // Attach listeners to filter pills
+    const pills = document.querySelectorAll<HTMLButtonElement>('.filter-pill');
+    pills.forEach((pill) => {
+      pill.onclick = () => {
+        const cat = (pill.dataset.category as 'all' | 'park' | 'city' | 'landmark') || 'all';
+        applyCategoryFilter(cat);
+      };
+    });
+
+    // Attach listeners to legend items for quick toggling
+    const legendPark = document.querySelector<HTMLElement>('.legend-item-park');
+    if (legendPark) {
+      legendPark.onclick = () => {
+        applyCategoryFilter(activeFilter === 'park' ? 'all' : 'park');
+      };
+      legendPark.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          applyCategoryFilter(activeFilter === 'park' ? 'all' : 'park');
+        }
+      };
+    }
+
+    const legendCity = document.querySelector<HTMLElement>('.legend-item-city');
+    if (legendCity) {
+      legendCity.onclick = () => {
+        applyCategoryFilter(activeFilter === 'city' ? 'all' : 'city');
+      };
+      legendCity.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          applyCategoryFilter(activeFilter === 'city' ? 'all' : 'city');
+        }
+      };
+    }
+
+    const legendLandmark = document.querySelector<HTMLElement>('.legend-item-landmark');
+    if (legendLandmark) {
+      legendLandmark.onclick = () => {
+        applyCategoryFilter(activeFilter === 'landmark' ? 'all' : 'landmark');
+      };
+      legendLandmark.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          applyCategoryFilter(activeFilter === 'landmark' ? 'all' : 'landmark');
+        }
+      };
+    }
+
+    // Apply active filter state
+    applyCategoryFilter(activeFilter);
 
     requestAnimationFrame(() => {
       map.invalidateSize();
@@ -204,10 +410,139 @@ const placesData = places.map((p) => ({
       } catch (e) {}
       mapInstance = null;
     }
+    markerRecords = [];
   });
 </script>
 
 <style>
+  .travel-map-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    width: 100%;
+  }
+
+  .map-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    flex-wrap: wrap;
+  }
+
+  .filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 13px;
+    border-radius: 9999px;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  .filter-pill:hover {
+    color: var(--color-text);
+    border-color: var(--color-text-muted);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .filter-pill:active {
+    transform: scale(0.97);
+  }
+
+  .filter-pill:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  .pill-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .pill-label {
+    line-height: 1;
+  }
+
+  .pill-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 9999px;
+    background-color: var(--color-border-subtle);
+    color: var(--color-text-muted);
+    line-height: 1.2;
+    transition: background-color 0.18s ease, color 0.18s ease;
+  }
+
+  /* Active: All */
+  .filter-pill.active[data-category="all"] {
+    background-color: var(--color-text);
+    color: var(--color-bg);
+    border-color: var(--color-text);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .filter-pill.active[data-category="all"] .pill-count {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  /* Active: National Parks (Emerald) */
+  .filter-pill.active[data-category="park"] {
+    background-color: #059669;
+    color: #ffffff;
+    border-color: #059669;
+    box-shadow: 0 2px 10px rgba(5, 150, 105, 0.3);
+  }
+
+  .filter-pill.active[data-category="park"] .pill-count {
+    background-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+
+  /* Active: Cities (Sapphire) */
+  .filter-pill.active[data-category="city"] {
+    background-color: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
+  }
+
+  .filter-pill.active[data-category="city"] .pill-count {
+    background-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+
+  /* Active: Landmarks (Amber) */
+  .filter-pill.active[data-category="landmark"] {
+    background-color: #d97706;
+    color: #ffffff;
+    border-color: #d97706;
+    box-shadow: 0 2px 10px rgba(217, 119, 6, 0.3);
+  }
+
+  .filter-pill.active[data-category="landmark"] .pill-count {
+    background-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+
   .map-wrapper {
     position: relative;
     width: 100%;
@@ -257,6 +592,27 @@ const placesData = places.map((p) => ({
     display: flex;
     align-items: center;
     gap: var(--space-xs);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    user-select: none;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
+  }
+
+  .legend-item:hover {
+    background-color: var(--color-border-subtle);
+  }
+
+  .legend-item:focus-visible {
+    outline: 2px solid var(--color-focus);
+  }
+
+  .legend-item.legend-dimmed {
+    opacity: 0.35;
+  }
+
+  .legend-item.legend-active {
+    font-weight: 700;
   }
 
   .legend-icon {
@@ -278,6 +634,33 @@ const placesData = places.map((p) => ({
     background-color: #2563eb;
     color: #ffffff;
     border-radius: 3px;
+  }
+
+  .landmark-icon {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: #ffffff;
+  }
+
+  .landmark-icon::before {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    background-color: #d97706;
+    border-radius: 2px;
+    transform: rotate(45deg);
+    z-index: 1;
+  }
+
+  .landmark-icon > svg {
+    position: relative;
+    z-index: 2;
+    display: block;
   }
 
   .legend-text {
@@ -364,6 +747,43 @@ const placesData = places.map((p) => ({
     border: 2px solid #ffffff;
   }
 
+  :global(.pin-landmark) {
+    position: relative;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #ffffff;
+  }
+
+  :global(.pin-landmark::before) {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    background-color: #d97706;
+    border: 2px solid #ffffff;
+    border-radius: 4px;
+    transform: rotate(45deg);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    z-index: 1;
+  }
+
+  :global(.pin-landmark > svg) {
+    position: relative;
+    z-index: 2;
+    display: block;
+    pointer-events: none;
+  }
+
+  :global(.pin-landmark:hover) {
+    transform: scale(1.18);
+    z-index: 1000 !important;
+  }
+
+  :global(.pin-landmark:hover::before) {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  }
+
   :global(.custom-leaflet-popup .leaflet-popup-content-wrapper) {
     background-color: var(--color-bg) !important;
     color: var(--color-text) !important;
@@ -429,6 +849,10 @@ const placesData = places.map((p) => ({
 
   :global(.tag-city) {
     color: #2563eb;
+  }
+
+  :global(.tag-landmark) {
+    color: #d97706;
   }
 
   :global(.popup-title) {

@@ -493,10 +493,21 @@ export function notionPlacesLoader(): Loader {
               }
             }
 
+            const rawType = (p.Type?.select?.name || '').toLowerCase();
+            let placeType: 'city' | 'park' | 'landmark' = 'city';
+
+            if (rawType.includes('landmark')) {
+              placeType = 'landmark';
+            } else if (rawType.includes('park') || rawType.includes('nature')) {
+              placeType = 'park';
+            } else if (rawType.includes('city')) {
+              placeType = 'city';
+            }
+
             const item = {
               id,
               name,
-              type: (p.Type?.select?.name || 'city') as 'city' | 'park',
+              type: placeType,
               lat,
               lng,
               country,

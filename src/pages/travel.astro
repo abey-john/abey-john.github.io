@@ -34,19 +34,29 @@ const sortedPlaces = places
       <details class="places-details">
         <summary class="places-summary">
           <span class="summary-title"
-            >View full list of places ({sortedPlaces.length})</span
+            >View full list of places <span id="summary-count">({sortedPlaces.length})</span></span
           >
           <span class="summary-tag">Text list</span>
         </summary>
         <div class="places-grid">
           {
             sortedPlaces.map((place) => (
-              <div class="place-card">
+              <div class="place-card" data-type={place.data.type}>
                 <div class="place-header">
                   <span
-                    class={`type-pill ${place.data.type === 'park' ? 'pill-park' : 'pill-city'}`}
+                    class={`type-pill ${
+                      place.data.type === 'park'
+                        ? 'pill-park'
+                        : place.data.type === 'landmark'
+                          ? 'pill-landmark'
+                          : 'pill-city'
+                    }`}
                   >
-                    {place.data.type === 'park' ? 'Park' : 'City'}
+                    {place.data.type === 'park'
+                      ? 'Park'
+                      : place.data.type === 'landmark'
+                        ? 'Landmark'
+                        : 'City'}
                   </span>
                   <h2 class="place-name">{place.data.name}</h2>
                 </div>
@@ -173,6 +183,11 @@ const sortedPlaces = places
   .pill-city {
     background-color: rgba(37, 99, 235, 0.15);
     color: #2563eb;
+  }
+
+  .pill-landmark {
+    background-color: rgba(217, 119, 6, 0.15);
+    color: #d97706;
   }
 
   .place-name {
