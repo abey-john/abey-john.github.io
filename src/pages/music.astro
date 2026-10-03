@@ -46,6 +46,33 @@ const formattedDate = updated
       timeZone: 'UTC',
     }).format(updated)
   : null;
+
+function getRatingColors(score: number | string | undefined | null, maxScore = siteConfig.ratingMax || 10) {
+  const num = typeof score === 'number' ? score : parseFloat(String(score || '0'));
+  const clamped = isNaN(num) ? maxScore / 2 : Math.min(maxScore, Math.max(0, num));
+  const t = maxScore > 0 ? clamped / maxScore : 0.5;
+
+  // 0 -> Red (Hue 0)
+  // 5 (t = 0.5) -> Yellow (Hue 55)
+  // 10 (t = 1.0) -> Green (Hue 130)
+  const hue = Math.round(t <= 0.5 ? (t / 0.5) * 55 : 55 + ((t - 0.5) / 0.5) * 75);
+
+  // Light mode (high contrast against white #fff):
+  const lightL = Math.round(t <= 0.5 ? 38 - (t / 0.5) * 5 : 33 - ((t - 0.5) / 0.5) * 3);
+  const lightS = Math.round(t <= 0.5 ? 78 + (t / 0.5) * 18 : 96 - ((t - 0.5) / 0.5) * 21);
+
+  // Dark mode (high contrast against dark #121214):
+  const darkL = Math.round(t <= 0.5 ? 62 - (t / 0.5) * 10 : 52 - ((t - 0.5) / 0.5) * 2);
+  const darkS = Math.round(t <= 0.5 ? 85 + (t / 0.5) * 11 : 96 - ((t - 0.5) / 0.5) * 26);
+
+  return {
+    light: `hsl(${hue}, ${lightS}%, ${lightL}%)`,
+    dark: `hsl(${hue}, ${darkS}%, ${darkL}%)`,
+  };
+}
+
+const recRatingColors = getRatingColors(recommendation?.rating);
+const recentRatingColors = getRatingColors(recentListen?.rating);
 ---
 
 <Layout
@@ -84,7 +111,10 @@ const formattedDate = updated
           <div class="slot-content">
             <h3 class="album-title">{recommendation.title}</h3>
             <p class="album-artist">{recommendation.artist}</p>
-            <p class="slot-rating">
+            <p
+              class="slot-rating"
+              style={`--rating-color: ${recRatingColors.light}; --rating-color-dark: ${recRatingColors.dark};`}
+            >
               <span class="rating-value">{recommendation.rating}</span>
               <span class="rating-max">/ {siteConfig.ratingMax}</span>
             </p>
@@ -119,7 +149,10 @@ const formattedDate = updated
           <div class="slot-content">
             <h3 class="album-title">{recentListen.title}</h3>
             <p class="album-artist">{recentListen.artist}</p>
-            <p class="slot-rating">
+            <p
+              class="slot-rating"
+              style={`--rating-color: ${recentRatingColors.light}; --rating-color-dark: ${recentRatingColors.dark};`}
+            >
               <span class="rating-value">{recentListen.rating}</span>
               <span class="rating-max">/ {siteConfig.ratingMax}</span>
             </p>
@@ -388,6 +421,15 @@ const formattedDate = updated
 
   .rating-value {
     font-weight: 700;
+    color: var(--rating-color);
+    transition: color 0.25s ease;
+  }
+
+  :global(html[data-theme="dark"]) .rating-value,
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme="light"])) .rating-value {
+      color: var(--rating-color-dark, var(--rating-color));
+    }
   }
 
   .rating-max {
