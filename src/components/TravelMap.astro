@@ -63,12 +63,24 @@ const placesData = places.map((p) => ({
 </p>
 
 <script>
-  import 'leaflet/dist/leaflet.css';
   import L from 'leaflet';
 
-  const mapEl = document.getElementById('travel-map');
+  let mapInstance: L.Map | null = null;
 
-  if (mapEl && mapEl.dataset.places) {
+  function initMap() {
+    const mapEl = document.getElementById('travel-map');
+    if (!mapEl || !mapEl.dataset.places) return;
+
+    if (mapInstance) {
+      try {
+        mapInstance.remove();
+      } catch (e) {}
+      mapInstance = null;
+    }
+    if ((mapEl as any)._leaflet_id) {
+      (mapEl as any)._leaflet_id = null;
+    }
+
     const rawPlaces = JSON.parse(mapEl.dataset.places);
 
     const map = L.map(mapEl, {
@@ -80,6 +92,7 @@ const placesData = places.map((p) => ({
       zoomControl: true,
       attributionControl: false,
     });
+    mapInstance = map;
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -171,7 +184,27 @@ const placesData = places.map((p) => ({
       const usBounds = L.latLngBounds([24.39, -125.0], [49.38, -66.93]);
       map.fitBounds(usBounds, { padding: [40, 40] });
     }
+
+    requestAnimationFrame(() => {
+      map.invalidateSize();
+    });
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 150);
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 350);
   }
+
+  document.addEventListener('astro:page-load', initMap);
+  document.addEventListener('astro:before-swap', () => {
+    if (mapInstance) {
+      try {
+        mapInstance.remove();
+      } catch (e) {}
+      mapInstance = null;
+    }
+  });
 </script>
 
 <style>
@@ -182,6 +215,7 @@ const placesData = places.map((p) => ({
     overflow: hidden;
     border: 1px solid var(--color-border);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    view-transition-name: none;
   }
 
   .travel-map {
@@ -189,6 +223,7 @@ const placesData = places.map((p) => ({
     height: 580px;
     background-color: var(--color-bg);
     z-index: 1;
+    view-transition-name: none;
   }
 
   .travel-map:focus-visible {
