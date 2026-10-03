@@ -273,8 +273,18 @@ const navItems = [
       margin-left 0.25s ease;
   }
 
-  /* Desktop: sleek hover & keyboard focus expansion */
+  /* Desktop: active tab stays expanded always, others expand on hover/focus */
   @media (min-width: 641px) {
+    .nav-link.active {
+      padding: 0 10px 0 8px;
+    }
+
+    .nav-link.active .nav-label {
+      max-width: 120px;
+      opacity: 1;
+      margin-left: 6px;
+    }
+
     .nav-link:hover,
     .nav-link:focus-visible {
       padding: 0 10px 0 8px;
