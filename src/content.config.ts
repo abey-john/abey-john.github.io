@@ -67,6 +67,11 @@ const music = defineCollection({
           artist: z.string(),
           cover: z.string(),
           blurb: z.string().optional().default(''),
+          previewUrl: z.string().optional(),
+          previewTrack: z.string().optional(),
+          spotifyUrl: z.string().optional(),
+          appleMusicUrl: z.string().optional(),
+          bandcampUrl: z.string().optional(),
         })
       )
       .length(10),
@@ -78,6 +83,11 @@ const music = defineCollection({
       blurb: z.string().optional(),
       note: z.string().optional(),
       date: z.string().optional(),
+      previewUrl: z.string().optional(),
+      previewTrack: z.string().optional(),
+      spotifyUrl: z.string().optional(),
+      appleMusicUrl: z.string().optional(),
+      bandcampUrl: z.string().optional(),
     }),
     recentListen: z.object({
       title: z.string(),
@@ -87,6 +97,11 @@ const music = defineCollection({
       blurb: z.string().optional(),
       note: z.string().optional(),
       date: z.string().optional(),
+      previewUrl: z.string().optional(),
+      previewTrack: z.string().optional(),
+      spotifyUrl: z.string().optional(),
+      appleMusicUrl: z.string().optional(),
+      bandcampUrl: z.string().optional(),
     }),
     vinyl: z
       .array(
@@ -94,6 +109,8 @@ const music = defineCollection({
           title: z.string(),
           artist: z.string(),
           cover: z.string(),
+          previewUrl: z.string().optional(),
+          previewTrack: z.string().optional(),
         })
       )
       .default([]),

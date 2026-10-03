@@ -1,0 +1,620 @@
+---
+interface Props {
+  title: string;
+  artist: string;
+  previewUrl?: string;
+  previewTrack?: string;
+  size?: 'sm' | 'md';
+}
+
+const {
+  title,
+  artist,
+  previewUrl = '',
+  previewTrack = '',
+  size = 'md',
+} = Astro.props;
+---
+
+<div
+  class:list={['audio-snippet-player', `size-${size}`]}
+  data-title={title}
+  data-artist={artist}
+  data-preview-url={previewUrl}
+  data-preview-track={previewTrack}
+>
+  <button
+    type="button"
+    class="snippet-pill"
+    aria-label={`Play audio snippet of ${title} by ${artist}`}
+    title={previewTrack ? `Preview "${previewTrack}" by ${artist}` : `Preview snippet of ${title}`}
+  >
+    <span class="pill-icon" aria-hidden="true">
+      <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M8 5v14l11-7z" />
+      </svg>
+      <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+      </svg>
+      <svg class="icon-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="12" cy="12" r="10" stroke-opacity="0.25" />
+        <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round" />
+      </svg>
+    </span>
+
+    <span class="pill-label">
+      <span class="label-idle">{previewTrack ? `Sample "${previewTrack}"` : 'Preview snippet'}</span>
+      <span class="label-playing">{previewTrack ? `"${previewTrack}"` : 'Playing'}</span>
+    </span>
+
+    <span class="pill-equalizer" aria-hidden="true">
+      <span class="eq-bar bar-1"></span>
+      <span class="eq-bar bar-2"></span>
+      <span class="eq-bar bar-3"></span>
+    </span>
+
+    <span class="pill-time" aria-hidden="true">0:00</span>
+
+    <span class="pill-progress" aria-hidden="true">
+      <span class="pill-progress-fill"></span>
+    </span>
+  </button>
+</div>
+
+<style>
+  .audio-snippet-player {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 6px 0;
+  }
+
+  .snippet-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 30px;
+    padding: 0 13px 0 10px;
+    border-radius: 9999px;
+    background-color: var(--color-border-subtle);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+    transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
+  }
+
+  .snippet-pill:hover {
+    color: var(--color-text);
+    border-color: var(--color-text-muted);
+    background-color: var(--color-bg);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+
+  .snippet-pill:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  .audio-snippet-player.is-active .snippet-pill {
+    border-color: var(--color-accent);
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.1);
+  }
+
+  :global(html[data-theme="dark"]) .audio-snippet-player.is-active .snippet-pill,
+  @media (prefers-color-scheme: dark) {
+    :global(html:not([data-theme="light"])) .audio-snippet-player.is-active .snippet-pill {
+      box-shadow: 0 2px 10px rgba(96, 165, 250, 0.15);
+    }
+  }
+
+  .pill-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    color: var(--color-accent);
+    flex-shrink: 0;
+  }
+
+  .icon-play,
+  .icon-pause,
+  .icon-spinner {
+    width: 12px;
+    height: 12px;
+  }
+
+  .icon-play {
+    display: block;
+    margin-left: 1px;
+  }
+
+  .icon-pause,
+  .icon-spinner {
+    display: none;
+  }
+
+  .audio-snippet-player.is-playing .icon-play {
+    display: none;
+  }
+  .audio-snippet-player.is-playing .icon-pause {
+    display: block;
+  }
+
+  .audio-snippet-player.is-loading .icon-play,
+  .audio-snippet-player.is-loading .icon-pause {
+    display: none;
+  }
+  .audio-snippet-player.is-loading .icon-spinner {
+    display: block;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Label transitions */
+  .pill-label {
+    display: inline-flex;
+    align-items: center;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .label-idle {
+    display: inline;
+  }
+  .label-playing {
+    display: none;
+    font-weight: 600;
+  }
+
+  .audio-snippet-player.is-active .label-idle {
+    display: none;
+  }
+  .audio-snippet-player.is-active .label-playing {
+    display: inline;
+  }
+
+  /* Equalizer bars */
+  .pill-equalizer {
+    display: none;
+    align-items: flex-end;
+    gap: 2px;
+    height: 10px;
+    padding-bottom: 1px;
+    margin-left: 1px;
+  }
+
+  .audio-snippet-player.is-playing .pill-equalizer {
+    display: inline-flex;
+  }
+
+  .eq-bar {
+    width: 2px;
+    background-color: var(--color-accent);
+    border-radius: 1px;
+    height: 3px;
+  }
+
+  .audio-snippet-player.is-playing .bar-1 {
+    animation: eq 0.6s ease-in-out infinite alternate;
+  }
+  .audio-snippet-player.is-playing .bar-2 {
+    animation: eq 0.75s ease-in-out 0.15s infinite alternate;
+  }
+  .audio-snippet-player.is-playing .bar-3 {
+    animation: eq 0.5s ease-in-out 0.3s infinite alternate;
+  }
+
+  @keyframes eq {
+    0% { height: 2px; }
+    50% { height: 9px; }
+    100% { height: 3px; }
+  }
+
+  /* Mini Timer */
+  .pill-time {
+    display: none;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--color-text-muted);
+    letter-spacing: -0.02em;
+    margin-left: 2px;
+  }
+
+  .audio-snippet-player.is-active .pill-time {
+    display: inline;
+  }
+
+  /* Razor-thin bottom progress line */
+  .pill-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: transparent;
+    overflow: hidden;
+  }
+
+  .pill-progress-fill {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background-color: var(--color-accent);
+    transition: width 0.1s linear;
+  }
+
+  /* Compact size for favorite list items: strictly left aligned */
+  .size-sm {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+    align-self: flex-start;
+    margin: 4px 0 0 0;
+    width: auto;
+  }
+
+  .size-sm .snippet-pill {
+    height: 26px;
+    padding: 0 10px 0 8px;
+    font-size: 0.7rem;
+    gap: 5px;
+    margin: 0;
+  }
+
+  .size-sm .pill-icon {
+    width: 12px;
+    height: 12px;
+  }
+
+  .size-sm .icon-play,
+  .size-sm .icon-pause,
+  .size-sm .icon-spinner {
+    width: 10px;
+    height: 10px;
+  }
+
+  .size-sm .pill-label {
+    max-width: 140px;
+  }
+
+  .size-sm .pill-time {
+    font-size: 0.64rem;
+  }
+</style>
+
+<script>
+  type TargetType = 'pill' | 'vinyl';
+  interface ActiveTarget {
+    type: TargetType;
+    el: HTMLElement;
+  }
+
+  let currentAudio: HTMLAudioElement | null = null;
+  let activeTarget: ActiveTarget | null = null;
+
+  function stopCurrent() {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.removeAttribute('src');
+      currentAudio.load();
+      currentAudio = null;
+    }
+    if (activeTarget) {
+      if (activeTarget.type === 'pill') {
+        activeTarget.el.classList.remove('is-playing', 'is-active', 'is-loading');
+        const fill = activeTarget.el.querySelector('.pill-progress-fill') as HTMLElement;
+        if (fill) fill.style.width = '0%';
+        const timeLabel = activeTarget.el.querySelector('.pill-time');
+        if (timeLabel) timeLabel.textContent = '0:00';
+      } else if (activeTarget.type === 'vinyl') {
+        activeTarget.el.classList.remove('is-playing', 'is-active', 'is-paused', 'is-loading');
+        activeTarget.el.setAttribute('aria-pressed', 'false');
+      }
+      activeTarget = null;
+    }
+  }
+
+  async function resolvePreviewUrl(title: string, artist: string, preferredTrack?: string): Promise<{ url: string; track: string } | null> {
+    const target = (preferredTrack || title).trim();
+    const cleanTarget = target.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanAlbum = title.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    // 1. Try Apple Music Web directly (guarantees studio album cuts)
+    try {
+      const searchUrl = `https://music.apple.com/us/search?term=${encodeURIComponent(`${title} ${artist}`)}`;
+      const res = await fetch(searchUrl);
+      if (res.ok) {
+        const html = await res.text();
+        const albumLinks = [...html.matchAll(/\/us\/album\/([a-z0-9-]+)\/(\d+)/g)].map((m) => ({
+          slug: m[1],
+          path: m[0],
+        }));
+        if (albumLinks.length > 0) {
+          const candidate =
+            albumLinks.find((a) => a.slug.replace(/[^a-z0-9]/g, '').includes(cleanAlbum) || cleanAlbum.includes(a.slug.replace(/[^a-z0-9]/g, ''))) ||
+            albumLinks[0];
+          const albRes = await fetch(`https://music.apple.com${candidate.path}`);
+          if (albRes.ok) {
+            const albHtml = await albRes.text();
+            const m = albHtml.match(/<script[^>]+id="serialized-server-data"[^>]*>([\s\S]*?)<\/script>/);
+            if (m) {
+              const json = JSON.parse(m[1]);
+              const sections = json.data?.[0]?.data?.sections || [];
+              const trackSec = sections.find((s: any) => s.itemKind === 'trackLockup');
+              const tracks = (trackSec?.items || []).filter((t: any) => t.previewUrl);
+              if (tracks.length > 0) {
+                const exact = tracks.find((t: any) => (t.title || '').toLowerCase().replace(/[^a-z0-9]/g, '') === cleanTarget);
+                const baseMatch = tracks.find((t: any) => {
+                  const base = (t.title || '').split(/[\(\[\-–—:]/)[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+                  return base === cleanTarget;
+                });
+                const chosen = exact || baseMatch || tracks[0];
+                if (chosen?.previewUrl) {
+                  return {
+                    url: chosen.previewUrl,
+                    track: chosen.title,
+                  };
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // 2. Try iTunes Search API
+    try {
+      const q = preferredTrack ? `${preferredTrack} ${artist}` : `${title} ${artist}`;
+      const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=10`);
+      if (res.ok) {
+        const data = await res.json();
+        const songs = (data.results || []).filter((t: any) => t.previewUrl);
+        const exact = songs.find((t: any) => (t.trackName || '').toLowerCase().replace(/[^a-z0-9]/g, '') === cleanTarget);
+        const nonRemix = songs.find((t: any) => !t.trackName.toLowerCase().includes('remix') && !(t.collectionName || '').toLowerCase().includes('remix'));
+        const chosen = exact || nonRemix || songs[0];
+        if (chosen?.previewUrl) {
+          return {
+            url: chosen.previewUrl,
+            track: chosen.trackName || target,
+          };
+        }
+      }
+    } catch {}
+
+    return null;
+  }
+
+  async function togglePlay(target: ActiveTarget) {
+    // Case 1: Clicking the currently active snippet -> toggle pause or resume
+    if (activeTarget && activeTarget.el === target.el && currentAudio) {
+      if (currentAudio.paused) {
+        try {
+          await currentAudio.play();
+          if (target.type === 'pill') {
+            target.el.classList.add('is-playing');
+          } else {
+            target.el.classList.remove('is-paused');
+            target.el.classList.add('is-playing');
+            target.el.setAttribute('aria-pressed', 'true');
+          }
+        } catch (err) {
+          console.warn('Resume error:', err);
+        }
+      } else {
+        currentAudio.pause();
+        if (target.type === 'pill') {
+          target.el.classList.remove('is-playing');
+        } else {
+          target.el.classList.remove('is-playing');
+          target.el.classList.add('is-paused');
+          target.el.setAttribute('aria-pressed', 'false');
+        }
+      }
+      return;
+    }
+
+    // Case 2: Switching tracks or starting fresh
+    stopCurrent();
+
+    activeTarget = target;
+    if (target.type === 'pill') {
+      target.el.classList.add('is-active');
+    } else {
+      target.el.classList.add('is-active');
+      target.el.setAttribute('aria-pressed', 'true');
+    }
+
+    const title = target.el.dataset.title || '';
+    const artist = target.el.dataset.artist || '';
+    let url = target.el.dataset.previewUrl;
+    let track = target.el.dataset.previewTrack;
+
+    // Fetch on the fly if not preloaded
+    if (!url) {
+      target.el.classList.add('is-loading');
+      const resolved = await resolvePreviewUrl(title, artist, track);
+      target.el.classList.remove('is-loading');
+
+      if (activeTarget?.el !== target.el) return;
+
+      if (resolved) {
+        url = resolved.url;
+        track = resolved.track;
+        target.el.dataset.previewUrl = url;
+        target.el.dataset.previewTrack = track;
+        if (target.type === 'pill') {
+          const playingLabel = target.el.querySelector('.label-playing');
+          if (playingLabel) playingLabel.textContent = `"${track}"`;
+        }
+      } else {
+        if (target.type === 'pill') {
+          const idleLabel = target.el.querySelector('.label-idle');
+          if (idleLabel) idleLabel.textContent = 'Unavailable';
+        }
+        stopCurrent();
+        return;
+      }
+    }
+
+    if (activeTarget?.el !== target.el || !url) return;
+
+    const playAudio = async (audioUrl: string, isRetry = false) => {
+      const audio = new Audio(audioUrl);
+      currentAudio = audio;
+
+      audio.addEventListener('timeupdate', () => {
+        if (activeTarget?.el !== target.el) return;
+        if (target.type === 'pill') {
+          const current = audio.currentTime || 0;
+          const duration = audio.duration || 30;
+          const pct = Math.min(100, Math.max(0, (current / duration) * 100));
+
+          const fill = target.el.querySelector('.pill-progress-fill') as HTMLElement;
+          if (fill) fill.style.width = `${pct}%`;
+
+          const timeLabel = target.el.querySelector('.pill-time');
+          if (timeLabel) {
+            const curSec = Math.floor(current);
+            timeLabel.textContent = `0:${curSec < 10 ? '0' : ''}${curSec}`;
+          }
+        }
+      });
+
+      audio.addEventListener('ended', () => {
+        if (activeTarget?.el === target.el) {
+          stopCurrent();
+        }
+      });
+
+      audio.addEventListener('pause', () => {
+        if (activeTarget?.el === target.el && !audio.ended) {
+          if (target.type === 'pill') {
+            target.el.classList.remove('is-playing');
+          } else {
+            target.el.classList.remove('is-playing');
+            target.el.classList.add('is-paused');
+            target.el.setAttribute('aria-pressed', 'false');
+          }
+        }
+      });
+
+      audio.addEventListener('play', () => {
+        if (activeTarget?.el === target.el) {
+          if (target.type === 'pill') {
+            target.el.classList.add('is-playing');
+          } else {
+            target.el.classList.remove('is-paused');
+            target.el.classList.add('is-playing');
+            target.el.setAttribute('aria-pressed', 'true');
+          }
+        }
+      });
+
+      audio.addEventListener('error', async () => {
+        if (activeTarget?.el !== target.el) return;
+        if (!isRetry) {
+          console.warn('Playback error on', title, '- refreshing preview URL...');
+          target.el.dataset.previewUrl = '';
+          target.el.classList.add('is-loading');
+          const fresh = await resolvePreviewUrl(title, artist, track);
+          target.el.classList.remove('is-loading');
+          if (fresh?.url && activeTarget?.el === target.el) {
+            target.el.dataset.previewUrl = fresh.url;
+            target.el.dataset.previewTrack = fresh.track;
+            playAudio(fresh.url, true);
+            return;
+          }
+        }
+        stopCurrent();
+      });
+
+      try {
+        await audio.play();
+        if (activeTarget?.el === target.el) {
+          if (target.type === 'pill') {
+            target.el.classList.add('is-playing');
+          } else {
+            target.el.classList.add('is-playing');
+            target.el.setAttribute('aria-pressed', 'true');
+          }
+        }
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          if (!isRetry) {
+            target.el.dataset.previewUrl = '';
+            target.el.classList.add('is-loading');
+            const fresh = await resolvePreviewUrl(title, artist, track);
+            target.el.classList.remove('is-loading');
+            if (fresh?.url && activeTarget?.el === target.el) {
+              target.el.dataset.previewUrl = fresh.url;
+              playAudio(fresh.url, true);
+              return;
+            }
+          }
+          console.warn('Playback error:', err);
+          stopCurrent();
+        }
+      }
+    };
+
+    await playAudio(url);
+  }
+
+  function setupAudioSnippetPlayers() {
+    // 1. Setup snippet pills (Top 10, Recommendation, Recent Listen)
+    const players = document.querySelectorAll('.audio-snippet-player');
+    players.forEach((playerEl) => {
+      const player = playerEl as HTMLElement;
+      const btn = player.querySelector('.snippet-pill');
+      if (!btn || btn.hasAttribute('data-bound')) return;
+      btn.setAttribute('data-bound', 'true');
+
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePlay({ type: 'pill', el: player });
+      });
+    });
+
+    // 2. Setup vinyl jackets on the shelf
+    const vinylJackets = document.querySelectorAll('.vinyl-jacket');
+    vinylJackets.forEach((jacketEl) => {
+      const jacket = jacketEl as HTMLElement;
+      if (jacket.hasAttribute('data-bound')) return;
+      jacket.setAttribute('data-bound', 'true');
+
+      jacket.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePlay({ type: 'vinyl', el: jacket });
+      });
+    });
+  }
+
+  // Cleanup audio when user navigates away
+  document.addEventListener('astro:before-swap', () => {
+    stopCurrent();
+  });
+
+  document.addEventListener('astro:page-load', setupAudioSnippetPlayers);
+  if (document.readyState !== 'loading') {
+    setupAudioSnippetPlayers();
+  } else {
+    document.addEventListener('DOMContentLoaded', setupAudioSnippetPlayers);
+  }
+</script>

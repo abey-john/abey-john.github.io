@@ -2,6 +2,7 @@
 import { getEntry } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
 import MediaImage from '../components/MediaImage.astro';
+import AudioSnippetPlayer from '../components/AudioSnippetPlayer.astro';
 import { getSiteConfig } from '../config';
 
 const siteConfig = await getSiteConfig();
@@ -87,6 +88,12 @@ const formattedDate = updated
               <span class="rating-value">{recommendation.rating}</span>
               <span class="rating-max">/ {siteConfig.ratingMax}</span>
             </p>
+            <AudioSnippetPlayer
+              title={recommendation.title}
+              artist={recommendation.artist}
+              previewUrl={recommendation.previewUrl}
+              previewTrack={recommendation.previewTrack}
+            />
             {
               (recommendation.blurb || recommendation.note) && (
                 <p
@@ -116,6 +123,12 @@ const formattedDate = updated
               <span class="rating-value">{recentListen.rating}</span>
               <span class="rating-max">/ {siteConfig.ratingMax}</span>
             </p>
+            <AudioSnippetPlayer
+              title={recentListen.title}
+              artist={recentListen.artist}
+              previewUrl={recentListen.previewUrl}
+              previewTrack={recentListen.previewTrack}
+            />
             {
               (recentListen.blurb || recentListen.note) && (
                 <p
@@ -179,6 +192,13 @@ const formattedDate = updated
                     {album.blurb && (
                       <p class="album-blurb" set:html={album.blurb} />
                     )}
+                    <AudioSnippetPlayer
+                      title={album.title}
+                      artist={album.artist}
+                      previewUrl={album.previewUrl}
+                      previewTrack={album.previewTrack}
+                      size="sm"
+                    />
                   </div>
                 </li>
               ))
@@ -202,8 +222,22 @@ const formattedDate = updated
         sortedVinyl.length > 0 ? (
           <div class="vinyl-grid">
             {sortedVinyl.map((record) => (
-              <div class="vinyl-card" tabindex="0">
-                <div class="vinyl-jacket">
+              <div class="vinyl-card">
+                <button
+                  type="button"
+                  class="vinyl-jacket"
+                  data-title={record.title}
+                  data-artist={record.artist}
+                  data-preview-url={record.previewUrl}
+                  data-preview-track={record.previewTrack}
+                  aria-label={`Preview snippet of ${record.title} by ${record.artist}`}
+                  aria-pressed="false"
+                  title={
+                    record.previewTrack
+                      ? `Preview "${record.previewTrack}" by ${record.artist}`
+                      : `Preview snippet of ${record.title} by ${record.artist}`
+                  }
+                >
                   <MediaImage
                     src={record.cover}
                     alt={`${record.title} by ${record.artist}`}
@@ -212,11 +246,28 @@ const formattedDate = updated
                     height={240}
                     class="vinyl-cover-image"
                   />
-                  <div class="vinyl-hover-overlay">
-                    <p class="vinyl-title">{record.title}</p>
-                    <p class="vinyl-artist">{record.artist}</p>
+
+                  <!-- Dimming overlay with top-right Play/Pause icon and album info -->
+                  <div class="vinyl-overlay" aria-hidden="true">
+                    <div class="vinyl-action-icon">
+                      <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                      <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                      </svg>
+                      <svg class="icon-loading" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="12" cy="12" r="10" stroke-opacity="0.25" />
+                        <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round" />
+                      </svg>
+                    </div>
+
+                    <div class="vinyl-info">
+                      <p class="vinyl-title">{record.title}</p>
+                      <p class="vinyl-artist">{record.artist}</p>
+                    </div>
                   </div>
-                </div>
+                </button>
               </div>
             ))}
           </div>
@@ -329,7 +380,7 @@ const formattedDate = updated
   }
 
   .slot-rating {
-    margin: var(--space-xs) 0;
+    margin: var(--space-xs) 0 4px 0;
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
     color: var(--color-text);
@@ -494,6 +545,8 @@ const formattedDate = updated
   .favorite-details {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
     gap: var(--space-xs);
   }
 
@@ -571,11 +624,11 @@ const formattedDate = updated
   .vinyl-card {
     position: relative;
     border-radius: var(--radius-sm);
-    outline: none;
-    cursor: pointer;
   }
 
-  .vinyl-jacket {
+  button.vinyl-jacket {
+    display: block;
+    width: 100%;
     position: relative;
     aspect-ratio: 1 / 1;
     border-radius: var(--radius-sm);
@@ -585,13 +638,37 @@ const formattedDate = updated
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
     transition:
       transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.2s ease;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
   }
 
-  .vinyl-card:hover .vinyl-jacket,
-  .vinyl-card:focus-visible .vinyl-jacket {
+  button.vinyl-jacket:hover,
+  button.vinyl-jacket:focus-visible {
     transform: translateY(-4px) scale(1.02);
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+    border-color: var(--color-text-muted);
+  }
+
+  button.vinyl-jacket:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 3px;
+  }
+
+  /* Playing / Paused state on jacket */
+  button.vinyl-jacket.is-playing,
+  button.vinyl-jacket.is-paused {
+    border-color: var(--color-primary);
+    box-shadow:
+      0 0 0 2px var(--color-primary),
+      0 12px 28px rgba(0, 0, 0, 0.25);
   }
 
   .vinyl-cover-image {
@@ -600,31 +677,122 @@ const formattedDate = updated
     display: block;
   }
 
-  .vinyl-hover-overlay {
+  /* Dimming overlay over album art */
+  .vinyl-overlay {
     position: absolute;
     inset: 0;
     background: linear-gradient(
-      to top,
-      rgba(0, 0, 0, 0.94) 0%,
-      rgba(0, 0, 0, 0.65) 50%,
-      rgba(0, 0, 0, 0.15) 100%
+      to bottom,
+      rgba(0, 0, 0, 0.45) 0%,
+      rgba(0, 0, 0, 0.08) 35%,
+      rgba(0, 0, 0, 0.88) 100%
     );
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    padding: 0.5rem;
     opacity: 0;
-    transform: translateY(4px);
-    transition:
-      opacity 0.2s ease,
-      transform 0.2s ease;
+    transition: opacity 0.22s ease;
     pointer-events: none;
+    z-index: 2;
   }
 
-  .vinyl-card:hover .vinyl-hover-overlay,
-  .vinyl-card:focus-visible .vinyl-hover-overlay {
+  /* Dim the album art and show play/pause when hovered OR playing OR paused */
+  button.vinyl-jacket:hover .vinyl-overlay,
+  button.vinyl-jacket:focus-visible .vinyl-overlay,
+  button.vinyl-jacket.is-playing .vinyl-overlay,
+  button.vinyl-jacket.is-paused .vinyl-overlay {
     opacity: 1;
-    transform: translateY(0);
+  }
+
+  /* Top-Right Play / Pause Icon button */
+  .vinyl-action-icon {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    transition:
+      transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  button.vinyl-jacket:hover .vinyl-action-icon {
+    transform: scale(1.12);
+    background: rgba(0, 0, 0, 0.8);
+    border-color: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Active styling while playing */
+  button.vinyl-jacket.is-playing .vinyl-action-icon {
+    background: var(--color-primary);
+    border-color: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.65);
+  }
+
+  .vinyl-action-icon svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .vinyl-action-icon .icon-play {
+    margin-left: 1.5px; /* optical balance for play triangle */
+    display: block;
+  }
+
+  .vinyl-action-icon .icon-pause,
+  .vinyl-action-icon .icon-loading {
+    display: none;
+  }
+
+  /* While playing: show pause icon */
+  button.vinyl-jacket.is-playing .vinyl-action-icon .icon-play {
+    display: none;
+  }
+  button.vinyl-jacket.is-playing .vinyl-action-icon .icon-pause {
+    display: block;
+  }
+
+  /* While paused: show play icon */
+  button.vinyl-jacket.is-paused .vinyl-action-icon .icon-play {
+    display: block;
+  }
+  button.vinyl-jacket.is-paused .vinyl-action-icon .icon-pause {
+    display: none;
+  }
+
+  /* While loading */
+  button.vinyl-jacket.is-loading .vinyl-action-icon .icon-play,
+  button.vinyl-jacket.is-loading .vinyl-action-icon .icon-pause {
+    display: none;
+  }
+  button.vinyl-jacket.is-loading .vinyl-action-icon .icon-loading {
+    display: block;
+    animation: vinylSpin 0.9s linear infinite;
+  }
+
+  @keyframes vinylSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Bottom title and artist information */
+  .vinyl-info {
+    position: absolute;
+    bottom: 0.45rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    text-align: left;
+    pointer-events: none;
   }
 
   .vinyl-title {
