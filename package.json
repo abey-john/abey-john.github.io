@@ -13,7 +13,8 @@
     "check": "astro check",
     "check:placeholders": "node scripts/check-placeholders.mjs",
     "check:exif": "node scripts/check-exif.mjs",
-    "strip:exif": "node scripts/strip-exif.mjs"
+    "strip:exif": "node scripts/strip-exif.mjs",
+    "geocode": "node scripts/sync-geocoding.mjs"
   },
   "dependencies": {
     "@notionhq/client": "^5.27.0",
