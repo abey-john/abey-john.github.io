@@ -123,6 +123,7 @@ const settings = defineCollection({
     name: z.string(),
     role: z.string(),
     location: z.string(),
+    timezone: z.string().default('America/Los_Angeles'),
     email: z.string(),
     github: z.string(),
     linkedin: z.string(),

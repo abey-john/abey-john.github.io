@@ -1,6 +1,7 @@
 ---
 import { getEntry, render } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
+import LocalTimeBadge from '../components/LocalTimeBadge.astro';
 
 const nowEntry = await getEntry('now', 'index');
 const { Content } = nowEntry ? await render(nowEntry) : { Content: null };
@@ -18,17 +19,22 @@ const formattedDate = nowEntry?.data.updated
 <Layout title="Now" description="What I am currently focused on.">
   <article class="now-page">
     <header class="now-header">
-      <h1 class="now-title">Now</h1>
-      {
-        formattedDate && nowEntry && (
-          <p class="now-updated">
-            <span class="updated-label">Updated:</span>
-            <time datetime={nowEntry.data.updated.toISOString().split('T')[0]}>
-              {formattedDate}
-            </time>
-          </p>
-        )
-      }
+      <div class="now-header-row">
+        <div class="now-header-title-group">
+          <h1 class="now-title">Now</h1>
+          {
+            formattedDate && nowEntry && (
+              <p class="now-updated">
+                <span class="updated-label">Updated:</span>
+                <time datetime={nowEntry.data.updated.toISOString().split('T')[0]}>
+                  {formattedDate}
+                </time>
+              </p>
+            )
+          }
+        </div>
+        <LocalTimeBadge />
+      </div>
     </header>
 
     <div class="prose now-body">
@@ -59,11 +65,29 @@ const formattedDate = nowEntry?.data.updated
   }
 
   .now-header {
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: var(--space-lg);
+  }
+
+  .now-header-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+  }
+
+  .now-header-title-group {
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
-    border-bottom: 1px solid var(--color-border);
-    padding-bottom: var(--space-lg);
+  }
+
+  @media (max-width: 640px) {
+    .now-header-row {
+      align-items: flex-start;
+      gap: var(--space-sm);
+    }
   }
 
   .now-title {

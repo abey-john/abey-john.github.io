@@ -1,0 +1,359 @@
+---
+import { getSiteConfig } from '../config';
+
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+
+const siteConfig = await getSiteConfig();
+const location = siteConfig.location || 'Seattle, WA';
+const timezone = siteConfig.timezone || 'America/Los_Angeles';
+
+// Server-side initial time formatting
+const now = new Date();
+const formatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: timezone,
+  hour: 'numeric',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: true,
+});
+
+const parts = formatter.formatToParts(now);
+let initialHour = '12';
+let initialMinute = '00';
+let initialSecond = '00';
+let initialPeriod = 'PM';
+
+for (const part of parts) {
+  if (part.type === 'hour') initialHour = part.value;
+  else if (part.type === 'minute') initialMinute = part.value;
+  else if (part.type === 'second') initialSecond = part.value;
+  else if (part.type === 'dayPeriod') initialPeriod = part.value;
+}
+---
+
+<div
+  class:list={['local-time-badge', className]}
+  data-timezone={timezone}
+  role="status"
+  aria-label={`Current time in ${location}: ${initialHour}:${initialMinute}:${initialSecond} ${initialPeriod}`}
+>
+  <span class="badge-pin-icon" aria-hidden="true">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="pin-svg"
+    >
+      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+      <circle cx="12" cy="10" r="3"></circle>
+    </svg>
+  </span>
+  <span class="badge-location">{location}</span>
+  <span class="badge-bullet" aria-hidden="true">&bull;</span>
+
+  <!-- Digital Green Screen Display -->
+  <div class="alarm-screen" title={`Live time in ${location}`}>
+    <div class="alarm-screen-bezel">
+      <span class="lcd-digits">
+        <span class="lcd-hour">{initialHour}</span>
+        <span class="lcd-colon">:</span>
+        <span class="lcd-minute">{initialMinute}</span>
+        <span class="lcd-sub-colon">:</span>
+        <span class="lcd-second">{initialSecond}</span>
+      </span>
+      <span class="lcd-period">{initialPeriod}</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  let timerId: number | null = null;
+
+  function cleanupClockTimer() {
+    if (timerId !== null) {
+      clearTimeout(timerId);
+      timerId = null;
+    }
+  }
+
+  function tick() {
+    const badges = document.querySelectorAll<HTMLElement>('.local-time-badge');
+    if (!badges.length) {
+      cleanupClockTimer();
+      return;
+    }
+
+    const now = new Date();
+
+    badges.forEach((badge) => {
+      const timezone = badge.dataset.timezone || 'America/Los_Angeles';
+      const hourEl = badge.querySelector<HTMLElement>('.lcd-hour');
+      const colonEl = badge.querySelector<HTMLElement>('.lcd-colon');
+      const minuteEl = badge.querySelector<HTMLElement>('.lcd-minute');
+      const secondEl = badge.querySelector<HTMLElement>('.lcd-second');
+      const periodEl = badge.querySelector<HTMLElement>('.lcd-period');
+      const locationEl = badge.querySelector<HTMLElement>('.badge-location');
+
+      if (!hourEl || !minuteEl || !secondEl || !periodEl) return;
+
+      try {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: timezone,
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        });
+
+        const parts = formatter.formatToParts(now);
+        let h = '';
+        let m = '';
+        let s = '';
+        let p = '';
+
+        for (const part of parts) {
+          if (part.type === 'hour') h = part.value;
+          else if (part.type === 'minute') m = part.value;
+          else if (part.type === 'second') s = part.value;
+          else if (part.type === 'dayPeriod') p = part.value;
+        }
+
+        if (hourEl.textContent !== h) hourEl.textContent = h;
+        if (minuteEl.textContent !== m) minuteEl.textContent = m;
+        if (secondEl.textContent !== s) secondEl.textContent = s;
+        if (periodEl.textContent !== p) periodEl.textContent = p;
+
+        if (colonEl) {
+          colonEl.classList.toggle('colon-dim', now.getSeconds() % 2 === 0);
+        }
+
+        const loc = locationEl?.textContent || 'local';
+        badge.setAttribute('aria-label', `Current time in ${loc}: ${h}:${m}:${s} ${p}`);
+      } catch {
+        // Fallback gracefully
+      }
+    });
+
+    const ms = now.getMilliseconds();
+    const msToNextSecond = 1000 - ms + 15;
+    timerId = window.setTimeout(tick, Math.max(150, msToNextSecond));
+  }
+
+  function initClock() {
+    cleanupClockTimer();
+    const badges = document.querySelectorAll('.local-time-badge');
+    if (badges.length > 0) {
+      tick();
+    }
+  }
+
+  document.addEventListener('astro:page-load', initClock);
+  document.addEventListener('astro:before-swap', cleanupClockTimer);
+</script>
+
+<style>
+  .local-time-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px 4px 10px;
+    border-radius: 9999px;
+    background-color: var(--color-border-subtle);
+    border: 1px solid var(--color-border);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    line-height: 1.4;
+    white-space: nowrap;
+    transition:
+      border-color 0.2s ease,
+      background-color 0.2s ease,
+      box-shadow 0.2s ease;
+    user-select: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  }
+
+  .local-time-badge:hover {
+    border-color: var(--color-text-muted);
+    background-color: var(--color-bg);
+  }
+
+  .badge-pin-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-accent);
+    flex-shrink: 0;
+  }
+
+  .pin-svg {
+    display: block;
+    width: 13px;
+    height: 13px;
+  }
+
+  .badge-location {
+    color: var(--color-text);
+    font-weight: 500;
+  }
+
+  .badge-bullet {
+    color: var(--color-text-muted);
+    opacity: 0.45;
+    margin: 0 1px;
+  }
+
+  /* Digital Green Alarm Screen */
+  .alarm-screen {
+    --screen-bg: #ecfdf5;
+    --screen-border: #a7f3d0;
+    --screen-shadow: inset 0 1px 2px rgba(4, 120, 87, 0.12), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --screen-text: #047857;
+    --screen-text-shadow: none;
+    --screen-second: #059669;
+    --screen-period: #047857;
+    --screen-period-shadow: none;
+    --screen-colon-dim: 0.25;
+
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--screen-bg);
+    border: 1px solid var(--screen-border);
+    border-radius: 6px;
+    padding: 2px 7px 2px 7px;
+    box-shadow: var(--screen-shadow);
+    font-family: var(--font-mono);
+    line-height: 1.2;
+    position: relative;
+    letter-spacing: 0.02em;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  /* System dark mode preference when no explicit light theme */
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme="light"])) .alarm-screen {
+      --screen-bg: #0b0f0e;
+      --screen-border: #1e2923;
+      --screen-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 1px rgba(16, 185, 129, 0.25);
+      --screen-text: #34d399;
+      --screen-text-shadow: 0 0 8px rgba(52, 211, 153, 0.65), 0 0 2px rgba(52, 211, 153, 0.95);
+      --screen-second: #6ee7b7;
+      --screen-period: #34d399;
+      --screen-period-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+      --screen-colon-dim: 0.2;
+    }
+  }
+
+  /* Explicit dark theme */
+  :global(html[data-theme="dark"]) .alarm-screen {
+    --screen-bg: #0b0f0e;
+    --screen-border: #1e2923;
+    --screen-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 1px rgba(16, 185, 129, 0.25);
+    --screen-text: #34d399;
+    --screen-text-shadow: 0 0 8px rgba(52, 211, 153, 0.65), 0 0 2px rgba(52, 211, 153, 0.95);
+    --screen-second: #6ee7b7;
+    --screen-period: #34d399;
+    --screen-period-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+    --screen-colon-dim: 0.2;
+  }
+
+  /* Explicit light theme */
+  :global(html[data-theme="light"]) .alarm-screen {
+    --screen-bg: #ecfdf5;
+    --screen-border: #a7f3d0;
+    --screen-shadow: inset 0 1px 2px rgba(4, 120, 87, 0.12), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --screen-text: #047857;
+    --screen-text-shadow: none;
+    --screen-second: #059669;
+    --screen-period: #047857;
+    --screen-period-shadow: none;
+    --screen-colon-dim: 0.25;
+  }
+
+  .alarm-screen-bezel {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .lcd-digits {
+    display: inline-flex;
+    align-items: baseline;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--screen-text);
+    text-shadow: var(--screen-text-shadow);
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+  }
+
+  .lcd-colon {
+    display: inline-block;
+    transition: opacity 0.15s ease, color 0.2s ease;
+    opacity: 1;
+    margin: 0 1px;
+    color: var(--screen-text);
+  }
+
+  .lcd-colon.colon-dim {
+    opacity: var(--screen-colon-dim);
+  }
+
+  .lcd-sub-colon {
+    opacity: 0.55;
+    margin: 0 1px;
+    font-size: 0.85em;
+    color: var(--screen-text);
+  }
+
+  .lcd-second {
+    font-size: 0.85em;
+    color: var(--screen-second);
+    opacity: 0.95;
+    transition: color 0.2s ease;
+  }
+
+  .lcd-period {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--screen-period);
+    letter-spacing: 0.05em;
+    opacity: 0.9;
+    text-shadow: var(--screen-period-shadow);
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+  }
+
+  @media (max-width: 480px) {
+    .local-time-badge {
+      font-size: 0.8125rem;
+      padding: 3px 8px 3px 8px;
+      gap: 6px;
+    }
+
+    .lcd-digits {
+      font-size: 0.8125rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lcd-colon {
+      transition: none;
+    }
+    .lcd-colon.colon-dim {
+      opacity: 1;
+    }
+  }
+</style>
