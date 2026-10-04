@@ -29,4 +29,6 @@ Thumbs.db
 
 # dynamic assets downloaded from Notion
 public/assets/notion/
+src/assets/notion/*
+!src/assets/notion/.gitkeep
 

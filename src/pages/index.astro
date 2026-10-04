@@ -1,6 +1,7 @@
 ---
 import { getEntry, render } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
+import MediaImage from '../components/MediaImage.astro';
 import { getSiteConfig } from '../config';
 
 const siteConfig = await getSiteConfig();
@@ -50,13 +51,14 @@ const onwardLinks = [
       <div class="header-avatar-container">
         {
           avatarSrc && (
-            <img
+            <MediaImage
               src={avatarSrc}
               alt={siteConfig.name}
-              width={84}
-              height={84}
-              class="header-avatar"
+              width={168}
+              quality={95}
               loading="eager"
+              class="header-avatar-wrapper"
+              imageClass="header-avatar"
             />
           )
         }
@@ -78,11 +80,14 @@ const onwardLinks = [
     {
       photoSrc && (
         <figure class="bio-photo-card">
-          <img
+          <MediaImage
             src={photoSrc}
             alt={photoAlt}
-            class="bio-photo"
+            width={902}
+            quality={95}
             loading="lazy"
+            class="bio-photo-wrapper"
+            imageClass="bio-photo"
           />
           {photoCaption && (
             <figcaption class="bio-photo-caption">
@@ -160,14 +165,20 @@ const onwardLinks = [
     flex-shrink: 0;
   }
 
-  .header-avatar {
+  :global(.header-avatar-wrapper) {
     width: 84px;
     height: 84px;
     border-radius: 50%;
-    object-fit: cover;
-    object-position: 50% -13px;
+    overflow: hidden;
     border: 2px solid var(--color-border);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  :global(.header-avatar) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% -13px;
   }
 
   .header-info {
@@ -214,9 +225,15 @@ const onwardLinks = [
     background-color: var(--color-border-subtle);
   }
 
-  .bio-photo {
+  :global(.bio-photo-wrapper) {
     width: 100%;
-    height: auto;
+    max-height: 500px;
+    background-color: transparent;
+  }
+
+  :global(.bio-photo) {
+    width: 100%;
+    height: 100%;
     max-height: 500px;
     object-fit: cover;
     display: block;

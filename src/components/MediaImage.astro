@@ -1,6 +1,7 @@
 ---
 import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
+import { getNotionImageMetadata } from '../utils/images';
 
 interface Props {
   src: ImageMetadata | string;
@@ -9,7 +10,12 @@ interface Props {
   height?: number;
   aspectRatio?: string;
   class?: string;
+  imageClass?: string;
   loading?: 'lazy' | 'eager';
+  widths?: number[];
+  sizes?: string;
+  densities?: (number | `${number}x`)[];
+  quality?: number | 'low' | 'mid' | 'high' | 'max';
 }
 
 const {
@@ -19,33 +25,44 @@ const {
   height,
   aspectRatio,
   class: className,
+  imageClass,
   loading = 'lazy',
+  widths,
+  sizes,
+  densities,
+  quality = 92,
 } = Astro.props;
 
-const isMetadata = typeof src === 'object' && src !== null && 'src' in src;
-const resolvedWidth = width ?? (isMetadata ? (src as ImageMetadata).width : undefined);
-const resolvedHeight = height ?? (isMetadata ? (src as ImageMetadata).height : undefined);
+const imageMetadata = await getNotionImageMetadata(src);
+const imageProps = widths
+  ? { widths, sizes }
+  : { densities: densities ?? [1, 2] };
 ---
 
-<div class:list={['image-wrapper', className]} style={aspectRatio ? `aspect-ratio: ${aspectRatio};` : undefined}>
+<div
+  class:list={['image-wrapper', className]}
+  style={aspectRatio ? `aspect-ratio: ${aspectRatio};` : undefined}
+>
   {
-    isMetadata ? (
+    imageMetadata ? (
       <Image
-        src={src as ImageMetadata}
+        src={imageMetadata}
         alt={alt}
-        width={resolvedWidth}
-        height={resolvedHeight}
+        width={width ?? imageMetadata.width}
+        height={height ?? (width ? Math.round(width / (imageMetadata.width / imageMetadata.height)) : imageMetadata.height)}
+        quality={quality}
         loading={loading}
-        class="media-image"
+        {...imageProps}
+        class:list={['media-image', imageClass]}
       />
     ) : (
       <img
         src={src as string}
         alt={alt}
-        width={resolvedWidth}
-        height={resolvedHeight}
+        width={width}
+        height={height}
         loading={loading}
-        class="media-image"
+        class:list={['media-image', imageClass]}
       />
     )
   }

@@ -2,6 +2,7 @@ import type { Loader, LoaderContext } from 'astro/loaders';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import sharp from 'sharp';
 import 'dotenv/config';
 
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
@@ -125,9 +126,13 @@ async function downloadRemoteImage(url: string): Promise<string> {
   if (!url || !url.startsWith('http')) return url;
 
   try {
-    const notionDir = path.resolve('public/assets/notion');
-    if (!fs.existsSync(notionDir)) {
-      fs.mkdirSync(notionDir, { recursive: true });
+    const publicNotionDir = path.resolve('public/assets/notion');
+    const srcNotionDir = path.resolve('src/assets/notion');
+    if (!fs.existsSync(publicNotionDir)) {
+      fs.mkdirSync(publicNotionDir, { recursive: true });
+    }
+    if (!fs.existsSync(srcNotionDir)) {
+      fs.mkdirSync(srcNotionDir, { recursive: true });
     }
 
     // Determine extension
@@ -137,14 +142,27 @@ async function downloadRemoteImage(url: string): Promise<string> {
 
     const hash = crypto.createHash('md5').update(cleanUrl).digest('hex').slice(0, 12);
     const filename = `${hash}.${ext}`;
-    const targetPath = path.join(notionDir, filename);
+    const publicTargetPath = path.join(publicNotionDir, filename);
+    const srcTargetPath = path.join(srcNotionDir, filename);
 
-    if (!fs.existsSync(targetPath)) {
+    if (!fs.existsSync(srcTargetPath) || !fs.existsSync(publicTargetPath)) {
       const response = await fetch(url);
       if (response.ok) {
         const rawBuffer = Buffer.from(await response.arrayBuffer());
-        const cleanBuffer = stripExifMetadata(rawBuffer, ext);
-        fs.writeFileSync(targetPath, cleanBuffer);
+        let cleanBuffer: Buffer = rawBuffer;
+        if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+          try {
+            cleanBuffer = await sharp(rawBuffer).rotate().toBuffer();
+          } catch {
+            cleanBuffer = stripExifMetadata(rawBuffer, ext);
+          }
+        }
+        if (!fs.existsSync(publicTargetPath)) {
+          fs.writeFileSync(publicTargetPath, cleanBuffer);
+        }
+        if (!fs.existsSync(srcTargetPath)) {
+          fs.writeFileSync(srcTargetPath, cleanBuffer);
+        }
       } else {
         return url;
       }

@@ -14,14 +14,17 @@ import Layout from '../layouts/Layout.astro';
       aria-label="Step through the blue portal to return to About"
       title="Step through the blue portal to return home"
     >
-      <img
-        src="/assets/portal-blue.png"
-        alt="Portal blue runner emerging"
-        class="portal-img"
-        width="164"
-        height="444"
-        loading="eager"
-      />
+      <picture>
+        <source srcset="/assets/portal-blue.webp" type="image/webp" />
+        <img
+          src="/assets/portal-blue.png"
+          alt="Portal blue runner emerging"
+          class="portal-img"
+          width="164"
+          height="444"
+          loading="eager"
+        />
+      </picture>
     </a>
 
     <a
@@ -30,14 +33,17 @@ import Layout from '../layouts/Layout.astro';
       aria-label="Step through the orange portal to return to About"
       title="Step through the orange portal to return home"
     >
-      <img
-        src="/assets/portal-orange.png"
-        alt="Portal orange runner entering"
-        class="portal-img"
-        width="164"
-        height="444"
-        loading="eager"
-      />
+      <picture>
+        <source srcset="/assets/portal-orange.webp" type="image/webp" />
+        <img
+          src="/assets/portal-orange.png"
+          alt="Portal orange runner entering"
+          class="portal-img"
+          width="164"
+          height="444"
+          loading="eager"
+        />
+      </picture>
     </a>
   </div>
 
