@@ -27,9 +27,13 @@ const canonicalURL = new URL(
   Astro.site || 'https://abey-john.github.io'
 );
 
-const siteOrigin = (Astro.site ? new URL(Astro.site) : new URL('https://abey-john.github.io')).origin;
+const siteOrigin = (
+  Astro.site ? new URL(Astro.site) : new URL('https://abey-john.github.io')
+).origin;
 const avatarSrc = aboutEntry?.data?.avatar || aboutEntry?.data?.photo;
 const avatarUrl = avatarSrc ? new URL(avatarSrc, siteOrigin).href : undefined;
+const ogImageURL = new URL('/og-image.jpg', siteOrigin).href;
+const ogImageAlt = `${siteConfig.name || 'Abey John'}`;
 
 const locationParts = siteConfig.location
   ? siteConfig.location.split(',').map((s) => s.trim())
@@ -127,10 +131,18 @@ const jsonLd = schema || personSchema;
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content={siteConfig.name} />
+    <meta property="og:image" content={ogImageURL} />
+    <meta property="og:image:secure_url" content={ogImageURL} />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={ogImageAlt} />
 
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={metaDescription} />
+    <meta name="twitter:image" content={ogImageURL} />
+    <meta name="twitter:image:alt" content={ogImageAlt} />
 
     <title>{pageTitle}</title>
     <script
