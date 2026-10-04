@@ -14,16 +14,30 @@ interface Props {
 const siteConfig = await getSiteConfig();
 const { title, description, wide = false } = Astro.props;
 const pageTitle = title ? `${title} — ${siteConfig.name}` : siteConfig.name;
-const defaultDescription = siteConfig.description || `${siteConfig.name} — software engineer. Personal website featuring engineering projects, travel, music, and current focus.`;
+const defaultDescription =
+  siteConfig.description ||
+  `${siteConfig.name} — software engineer. Personal website featuring engineering projects, travel, music, and current focus.`;
 const metaDescription = description || defaultDescription;
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://abey-john.github.io');
+const canonicalURL = new URL(
+  Astro.url.pathname,
+  Astro.site || 'https://abey-john.github.io'
+);
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
     <ClientRouter />
+    {
+      import.meta.env.PROD && (
+        <script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="f59f07a8-f491-49d2-90c9-a660a68dcc22"
+        />
+      )
+    }
     <script is:inline>
       function applyTheme() {
         try {
@@ -37,7 +51,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://abey-joh
       document.addEventListener('astro:before-swap', function (e) {
         var currentTheme = document.documentElement.getAttribute('data-theme');
         if (currentTheme) {
-          e.newDocument.documentElement.setAttribute('data-theme', currentTheme);
+          e.newDocument.documentElement.setAttribute(
+            'data-theme',
+            currentTheme
+          );
         }
       });
       document.addEventListener('astro:after-swap', applyTheme);
@@ -65,7 +82,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://abey-joh
     <div class="site-wrapper">
       <a href="#main-content" class="skip-link">Skip to content</a>
       <Header />
-      <main id="main-content" class:list={['main-content', wide ? 'container-wide' : 'container']}>
+      <main
+        id="main-content"
+        class:list={['main-content', wide ? 'container-wide' : 'container']}
+      >
         <slot />
       </main>
       <Footer />
