@@ -1,5 +1,6 @@
 ---
 import { ClientRouter } from 'astro:transitions';
+import { getEntry } from 'astro:content';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import { getSiteConfig } from '../config';
@@ -9,10 +10,12 @@ interface Props {
   title?: string;
   description?: string;
   wide?: boolean;
+  schema?: Record<string, any>;
 }
 
 const siteConfig = await getSiteConfig();
-const { title, description, wide = false } = Astro.props;
+const aboutEntry = await getEntry('about', 'index');
+const { title, description, wide = false, schema } = Astro.props;
 const pageTitle = title ? `${title} — ${siteConfig.name}` : siteConfig.name;
 const defaultDescription =
   siteConfig.description ||
@@ -23,6 +26,59 @@ const canonicalURL = new URL(
   Astro.url.pathname,
   Astro.site || 'https://abey-john.github.io'
 );
+
+const siteOrigin = (Astro.site ? new URL(Astro.site) : new URL('https://abey-john.github.io')).origin;
+const avatarSrc = aboutEntry?.data?.avatar || aboutEntry?.data?.photo;
+const avatarUrl = avatarSrc ? new URL(avatarSrc, siteOrigin).href : undefined;
+
+const locationParts = siteConfig.location
+  ? siteConfig.location.split(',').map((s) => s.trim())
+  : [];
+const addressObject =
+  locationParts.length > 0
+    ? {
+        '@type': 'PostalAddress',
+        addressLocality: locationParts[0],
+        ...(locationParts[1] ? { addressRegion: locationParts[1] } : {}),
+      }
+    : undefined;
+
+const sameAs = [siteConfig.github, siteConfig.linkedin].filter(Boolean);
+
+const isAws =
+  siteConfig.role?.toLowerCase().includes('aws') ||
+  siteConfig.role?.toLowerCase().includes('amazon');
+
+const personSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  '@id': `${siteOrigin}/#person`,
+  name: siteConfig.name || 'Abey John',
+  url: `${siteOrigin}/`,
+  ...(avatarUrl ? { image: avatarUrl } : {}),
+  ...(siteConfig.role ? { jobTitle: siteConfig.role } : {}),
+  ...(isAws
+    ? {
+        worksFor: {
+          '@type': 'Organization',
+          name: 'Amazon Web Services',
+          alternateName: 'AWS',
+          url: 'https://aws.amazon.com',
+        },
+      }
+    : {}),
+  ...(addressObject ? { address: addressObject } : {}),
+  ...(sameAs.length > 0 ? { sameAs } : {}),
+  ...(siteConfig.email ? { email: `mailto:${siteConfig.email}` } : {}),
+  description: metaDescription,
+  knowsAbout: [
+    'Software Engineering',
+    'Distributed Systems',
+    'Cloud Computing',
+  ],
+};
+
+const jsonLd = schema || personSchema;
 ---
 
 <!doctype html>
@@ -77,6 +133,11 @@ const canonicalURL = new URL(
     <meta name="twitter:description" content={metaDescription} />
 
     <title>{pageTitle}</title>
+    <script
+      type="application/ld+json"
+      is:inline
+      set:html={JSON.stringify(jsonLd, null, 2)}
+    />
   </head>
   <body>
     <div class="site-wrapper">
