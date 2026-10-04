@@ -171,7 +171,13 @@ function richTextToMarkdown(richTexts: any[]): string {
       if (t.annotations?.bold) text = `**${text}**`;
       if (t.annotations?.italic) text = `*${text}*`;
       if (t.annotations?.strikethrough) text = `~~${text}~~`;
-      if (t.href) text = `[${text}](${t.href})`;
+      if (t.href) {
+        if (/^https?:\/\//i.test(t.href)) {
+          text = `<a href="${t.href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+        } else {
+          text = `[${text}](${t.href})`;
+        }
+      }
       return text;
     })
     .join('');
@@ -184,6 +190,21 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+/**
+ * Ensure all external hyperlinks in rendered HTML have target="_blank" and rel="noopener noreferrer".
+ */
+function makeExternalLinksOpenInNewTab(html: string): string {
+  if (!html) return html;
+  return html.replace(
+    /<a\s+([^>]*?)href=["'](https?:\/\/[^"']+)["']([^>]*?)>/gi,
+    (match, before, href, after) => {
+      if (/target=/i.test(match)) return match;
+      const combined = `${before} ${after}`.replace(/\s+/g, ' ').trim();
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer"${combined ? ' ' + combined : ''}>`;
+    }
+  );
 }
 
 /**
@@ -1106,6 +1127,9 @@ export function notionAboutLoader(): Loader {
           store.clear();
 
           const rendered = await renderMarkdown(markdown);
+          if (rendered && typeof rendered.html === 'string') {
+            rendered.html = makeExternalLinksOpenInNewTab(rendered.html);
+          }
           const data = await parseData({
             id: 'index',
             data: {
@@ -1188,6 +1212,9 @@ export function notionNowLoader(): Loader {
           store.clear();
 
           const rendered = await renderMarkdown(markdown);
+          if (rendered && typeof rendered.html === 'string') {
+            rendered.html = makeExternalLinksOpenInNewTab(rendered.html);
+          }
           const data = await parseData({
             id: 'index',
             data: { updated: updatedDate },
