@@ -16,11 +16,10 @@ interface Props {
 const siteConfig = await getSiteConfig();
 const aboutEntry = await getEntry('about', 'index');
 const { title, description, wide = false, schema } = Astro.props;
-const pageTitle = title ? `${title} — ${siteConfig.name}` : siteConfig.name;
-const defaultDescription =
-  siteConfig.description ||
-  `${siteConfig.name} — software engineer. Personal website featuring engineering projects, travel, music, and current focus.`;
-const metaDescription = description || defaultDescription;
+const pageTitle = title
+  ? `${title} — ${siteConfig.name || 'Abey John'}`
+  : siteConfig.name || 'Abey John';
+const metaDescription = description || siteConfig.description;
 
 const canonicalURL = new URL(
   Astro.url.pathname,
@@ -74,7 +73,7 @@ const personSchema = {
   ...(addressObject ? { address: addressObject } : {}),
   ...(sameAs.length > 0 ? { sameAs } : {}),
   ...(siteConfig.email ? { email: `mailto:${siteConfig.email}` } : {}),
-  description: metaDescription,
+  ...(metaDescription ? { description: metaDescription } : {}),
   knowsAbout: [
     'Software Engineering',
     'Distributed Systems',
@@ -124,13 +123,17 @@ const jsonLd = schema || personSchema;
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="canonical" href={canonicalURL} />
     <meta name="generator" content={Astro.generator} />
-    <meta name="description" content={metaDescription} />
+    {metaDescription && <meta name="description" content={metaDescription} />}
 
     <meta property="og:title" content={pageTitle} />
-    <meta property="og:description" content={metaDescription} />
+    {
+      metaDescription && (
+        <meta property="og:description" content={metaDescription} />
+      )
+    }
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content={siteConfig.name} />
+    <meta property="og:site_name" content={siteConfig.name || 'Abey John'} />
     <meta property="og:image" content={ogImageURL} />
     <meta property="og:image:secure_url" content={ogImageURL} />
     <meta property="og:image:type" content="image/jpeg" />
@@ -140,7 +143,11 @@ const jsonLd = schema || personSchema;
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={pageTitle} />
-    <meta name="twitter:description" content={metaDescription} />
+    {
+      metaDescription && (
+        <meta name="twitter:description" content={metaDescription} />
+      )
+    }
     <meta name="twitter:image" content={ogImageURL} />
     <meta name="twitter:image:alt" content={ogImageAlt} />
 
