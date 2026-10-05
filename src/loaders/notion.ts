@@ -402,11 +402,24 @@ export function notionLaunchesLoader(): Loader {
             const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || page.id;
             const image = (await extractImageSource(p.Image, p.ImagePath)) || undefined;
 
+            let itemUrl = p.URL?.url || p.URL?.rich_text?.[0]?.plain_text || '';
+            if (
+              itemUrl &&
+              !/^https?:\/\//i.test(itemUrl) &&
+              !itemUrl.startsWith('#') &&
+              !itemUrl.startsWith('/')
+            ) {
+              itemUrl = `https://${itemUrl}`;
+            }
+            if (!itemUrl) itemUrl = '#';
+
             const item = {
               id,
-              category: (p.Category?.select?.name || 'professional') as 'professional' | 'personal',
+              category: (p.Category?.select?.name || 'professional') as
+                | 'professional'
+                | 'personal',
               title,
-              url: p.URL?.url || '#',
+              url: itemUrl,
               role: p.Role?.rich_text?.[0]?.plain_text || '',
               date: p.Date?.rich_text?.[0]?.plain_text || undefined,
               image,

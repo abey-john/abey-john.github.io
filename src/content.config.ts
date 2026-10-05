@@ -34,7 +34,7 @@ const launches = defineCollection({
     id: z.string(),
     category: z.enum(['professional', 'personal']).default('professional'),
     title: z.string(),
-    url: z.url(),
+    url: z.string(),
     role: z.string(),
     date: z.string().optional(),
     image: z.string().optional(),

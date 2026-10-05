@@ -177,16 +177,23 @@ function formatDisplayUrl(url: string) {
                     tabindex="-1"
                     aria-hidden="true"
                   >
-                    <MediaImage
-                      src={item.data.image}
-                      alt={item.data.title}
-                      width={280}
-                      height={280}
-                      quality={98}
-                      class="github-logo-wrapper"
-                      imageClass="featured-image github-logo"
-                      loading="lazy"
-                    />
+                    {(() => {
+                      const isGithubIcon =
+                        item.data.id === 'personal-website' ||
+                        item.data.title.toLowerCase().includes('github');
+                      return (
+                        <MediaImage
+                          src={item.data.image}
+                          alt={item.data.title}
+                          width={280}
+                          height={280}
+                          quality={98}
+                          class="github-logo-wrapper"
+                          imageClass={`featured-image ${isGithubIcon ? 'github-logo' : ''}`}
+                          loading="lazy"
+                        />
+                      );
+                    })()}
                   </a>
                 </li>
               ) : (
