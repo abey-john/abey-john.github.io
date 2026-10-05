@@ -38,6 +38,7 @@ const launches = defineCollection({
     role: z.string(),
     date: z.string().optional(),
     image: z.string().optional(),
+    order: z.number().default(0),
   }),
 });
 

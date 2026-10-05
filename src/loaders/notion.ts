@@ -423,6 +423,7 @@ export function notionLaunchesLoader(): Loader {
               role: p.Role?.rich_text?.[0]?.plain_text || '',
               date: p.Date?.rich_text?.[0]?.plain_text || undefined,
               image,
+              order: p.Order?.number ?? 0,
             };
 
             const data = await parseData({ id, data: item });

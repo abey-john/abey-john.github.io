@@ -5,13 +5,13 @@ import MediaImage from '../components/MediaImage.astro';
 
 const allLaunches = await getCollection('launches');
 
-const professionalItems = allLaunches.filter(
-  (item) => item.data.category === 'professional'
-);
+const professionalItems = allLaunches
+  .filter((item) => item.data.category === 'professional')
+  .sort((a, b) => a.data.order - b.data.order);
 
-const personalItems = allLaunches.filter(
-  (item) => item.data.category === 'personal'
-);
+const personalItems = allLaunches
+  .filter((item) => item.data.category === 'personal')
+  .sort((a, b) => a.data.order - b.data.order);
 
 function formatDisplayUrl(url: string) {
   return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
