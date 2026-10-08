@@ -26,6 +26,7 @@ Thumbs.db
 .idea/
 .plan.md
 .notes.md
+notes/
 
 # dynamic assets downloaded from Notion
 public/assets/notion/
