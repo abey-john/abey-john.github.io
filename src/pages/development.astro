@@ -421,6 +421,8 @@ function formatDisplayUrl(url: string) {
   }
 
   .featured-media-icon {
+    width: 140px;
+    height: 140px;
     aspect-ratio: 1 / 1;
     display: flex;
     align-items: center;
@@ -428,13 +430,13 @@ function formatDisplayUrl(url: string) {
     padding: var(--space-md);
   }
 
-  :global(.github-logo-wrapper) {
+  .featured-media-icon :global(.github-logo-wrapper) {
     width: 100%;
     height: 100%;
-    background-color: transparent;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background-color: transparent !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   .featured-media-icon :global(.featured-image) {
@@ -443,6 +445,8 @@ function formatDisplayUrl(url: string) {
     height: auto;
     max-width: 100%;
     max-height: 100%;
+    margin: auto;
+    display: block;
   }
 
   .item-card-featured-reverse {
@@ -470,6 +474,8 @@ function formatDisplayUrl(url: string) {
     }
 
     .featured-media-icon {
+      width: 140px;
+      height: 140px;
       max-width: 140px;
     }
   }
