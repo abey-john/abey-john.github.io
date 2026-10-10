@@ -613,7 +613,35 @@ function matchesArtist(itemArtist: string, targetArtist: string): boolean {
 function matchesAlbum(itemAlbum: string, targetAlbum: string): boolean {
   const ia = cleanText(itemAlbum);
   const a = cleanText(targetAlbum);
-  return ia.includes(a) || a.includes(ia);
+  if (ia.includes(a) || a.includes(ia)) return true;
+  const aSimp = cleanText(targetAlbum.split(/[:(]/)[0]);
+  if (aSimp.length >= 4 && (ia.includes(aSimp) || aSimp.includes(ia))) return true;
+  return false;
+}
+
+function slugMatchesAlbum(slug: string, albumTitle: string, artist: string): boolean {
+  const cleanSlug = cleanText(slug);
+  const cleanAlbum = cleanText(albumTitle);
+  const cleanSimplified = cleanText(albumTitle.split(/[:(]/)[0]);
+  const cleanArt = cleanText(artist);
+
+  // 1. Direct match with full album title
+  if (cleanSlug.includes(cleanAlbum) || cleanAlbum.includes(cleanSlug)) return true;
+
+  // 2. Artist embedded in slug (e.g. "where-the-light-is-john-mayer-live-in-los-angeles")
+  if (cleanArt) {
+    const slugWithoutArtist = cleanSlug.replace(new RegExp(cleanArt, 'g'), '');
+    if (slugWithoutArtist.includes(cleanAlbum) || cleanAlbum.includes(slugWithoutArtist)) return true;
+    if (slugWithoutArtist.includes(cleanSimplified) || cleanSimplified.includes(slugWithoutArtist)) return true;
+    if (cleanSlug.includes(cleanSimplified) && cleanSlug.includes(cleanArt)) return true;
+  }
+
+  // 3. Simplified album match if slug contains artist
+  if (cleanSimplified.length >= 6 && cleanSlug.includes(cleanSimplified)) {
+    if (!cleanArt || cleanSlug.includes(cleanArt)) return true;
+  }
+
+  return false;
 }
 
 async function safeItunesFetch(url: string, retries = 2): Promise<any | null> {
@@ -626,7 +654,8 @@ async function safeItunesFetch(url: string, retries = 2): Promise<any | null> {
         continue;
       }
       if (!res.ok) return null;
-      const text = await res.text();
+      const rawText = await res.text();
+      const text = rawText.trim();
       if (!text.startsWith('{')) return null;
       return JSON.parse(text);
     } catch {
@@ -697,9 +726,8 @@ async function fetchAppleMusicWeb(
     if (albumLinks.length === 0) return null;
 
     const cleanAlbum = cleanText(albumTitle);
-    const candidate =
-      albumLinks.find((a) => cleanText(a.slug).includes(cleanAlbum) || cleanAlbum.includes(cleanText(a.slug))) ||
-      albumLinks[0];
+    const candidate = albumLinks.find((a) => slugMatchesAlbum(a.slug, albumTitle, artist));
+    if (!candidate) return null;
 
     const albRes = await fetch(`https://music.apple.com${candidate.path}`, {
       headers: {
@@ -714,8 +742,8 @@ async function fetchAppleMusicWeb(
 
     const json = JSON.parse(m[1]);
     const sections = json.data?.[0]?.data?.sections || [];
-    const trackSec = sections.find((s: any) => s.itemKind === 'trackLockup');
-    const tracks = (trackSec?.items || []).filter((t: any) => t.previewUrl);
+    const trackSecs = sections.filter((s: any) => s.itemKind === 'trackLockup');
+    const tracks = trackSecs.flatMap((s: any) => s.items || []).filter((t: any) => t.previewUrl);
     if (tracks.length === 0) return null;
 
     if (trackTarget) {
@@ -818,8 +846,15 @@ async function fetchAudioPreview(
     }
 
     // 2. FALLBACK STRATEGY: Scoped song search with strict album and anti-remix scoring
+    const baseTrack = trackTarget ? trackTarget.split(/[\(\[\-–—:]/)[0].trim() : undefined;
     const songQueries = trackTarget
-      ? [`${trackTarget} ${simplifiedAlbum} ${artist}`, `${trackTarget} ${artist}`]
+      ? [
+          `${trackTarget} ${simplifiedAlbum} ${artist}`,
+          `${trackTarget} ${artist}`,
+          ...(baseTrack && baseTrack !== trackTarget
+            ? [`${baseTrack} ${simplifiedAlbum} ${artist}`, `${baseTrack} ${artist}`]
+            : []),
+        ]
       : [`${albumTitle} ${artist}`];
 
     for (const q of songQueries) {
