@@ -147,7 +147,14 @@ const placesData = places.map((p) => ({
   import L from 'leaflet';
 
   let mapInstance: L.Map | null = null;
-  let markerRecords: { marker: L.Marker; type: string }[] = [];
+  let markerRecords: {
+    id: string;
+    name: string;
+    marker: L.Marker;
+    type: string;
+    lat: number;
+    lng: number;
+  }[] = [];
   let activeFilter: 'all' | 'park' | 'city' | 'landmark' = 'all';
 
   function applyCategoryFilter(category: 'all' | 'park' | 'city' | 'landmark') {
@@ -331,7 +338,14 @@ const placesData = places.map((p) => ({
         className: 'custom-leaflet-tooltip',
       });
 
-      markerRecords.push({ marker, type: place.type });
+      markerRecords.push({
+        id: place.id,
+        name: place.name,
+        marker,
+        type: place.type,
+        lat: place.lat,
+        lng: place.lng,
+      });
     }
 
     if (rawPlaces.length > 0) {
@@ -390,6 +404,77 @@ const placesData = places.map((p) => ({
 
     // Apply active filter state
     applyCategoryFilter(activeFilter);
+
+    function flyToPlace(id: string, lat: number, lng: number, type: string) {
+      if (!mapInstance) return;
+
+      // 1. If currently filtered to a different category, switch filter to 'all' so the marker is visible
+      if (activeFilter !== 'all' && activeFilter !== type) {
+        applyCategoryFilter('all');
+      }
+
+      // 2. Smoothly scroll the map container into view
+      const mapWrapper = document.getElementById('map-wrapper');
+      if (mapWrapper) {
+        const rect = mapWrapper.getBoundingClientRect();
+        const headerOffset = 90;
+        const targetScroll = window.scrollY + rect.top - headerOffset;
+        window.scrollTo({
+          top: Math.max(0, targetScroll),
+          behavior: 'smooth',
+        });
+      }
+
+      // 3. Cinematic flight to location
+      mapInstance.flyTo([lat, lng], 8, {
+        duration: 1.2,
+        easeLinearity: 0.25,
+      });
+
+      // 4. Find marker record, open its popup card and add pulse effect
+      const record = markerRecords.find(
+        (r) =>
+          r.id === id ||
+          (Math.abs(r.lat - lat) < 0.0001 && Math.abs(r.lng - lng) < 0.0001)
+      );
+
+      if (record) {
+        setTimeout(() => {
+          if (!mapInstance) return;
+          record.marker.openPopup();
+          const markerEl = record.marker.getElement();
+          const pinEl = markerEl?.querySelector('.pin-marker');
+          if (pinEl) {
+            pinEl.classList.add('pin-pulse');
+            setTimeout(() => {
+              pinEl.classList.remove('pin-pulse');
+            }, 2400);
+          }
+        }, 1250);
+      }
+    }
+
+    // Attach click and keyboard listeners to all place cards in the directory
+    const placeCards = document.querySelectorAll<HTMLElement>('.place-card');
+    placeCards.forEach((card) => {
+      const handleSelect = () => {
+        const id = card.dataset.id || '';
+        const lat = parseFloat(card.dataset.lat || '0');
+        const lng = parseFloat(card.dataset.lng || '0');
+        const type = card.dataset.type || 'city';
+        if (lat && lng && (lat !== 0 || lng !== 0)) {
+          flyToPlace(id, lat, lng, type);
+        }
+      };
+
+      card.onclick = handleSelect;
+      card.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleSelect();
+        }
+      };
+    });
 
     requestAnimationFrame(() => {
       map.invalidateSize();
@@ -731,6 +816,45 @@ const placesData = places.map((p) => ({
   :global(.pin-marker:hover) {
     transform: scale(1.18);
     z-index: 1000 !important;
+  }
+
+  :global(.pin-pulse) {
+    animation: pin-pulse 1.2s ease-in-out 2 !important;
+    z-index: 1000 !important;
+  }
+
+  :global(.pin-landmark.pin-pulse::before) {
+    animation: landmark-pulse 1.2s ease-in-out 2 !important;
+  }
+
+  @keyframes pin-pulse {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
+    50% {
+      transform: scale(1.35);
+      box-shadow: 0 0 0 10px rgba(255, 255, 255, 0), 0 4px 14px rgba(0, 0, 0, 0.4);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0), 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
+  }
+
+  @keyframes landmark-pulse {
+    0% {
+      transform: rotate(45deg) scale(1);
+      box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.9), 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
+    50% {
+      transform: rotate(45deg) scale(1.35);
+      box-shadow: 0 0 0 10px rgba(217, 119, 6, 0), 0 4px 14px rgba(0, 0, 0, 0.4);
+    }
+    100% {
+      transform: rotate(45deg) scale(1);
+      box-shadow: 0 0 0 0 rgba(217, 119, 6, 0), 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
   }
 
   :global(.pin-park) {
