@@ -293,10 +293,57 @@ const placesData = places.map((p) => ({
     });
     mapInstance = map;
 
-    map.addControl(
-      new maplibregl.NavigationControl({ showCompass: false }),
-      'top-left'
+    const DEFAULT_BOUNDS: [[number, number], [number, number]] = [
+      [-125.0, 24.39],
+      [-66.93, 49.38],
+    ];
+
+    function recenterMap() {
+      if (!mapInstance) return;
+
+      // Close open popups for a clean overview
+      markerRecords.forEach(({ popup }) => {
+        if (popup.isOpen()) {
+          popup.remove();
+        }
+      });
+
+      mapInstance.fitBounds(DEFAULT_BOUNDS, {
+        padding: window.innerWidth < 640 ? 20 : 40,
+        bearing: 0,
+        pitch: 0,
+        duration: 800,
+        essential: true,
+      });
+    }
+
+    const navControl = new maplibregl.NavigationControl({ showCompass: false });
+    map.addControl(navControl, 'top-left');
+
+    const ctrlGroup = mapEl.querySelector(
+      '.maplibregl-ctrl-top-left .maplibregl-ctrl-group'
     );
+    if (ctrlGroup) {
+      const recenterBtn = document.createElement('button');
+      recenterBtn.type = 'button';
+      recenterBtn.className = 'maplibregl-ctrl-recenter';
+      recenterBtn.title = 'Recenter map';
+      recenterBtn.setAttribute('aria-label', 'Recenter map to default overview');
+      recenterBtn.innerHTML = `
+        <span class="recenter-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="8"></circle>
+            <line x1="12" y1="2" x2="12" y2="6"></line>
+            <line x1="12" y1="18" x2="12" y2="22"></line>
+            <line x1="2" y1="12" x2="6" y2="12"></line>
+            <line x1="18" y1="12" x2="22" y2="12"></line>
+            <circle cx="12" cy="12" r="2" fill="currentColor"></circle>
+          </svg>
+        </span>
+      `;
+      recenterBtn.onclick = recenterMap;
+      ctrlGroup.appendChild(recenterBtn);
+    }
 
     // Tune drag pan momentum & physics for fluid feel
     map.dragPan.enable({
@@ -310,13 +357,10 @@ const placesData = places.map((p) => ({
     map.scrollZoom.setWheelZoomRate(1 / 450);
 
     map.on('load', () => {
-      map.fitBounds(
-        [
-          [-125.0, 24.39],
-          [-66.93, 49.38],
-        ],
-        { padding: 40, duration: 0 }
-      );
+      map.fitBounds(DEFAULT_BOUNDS, {
+        padding: window.innerWidth < 640 ? 20 : 40,
+        duration: 0,
+      });
     });
 
     for (const place of rawPlaces) {
@@ -378,7 +422,9 @@ const placesData = places.map((p) => ({
         closeOnClick: true,
         className: 'custom-maplibre-popup',
         maxWidth: '300px',
-      }).setHTML(popupContent);
+      })
+        .setLngLat([place.lng, place.lat])
+        .setHTML(popupContent);
 
       const el = document.createElement('div');
       el.className = 'custom-map-icon';
@@ -577,8 +623,18 @@ const placesData = places.map((p) => ({
     // Apply active filter state
     applyCategoryFilter(activeFilter);
 
+    let activeFlightId = 0;
+
     function flyToPlace(id: string, lat: number, lng: number, type: string) {
       if (!mapInstance) return;
+      const currentFlight = ++activeFlightId;
+
+      // Close any existing open popups immediately for a clean flight
+      markerRecords.forEach(({ popup }) => {
+        if (popup.isOpen()) {
+          popup.remove();
+        }
+      });
 
       if (activeFilter !== 'all' && activeFilter !== type) {
         applyCategoryFilter('all');
@@ -598,8 +654,8 @@ const placesData = places.map((p) => ({
       mapInstance.flyTo({
         center: [lng, lat],
         zoom: 8.5,
-        speed: 1.2,
-        curve: 1.42,
+        speed: 2.0,
+        curve: 1.35,
         essential: true,
       });
 
@@ -610,9 +666,19 @@ const placesData = places.map((p) => ({
       );
 
       if (record) {
-        setTimeout(() => {
-          if (!mapInstance) return;
-          record.marker.togglePopup();
+        let done = false;
+        const onFlightDone = () => {
+          if (done) return;
+          done = true;
+          if (currentFlight !== activeFlightId || !mapInstance) return;
+          markerRecords.forEach(({ popup }) => {
+            if (popup !== record.popup && popup.isOpen()) {
+              popup.remove();
+            }
+          });
+          if (!record.popup.isOpen()) {
+            record.marker.togglePopup();
+          }
           const pinEl = record.element.querySelector('.pin-marker');
           if (pinEl) {
             pinEl.classList.add('pin-pulse');
@@ -620,7 +686,10 @@ const placesData = places.map((p) => ({
               pinEl.classList.remove('pin-pulse');
             }, 2400);
           }
-        }, 1250);
+        };
+
+        mapInstance.once('moveend', onFlightDone);
+        setTimeout(onFlightDone, 850);
       }
     }
 
@@ -999,6 +1068,44 @@ const placesData = places.map((p) => ({
 
   :global(html[data-theme='dark'] .maplibregl-ctrl-icon) {
     filter: invert(1);
+  }
+
+  :global(.maplibregl-ctrl-recenter) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    width: 29px !important;
+    height: 29px !important;
+    padding: 0 !important;
+    border: none !important;
+    outline: none !important;
+  }
+
+  :global(.recenter-icon) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: var(--color-text);
+    transition:
+      transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+      color 0.15s ease;
+  }
+
+  :global(.maplibregl-ctrl-recenter:hover .recenter-icon) {
+    transform: scale(1.15);
+    color: var(--color-text);
+  }
+
+  :global(.maplibregl-ctrl-recenter:active .recenter-icon) {
+    transform: scale(0.92);
+  }
+
+  :global(.maplibregl-ctrl-recenter:focus-visible) {
+    outline: 2px solid var(--color-focus) !important;
+    outline-offset: -2px;
   }
 
   @media (max-width: 640px) {
