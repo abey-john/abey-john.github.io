@@ -26,7 +26,11 @@ const placesData = places.map((p) => ({
 ---
 
 <div class="travel-map-container">
-  <div class="map-filter-bar" role="group" aria-label="Filter places by category">
+  <div
+    class="map-filter-bar"
+    role="group"
+    aria-label="Filter places by category"
+  >
     <button
       type="button"
       class="filter-pill active"
@@ -35,9 +39,20 @@ const placesData = places.map((p) => ({
       id="filter-pill-all"
     >
       <span class="pill-icon all-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          viewBox="0 0 24 24"
+          width="13"
+          height="13"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <circle cx="12" cy="12" r="10"></circle>
-          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+          <polygon
+            points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"
+          ></polygon>
         </svg>
       </span>
       <span class="pill-label">All</span>
@@ -84,7 +99,9 @@ const placesData = places.map((p) => ({
     >
       <span class="pill-icon landmark-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
-          <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"></path>
+          <path
+            d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"
+          ></path>
         </svg>
       </span>
       <span class="pill-label">Landmarks</span>
@@ -105,15 +122,26 @@ const placesData = places.map((p) => ({
 
     <div class="map-controls-overlay">
       <div class="map-legend" role="note" aria-label="Map Legend">
-        <div class="legend-item legend-item-park" role="button" tabindex="0" title="Filter by Parks">
+        <div
+          class="legend-item legend-item-park"
+          role="button"
+          tabindex="0"
+          title="Filter by Parks"
+        >
           <span class="legend-icon park-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-              <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z"></path>
+              <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z"
+              ></path>
             </svg>
           </span>
           <span class="legend-text">Park</span>
         </div>
-        <div class="legend-item legend-item-city" role="button" tabindex="0" title="Filter by Cities">
+        <div
+          class="legend-item legend-item-city"
+          role="button"
+          tabindex="0"
+          title="Filter by Cities"
+        >
           <span class="legend-icon city-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
               <path
@@ -123,10 +151,17 @@ const placesData = places.map((p) => ({
           </span>
           <span class="legend-text">City</span>
         </div>
-        <div class="legend-item legend-item-landmark" role="button" tabindex="0" title="Filter by Landmarks">
+        <div
+          class="legend-item legend-item-landmark"
+          role="button"
+          tabindex="0"
+          title="Filter by Landmarks"
+        >
           <span class="legend-icon landmark-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
-              <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"></path>
+              <path
+                d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"
+              ></path>
             </svg>
           </span>
           <span class="legend-text">Landmark</span>
@@ -140,42 +175,46 @@ const placesData = places.map((p) => ({
     href="https://www.openstreetmap.org/copyright"
     target="_blank"
     rel="noopener noreferrer">OpenStreetMap</a
-  > contributors
+  > contributors &bull; Tiles by <a
+    href="https://openfreemap.org"
+    target="_blank"
+    rel="noopener noreferrer">OpenFreeMap</a
+  >
 </p>
 
 <script>
-  import L from 'leaflet';
+  import * as maplibregl from 'maplibre-gl';
+  import 'maplibre-gl/dist/maplibre-gl.css';
+  import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 
-  let mapInstance: L.Map | null = null;
+  maplibregl.setWorkerUrl(workerUrl);
+
+  let mapInstance: maplibregl.Map | null = null;
   let markerRecords: {
     id: string;
     name: string;
-    marker: L.Marker;
+    marker: maplibregl.Marker;
+    popup: maplibregl.Popup;
+    element: HTMLElement;
     type: string;
     lat: number;
     lng: number;
   }[] = [];
   let activeFilter: 'all' | 'park' | 'city' | 'landmark' = 'all';
 
+  const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+
   function applyCategoryFilter(category: 'all' | 'park' | 'city' | 'landmark') {
     activeFilter = category;
-    if (!mapInstance) return;
 
-    // 1. Toggle Leaflet map markers
-    markerRecords.forEach(({ marker, type }) => {
-      if (category === 'all' || type === category) {
-        if (!mapInstance!.hasLayer(marker)) {
-          marker.addTo(mapInstance!);
-        }
-      } else {
-        if (mapInstance!.hasLayer(marker)) {
-          mapInstance!.removeLayer(marker);
-        }
+    // 1. Toggle MapLibre markers
+    markerRecords.forEach(({ element, popup, type }) => {
+      const isVisible = category === 'all' || type === category;
+      element.style.display = isVisible ? 'flex' : 'none';
+      if (!isVisible && popup.isOpen()) {
+        popup.remove();
       }
     });
-
-    // Close any open popup if its marker was removed
-    mapInstance.closePopup();
 
     // 2. Update pill UI button states
     const pills = document.querySelectorAll<HTMLButtonElement>('.filter-pill');
@@ -188,14 +227,25 @@ const placesData = places.map((p) => ({
     // 3. Update legend items visual cue
     const legendPark = document.querySelector<HTMLElement>('.legend-item-park');
     const legendCity = document.querySelector<HTMLElement>('.legend-item-city');
-    const legendLandmark = document.querySelector<HTMLElement>('.legend-item-landmark');
+    const legendLandmark = document.querySelector<HTMLElement>(
+      '.legend-item-landmark'
+    );
     if (legendPark && legendCity && legendLandmark) {
       legendPark.classList.toggle('legend-active', category === 'park');
-      legendPark.classList.toggle('legend-dimmed', category !== 'all' && category !== 'park');
+      legendPark.classList.toggle(
+        'legend-dimmed',
+        category !== 'all' && category !== 'park'
+      );
       legendCity.classList.toggle('legend-active', category === 'city');
-      legendCity.classList.toggle('legend-dimmed', category !== 'all' && category !== 'city');
+      legendCity.classList.toggle(
+        'legend-dimmed',
+        category !== 'all' && category !== 'city'
+      );
       legendLandmark.classList.toggle('legend-active', category === 'landmark');
-      legendLandmark.classList.toggle('legend-dimmed', category !== 'all' && category !== 'landmark');
+      legendLandmark.classList.toggle(
+        'legend-dimmed',
+        category !== 'all' && category !== 'landmark'
+      );
     }
 
     // 4. Filter text directory cards below the map
@@ -225,38 +275,48 @@ const placesData = places.map((p) => ({
       } catch (e) {}
       mapInstance = null;
     }
-    if ((mapEl as any)._leaflet_id) {
-      (mapEl as any)._leaflet_id = null;
-    }
     markerRecords = [];
 
     const rawPlaces = JSON.parse(mapEl.dataset.places);
 
-    const map = L.map(mapEl, {
-      center: [39.5, -98.35],
-      zoom: 4,
-      minZoom: 2,
-      maxZoom: 18,
-      scrollWheelZoom: false,
-      zoomControl: true,
+    const map = new maplibregl.Map({
+      container: mapEl,
+      style: MAP_STYLE,
+      center: [-98.35, 39.5],
+      zoom: 3.5,
+      minZoom: 1.5,
+      maxZoom: 19,
       attributionControl: false,
+      dragRotate: false,
+      touchPitch: false,
+      pitchWithRotate: false,
     });
     mapInstance = map;
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-    }).addTo(map);
+    map.addControl(
+      new maplibregl.NavigationControl({ showCompass: false }),
+      'top-left'
+    );
 
-    mapEl.addEventListener('click', () => {
-      map.scrollWheelZoom.enable();
+    // Tune drag pan momentum & physics for fluid feel
+    map.dragPan.enable({
+      linearity: 0.25,
+      maxSpeed: 2200,
+      deceleration: 2200,
     });
 
-    mapEl.addEventListener('focus', () => {
-      map.scrollWheelZoom.enable();
-    });
+    // Keep scroll zoom smoothly enabled at all times
+    map.scrollZoom.enable();
+    map.scrollZoom.setWheelZoomRate(1 / 450);
 
-    mapEl.addEventListener('mouseleave', () => {
-      map.scrollWheelZoom.disable();
+    map.on('load', () => {
+      map.fitBounds(
+        [
+          [-125.0, 24.39],
+          [-66.93, 49.38],
+        ],
+        { padding: 40, duration: 0 }
+      );
     });
 
     for (const place of rawPlaces) {
@@ -265,33 +325,23 @@ const placesData = places.map((p) => ({
       const isLandmark = place.type === 'landmark';
 
       const iconHtml = isPark
-        ? `<div class="pin-marker pin-park" title="${place.name}">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-              <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z"/>
-            </svg>
-          </div>`
+        ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z"/>
+          </svg>`
         : isLandmark
-        ? `<div class="pin-marker pin-landmark" title="${place.name}">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
-              <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
-            </svg>
-          </div>`
-        : `<div class="pin-marker pin-city" title="${place.name}">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-              <path d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/>
-            </svg>
-          </div>`;
-
-      const customIcon = L.divIcon({
-        html: iconHtml,
-        className: 'custom-map-icon',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-        popupAnchor: [0, -14],
-      });
+          ? `<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+            <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
+          </svg>`
+          : `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <path d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/>
+          </svg>`;
 
       const typeTag = isPark ? 'Park' : isLandmark ? 'Landmark' : 'City';
-      const tagClass = isPark ? 'tag-park' : isLandmark ? 'tag-landmark' : 'tag-city';
+      const tagClass = isPark
+        ? 'tag-park'
+        : isLandmark
+          ? 'tag-landmark'
+          : 'tag-city';
 
       const popupContent = hasBlurb
         ? `<div class="popup-card">
@@ -322,42 +372,162 @@ const placesData = places.map((p) => ({
             <h3 class="popup-title">${place.name}</h3>
           </div>`;
 
-      const marker = L.marker([place.lat, place.lng], {
-        icon: customIcon,
-        title: place.name,
-      }).addTo(map);
+      const popup = new maplibregl.Popup({
+        offset: 16,
+        closeButton: true,
+        closeOnClick: true,
+        className: 'custom-maplibre-popup',
+        maxWidth: '300px',
+      }).setHTML(popupContent);
 
-      marker.bindPopup(popupContent, {
-        maxWidth: 300,
-        className: 'custom-leaflet-popup',
+      const el = document.createElement('div');
+      el.className = 'custom-map-icon';
+      el.dataset.id = place.id;
+      el.dataset.type = place.type;
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', place.name);
+
+      const pin = document.createElement('div');
+      pin.className = `pin-marker ${
+        isPark ? 'pin-park' : isLandmark ? 'pin-landmark' : 'pin-city'
+      }`;
+      pin.title = place.name;
+      pin.innerHTML = iconHtml;
+      el.appendChild(pin);
+
+      // Seamless drag forwarding: dragging starting on a marker pans the map instead of blocking
+      let isDown = false;
+      let startX = 0;
+      let startY = 0;
+      let lastX = 0;
+      let lastY = 0;
+      let didDrag = false;
+      let velX = 0;
+      let velY = 0;
+      let lastTime = 0;
+
+      el.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        isDown = true;
+        didDrag = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        lastTime = performance.now();
+        velX = 0;
+        velY = 0;
+        try {
+          el.setPointerCapture(e.pointerId);
+        } catch (err) {}
       });
 
-      marker.bindTooltip(place.name, {
-        direction: 'top',
-        offset: [0, -14],
-        className: 'custom-leaflet-tooltip',
+      el.addEventListener('pointermove', (e) => {
+        if (!isDown) return;
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        const totalDist = Math.hypot(e.clientX - startX, e.clientY - startY);
+
+        if (totalDist > 4) {
+          didDrag = true;
+          mapEl.classList.add('is-dragging');
+
+          // Pan map 1:1 smoothly
+          map.panBy([-dx, -dy], { duration: 0 });
+
+          const now = performance.now();
+          const dt = Math.max(1, now - lastTime);
+          velX = dx / dt;
+          velY = dy / dt;
+          lastTime = now;
+          lastX = e.clientX;
+          lastY = e.clientY;
+        }
       });
+
+      const onPointerUp = (e: PointerEvent) => {
+        if (!isDown) return;
+        isDown = false;
+        try {
+          el.releasePointerCapture(e.pointerId);
+        } catch (err) {}
+        mapEl.classList.remove('is-dragging');
+
+        if (didDrag) {
+          // Glide with inertia if released with velocity
+          const speed = Math.hypot(velX, velY);
+          if (speed > 0.12) {
+            const momentumFactor = Math.min(speed * 280, 420);
+            map.panBy([-velX * momentumFactor, -velY * momentumFactor], {
+              duration: Math.min(800, Math.max(250, speed * 550)),
+              easing: (t) => t * (2 - t),
+            });
+          }
+        }
+      };
+
+      el.addEventListener('pointerup', onPointerUp);
+      el.addEventListener('pointercancel', () => {
+        isDown = false;
+        didDrag = false;
+        mapEl.classList.remove('is-dragging');
+      });
+
+      // Suppress click in CAPTURE phase if user was dragging
+      el.addEventListener(
+        'click',
+        (e) => {
+          if (didDrag) {
+            e.stopPropagation();
+            e.preventDefault();
+            didDrag = false;
+            return;
+          }
+          const pinEl = el.querySelector('.pin-marker');
+          if (pinEl) {
+            pinEl.classList.add('pin-pulse');
+            setTimeout(() => pinEl.classList.remove('pin-pulse'), 2400);
+          }
+        },
+        true
+      );
+
+      // Keyboard accessibility
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          popup.isOpen() ? popup.remove() : popup.addTo(map);
+        }
+      });
+
+      const marker = new maplibregl.Marker({
+        element: el,
+        anchor: 'center',
+      })
+        .setLngLat([place.lng, place.lat])
+        .setPopup(popup)
+        .addTo(map);
 
       markerRecords.push({
         id: place.id,
         name: place.name,
         marker,
+        popup,
+        element: el,
         type: place.type,
         lat: place.lat,
         lng: place.lng,
       });
     }
 
-    if (rawPlaces.length > 0) {
-      const usBounds = L.latLngBounds([24.39, -125.0], [49.38, -66.93]);
-      map.fitBounds(usBounds, { padding: [40, 40] });
-    }
-
     // Attach listeners to filter pills
     const pills = document.querySelectorAll<HTMLButtonElement>('.filter-pill');
     pills.forEach((pill) => {
       pill.onclick = () => {
-        const cat = (pill.dataset.category as 'all' | 'park' | 'city' | 'landmark') || 'all';
+        const cat =
+          (pill.dataset.category as 'all' | 'park' | 'city' | 'landmark') ||
+          'all';
         applyCategoryFilter(cat);
       };
     });
@@ -389,7 +559,9 @@ const placesData = places.map((p) => ({
       };
     }
 
-    const legendLandmark = document.querySelector<HTMLElement>('.legend-item-landmark');
+    const legendLandmark = document.querySelector<HTMLElement>(
+      '.legend-item-landmark'
+    );
     if (legendLandmark) {
       legendLandmark.onclick = () => {
         applyCategoryFilter(activeFilter === 'landmark' ? 'all' : 'landmark');
@@ -408,12 +580,10 @@ const placesData = places.map((p) => ({
     function flyToPlace(id: string, lat: number, lng: number, type: string) {
       if (!mapInstance) return;
 
-      // 1. If currently filtered to a different category, switch filter to 'all' so the marker is visible
       if (activeFilter !== 'all' && activeFilter !== type) {
         applyCategoryFilter('all');
       }
 
-      // 2. Smoothly scroll the map container into view
       const mapWrapper = document.getElementById('map-wrapper');
       if (mapWrapper) {
         const rect = mapWrapper.getBoundingClientRect();
@@ -425,13 +595,14 @@ const placesData = places.map((p) => ({
         });
       }
 
-      // 3. Cinematic flight to location
-      mapInstance.flyTo([lat, lng], 8, {
-        duration: 1.2,
-        easeLinearity: 0.25,
+      mapInstance.flyTo({
+        center: [lng, lat],
+        zoom: 8.5,
+        speed: 1.2,
+        curve: 1.42,
+        essential: true,
       });
 
-      // 4. Find marker record, open its popup card and add pulse effect
       const record = markerRecords.find(
         (r) =>
           r.id === id ||
@@ -441,9 +612,8 @@ const placesData = places.map((p) => ({
       if (record) {
         setTimeout(() => {
           if (!mapInstance) return;
-          record.marker.openPopup();
-          const markerEl = record.marker.getElement();
-          const pinEl = markerEl?.querySelector('.pin-marker');
+          record.marker.togglePopup();
+          const pinEl = record.element.querySelector('.pin-marker');
           if (pinEl) {
             pinEl.classList.add('pin-pulse');
             setTimeout(() => {
@@ -477,14 +647,11 @@ const placesData = places.map((p) => ({
     });
 
     requestAnimationFrame(() => {
-      map.invalidateSize();
+      map.resize();
     });
     setTimeout(() => {
-      map.invalidateSize();
-    }, 150);
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 350);
+      map.resize();
+    }, 200);
   }
 
   document.addEventListener('astro:page-load', initMap);
@@ -573,57 +740,59 @@ const placesData = places.map((p) => ({
     background-color: var(--color-border-subtle);
     color: var(--color-text-muted);
     line-height: 1.2;
-    transition: background-color 0.18s ease, color 0.18s ease;
+    transition:
+      background-color 0.18s ease,
+      color 0.18s ease;
   }
 
   /* Active: All */
-  .filter-pill.active[data-category="all"] {
+  .filter-pill.active[data-category='all'] {
     background-color: var(--color-text);
     color: var(--color-bg);
     border-color: var(--color-text);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
-  .filter-pill.active[data-category="all"] .pill-count {
+  .filter-pill.active[data-category='all'] .pill-count {
     background-color: var(--color-bg);
     color: var(--color-text);
   }
 
   /* Active: National Parks (Emerald) */
-  .filter-pill.active[data-category="park"] {
+  .filter-pill.active[data-category='park'] {
     background-color: #059669;
     color: #ffffff;
     border-color: #059669;
     box-shadow: 0 2px 10px rgba(5, 150, 105, 0.3);
   }
 
-  .filter-pill.active[data-category="park"] .pill-count {
+  .filter-pill.active[data-category='park'] .pill-count {
     background-color: rgba(255, 255, 255, 0.25);
     color: #ffffff;
   }
 
   /* Active: Cities (Sapphire) */
-  .filter-pill.active[data-category="city"] {
+  .filter-pill.active[data-category='city'] {
     background-color: #2563eb;
     color: #ffffff;
     border-color: #2563eb;
     box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
   }
 
-  .filter-pill.active[data-category="city"] .pill-count {
+  .filter-pill.active[data-category='city'] .pill-count {
     background-color: rgba(255, 255, 255, 0.25);
     color: #ffffff;
   }
 
   /* Active: Landmarks (Amber) */
-  .filter-pill.active[data-category="landmark"] {
+  .filter-pill.active[data-category='landmark'] {
     background-color: #d97706;
     color: #ffffff;
     border-color: #d97706;
     box-shadow: 0 2px 10px rgba(217, 119, 6, 0.3);
   }
 
-  .filter-pill.active[data-category="landmark"] .pill-count {
+  .filter-pill.active[data-category='landmark'] .pill-count {
     background-color: rgba(255, 255, 255, 0.25);
     color: #ffffff;
   }
@@ -636,6 +805,8 @@ const placesData = places.map((p) => ({
     border: 1px solid var(--color-border);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     view-transition-name: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   .travel-map {
@@ -644,6 +815,15 @@ const placesData = places.map((p) => ({
     background-color: var(--color-bg);
     z-index: 1;
     view-transition-name: none;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: pan-x pan-y;
+    cursor: grab;
+  }
+
+  .travel-map:active,
+  .travel-map.is-dragging {
+    cursor: grabbing !important;
   }
 
   .travel-map:focus-visible {
@@ -681,7 +861,9 @@ const placesData = places.map((p) => ({
     padding: 2px 4px;
     border-radius: 4px;
     user-select: none;
-    transition: opacity 0.15s ease, background-color 0.15s ease;
+    transition:
+      opacity 0.15s ease,
+      background-color 0.15s ease;
   }
 
   .legend-item:hover {
@@ -764,24 +946,59 @@ const placesData = places.map((p) => ({
     color: inherit;
     text-decoration: underline;
   }
+  :global(.travel-map .maplibregl-canvas) {
+    transition: filter 0.25s ease;
+  }
+
   @media (prefers-color-scheme: dark) {
-    :global(html:not([data-theme="light"]) .travel-map .leaflet-tile-pane) {
+    :global(html:not([data-theme='light']) .travel-map .maplibregl-canvas) {
       filter: brightness(0.75) invert(100%) contrast(1.2) hue-rotate(190deg)
         saturate(0.45);
     }
 
-    :global(html:not([data-theme="light"]) .travel-map) {
+    :global(html:not([data-theme='light']) .travel-map) {
       background-color: #1a1d21;
     }
   }
 
-  :global(html[data-theme="dark"] .travel-map .leaflet-tile-pane) {
+  :global(html[data-theme='dark'] .travel-map .maplibregl-canvas) {
     filter: brightness(0.75) invert(100%) contrast(1.2) hue-rotate(190deg)
       saturate(0.45);
   }
 
-  :global(html[data-theme="dark"] .travel-map) {
+  :global(html[data-theme='dark'] .travel-map) {
     background-color: #1a1d21;
+  }
+
+  :global(.maplibregl-ctrl-group) {
+    background-color: var(--color-bg) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-sm) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+    overflow: hidden;
+  }
+
+  :global(.maplibregl-ctrl-group button) {
+    background-color: var(--color-bg) !important;
+    border-bottom: 1px solid var(--color-border) !important;
+  }
+
+  :global(.maplibregl-ctrl-group button:last-child) {
+    border-bottom: none !important;
+  }
+
+  :global(.maplibregl-ctrl-group button:hover) {
+    background-color: var(--color-border-subtle) !important;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(html:not([data-theme='light']) .maplibregl-ctrl-icon) {
+      filter: invert(1);
+    }
+  }
+
+  :global(html[data-theme='dark'] .maplibregl-ctrl-icon) {
+    filter: invert(1);
   }
 
   @media (max-width: 640px) {
@@ -798,6 +1015,10 @@ const placesData = places.map((p) => ({
   :global(.custom-map-icon) {
     background: transparent;
     border: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+    touch-action: none;
   }
 
   :global(.pin-marker) {
@@ -811,6 +1032,23 @@ const placesData = places.map((p) => ({
       box-shadow 0.15s ease;
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  :global(.pin-marker svg) {
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  :global(.maplibregl-canvas-container.maplibregl-interactive) {
+    cursor: grab;
+  }
+
+  :global(.maplibregl-canvas-container.maplibregl-interactive:active) {
+    cursor: grabbing;
   }
 
   :global(.pin-marker:hover) {
@@ -830,30 +1068,42 @@ const placesData = places.map((p) => ({
   @keyframes pin-pulse {
     0% {
       transform: scale(1);
-      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(0, 0, 0, 0.4);
+      box-shadow:
+        0 0 0 0 rgba(255, 255, 255, 0.9),
+        0 2px 6px rgba(0, 0, 0, 0.4);
     }
     50% {
       transform: scale(1.35);
-      box-shadow: 0 0 0 10px rgba(255, 255, 255, 0), 0 4px 14px rgba(0, 0, 0, 0.4);
+      box-shadow:
+        0 0 0 10px rgba(255, 255, 255, 0),
+        0 4px 14px rgba(0, 0, 0, 0.4);
     }
     100% {
       transform: scale(1);
-      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0), 0 2px 6px rgba(0, 0, 0, 0.4);
+      box-shadow:
+        0 0 0 0 rgba(255, 255, 255, 0),
+        0 2px 6px rgba(0, 0, 0, 0.4);
     }
   }
 
   @keyframes landmark-pulse {
     0% {
       transform: rotate(45deg) scale(1);
-      box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.9), 0 2px 6px rgba(0, 0, 0, 0.4);
+      box-shadow:
+        0 0 0 0 rgba(217, 119, 6, 0.9),
+        0 2px 6px rgba(0, 0, 0, 0.4);
     }
     50% {
       transform: rotate(45deg) scale(1.35);
-      box-shadow: 0 0 0 10px rgba(217, 119, 6, 0), 0 4px 14px rgba(0, 0, 0, 0.4);
+      box-shadow:
+        0 0 0 10px rgba(217, 119, 6, 0),
+        0 4px 14px rgba(0, 0, 0, 0.4);
     }
     100% {
       transform: rotate(45deg) scale(1);
-      box-shadow: 0 0 0 0 rgba(217, 119, 6, 0), 0 2px 6px rgba(0, 0, 0, 0.4);
+      box-shadow:
+        0 0 0 0 rgba(217, 119, 6, 0),
+        0 2px 6px rgba(0, 0, 0, 0.4);
     }
   }
 
@@ -888,7 +1138,9 @@ const placesData = places.map((p) => ({
     border-radius: 4px;
     transform: rotate(45deg);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
     z-index: 1;
   }
 
@@ -908,32 +1160,30 @@ const placesData = places.map((p) => ({
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
   }
 
-  :global(.custom-leaflet-popup .leaflet-popup-content-wrapper) {
+  :global(.custom-maplibre-popup .maplibregl-popup-content) {
     background-color: var(--color-bg) !important;
     color: var(--color-text) !important;
     border-radius: var(--radius-md) !important;
     border: 1px solid var(--color-border) !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
     padding: 0 !important;
     overflow: hidden;
   }
 
-  :global(.custom-leaflet-popup .leaflet-popup-content) {
-    margin: 0 !important;
-    line-height: 1.4 !important;
+  :global(.custom-maplibre-popup .maplibregl-popup-tip) {
+    border-top-color: var(--color-bg) !important;
+    border-bottom-color: var(--color-bg) !important;
   }
 
-  :global(.custom-leaflet-popup .leaflet-popup-tip) {
-    background-color: var(--color-bg) !important;
-    border: 1px solid var(--color-border) !important;
-  }
-
-  :global(.custom-leaflet-popup .leaflet-popup-close-button) {
+  :global(.custom-maplibre-popup .maplibregl-popup-close-button) {
     color: var(--color-text-muted) !important;
-    padding: 6px !important;
+    padding: 6px 10px !important;
+    font-size: 1.15rem !important;
+    background: transparent !important;
+    border: none !important;
   }
 
-  :global(.custom-leaflet-popup .leaflet-popup-close-button:hover) {
+  :global(.custom-maplibre-popup .maplibregl-popup-close-button:hover) {
     color: var(--color-text) !important;
   }
 
@@ -1020,21 +1270,5 @@ const placesData = places.map((p) => ({
     font-weight: 600;
     color: var(--color-accent);
     text-decoration: underline;
-  }
-
-  :global(.custom-leaflet-tooltip) {
-    background-color: var(--color-bg) !important;
-    color: var(--color-text) !important;
-    border: 1px solid var(--color-border) !important;
-    border-radius: var(--radius-sm) !important;
-    font-family: var(--font-sans) !important;
-    font-size: var(--font-size-sm) !important;
-    font-weight: 600 !important;
-    padding: 2px 8px !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
-  }
-
-  :global(.custom-leaflet-tooltip::before) {
-    border-top-color: var(--color-border) !important;
   }
 </style>
