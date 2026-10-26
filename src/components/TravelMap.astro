@@ -247,6 +247,40 @@ const placesData = places.map((p) => {
     >
     </div>
     <script type="application/json" id="trips-json" set:html={JSON.stringify(tripsData)}></script>
+    <div class="itinerary-stepper" id="itinerary-stepper" role="region" aria-label="Trip Itinerary Stepper" style="display: none;">
+      <div class="stepper-content" id="stepper-content" role="button" tabindex="0" title="Start itinerary (Stop 1)">
+        <span class="stepper-badge" id="stepper-badge">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle></svg>
+        </span>
+        <div class="stepper-info">
+          <span class="stepper-counter" id="stepper-counter" style="display: none;"></span>
+          <span class="stepper-name" id="stepper-name">Trip Overview</span>
+        </div>
+      </div>
+
+      <div class="stepper-controls">
+        <button type="button" class="stepper-btn stepper-prev" id="stepper-prev" aria-label="Previous stop" title="Previous stop">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+
+        <button type="button" class="stepper-btn stepper-next" id="stepper-next" aria-label="Next stop" title="Next stop">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+
+        <button type="button" class="stepper-btn stepper-fit" id="stepper-fit" aria-label="View entire route" title="Overview">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
 
     <div class="map-controls-overlay">
       <div class="map-legend" role="note" aria-label="Map Legend">
@@ -378,12 +412,17 @@ const placesData = places.map((p) => {
   let activeTripId: string | null = null;
   let activeFilter: 'all' | 'park' | 'city' | 'landmark' = 'all';
 
+  let fullTripCoordinates: [number, number][] | null = null;
   let activeTripCoordinates: [number, number][] | null = null;
   let activeTripMode: string = 'drive';
   let routeSvg: SVGSVGElement | null = null;
   let routeGlowPath: SVGPathElement | null = null;
   let routeCasingPath: SVGPathElement | null = null;
   let routeLinePath: SVGPathElement | null = null;
+  let routeAnimationId: number | null = null;
+
+  let currentStopIndex = -1;
+  let currentTripStops: TripData['stops'] = [];
 
   function updateRouteSvg() {
     if (!mapInstance || !activeTripCoordinates || activeTripCoordinates.length === 0) {
@@ -411,6 +450,232 @@ const placesData = places.map((p) => {
     if (routeLinePath) routeLinePath.style.strokeWidth = `${baseWidth}px`;
     if (routeCasingPath) routeCasingPath.style.strokeWidth = `${baseWidth + 2.5}px`;
     if (routeGlowPath) routeGlowPath.style.strokeWidth = `${baseWidth * 2.5}px`;
+  }
+
+  function startRouteDrawAnimation(coords: [number, number][], distanceMiles: number) {
+    if (routeAnimationId) {
+      cancelAnimationFrame(routeAnimationId);
+      routeAnimationId = null;
+    }
+    if (!coords || coords.length < 2) {
+      activeTripCoordinates = coords;
+      updateRouteSvg();
+      return;
+    }
+
+    fullTripCoordinates = coords;
+
+    // Precalculate cumulative geographic distances so drawing speed is physically uniform
+    const len = coords.length;
+    const cumulativeDistances: number[] = new Array(len);
+    cumulativeDistances[0] = 0;
+    let totalDist = 0;
+    for (let i = 1; i < len; i++) {
+      const p1 = coords[i - 1];
+      const p2 = coords[i];
+      const dx = (p2[0] - p1[0]) * Math.cos(((p1[1] + p2[1]) * Math.PI) / 360);
+      const dy = p2[1] - p1[1];
+      totalDist += Math.hypot(dx, dy);
+      cumulativeDistances[i] = totalDist;
+    }
+
+    // Set line mode styling directly from frame 0 (train dashes, flight dashes, or solid road)
+    if (routeLinePath) {
+      if (activeTripMode === 'train') {
+        routeLinePath.style.strokeDasharray = '6 4';
+      } else if (activeTripMode === 'flight') {
+        routeLinePath.style.strokeDasharray = '10 6';
+      } else {
+        routeLinePath.style.strokeDasharray = 'none';
+      }
+      routeLinePath.style.strokeDashoffset = '0';
+    }
+    if (routeCasingPath) {
+      routeCasingPath.style.strokeDasharray = 'none';
+      routeCasingPath.style.strokeDashoffset = '0';
+    }
+    if (routeGlowPath) {
+      routeGlowPath.style.strokeDasharray = 'none';
+      routeGlowPath.style.strokeDashoffset = '0';
+    }
+
+    // Scale duration naturally with trip distance (1800ms - 2600ms) for a clear, readable sweep
+    const duration = Math.min(2600, Math.max(1800, 1600 + distanceMiles * 0.6));
+    const startTime = performance.now();
+
+    function step(now: number) {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      // Organic smooth sine in-out easing for clear, steady visual tracking
+      const ease = 0.5 - 0.5 * Math.cos(Math.PI * progress);
+      const targetDist = totalDist * ease;
+
+      if (progress >= 1) {
+        activeTripCoordinates = fullTripCoordinates;
+        updateRouteSvg();
+        routeAnimationId = null;
+        return;
+      }
+
+      // Binary search cumulativeDistances to find current segment
+      let low = 0;
+      let high = len - 1;
+      let segIdx = 0;
+      while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (cumulativeDistances[mid] <= targetDist) {
+          segIdx = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      const p1 = coords[segIdx];
+      const nextIdx = Math.min(segIdx + 1, len - 1);
+      const p2 = coords[nextIdx];
+      const d1 = cumulativeDistances[segIdx];
+      const d2 = cumulativeDistances[nextIdx];
+      const segSpan = d2 - d1;
+      const t = segSpan > 0 ? Math.min(1, Math.max(0, (targetDist - d1) / segSpan)) : 0;
+
+      const tipPoint: [number, number] = [
+        p1[0] + (p2[0] - p1[0]) * t,
+        p1[1] + (p2[1] - p1[1]) * t,
+      ];
+
+      const currentSlice = coords.slice(0, segIdx + 1);
+      currentSlice.push(tipPoint);
+      activeTripCoordinates = currentSlice;
+      updateRouteSvg();
+
+      routeAnimationId = requestAnimationFrame(step);
+    }
+
+    // Initial frame at departure origin
+    activeTripCoordinates = [coords[0], coords[0]];
+    updateRouteSvg();
+    routeAnimationId = requestAnimationFrame(step);
+  }
+
+  function updateStepperUI() {
+    const stepperBadge = document.getElementById('stepper-badge');
+    const stepperCounter = document.getElementById('stepper-counter');
+    const stepperName = document.getElementById('stepper-name');
+    const stepperContent = document.getElementById('stepper-content');
+    const stepperPrev = document.getElementById('stepper-prev') as HTMLButtonElement | null;
+    const stepperNext = document.getElementById('stepper-next') as HTMLButtonElement | null;
+
+    if (!currentTripStops.length) return;
+    const total = currentTripStops.length;
+
+    if (currentStopIndex < 0) {
+      if (stepperBadge) {
+        stepperBadge.innerHTML = `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle></svg>`;
+      }
+      if (stepperCounter) {
+        stepperCounter.textContent = '';
+        stepperCounter.style.display = 'none';
+      }
+      if (stepperName) stepperName.textContent = 'Trip Overview';
+      if (stepperContent) stepperContent.title = 'Start itinerary (Stop 1)';
+      if (stepperPrev) stepperPrev.disabled = true;
+      if (stepperNext) stepperNext.disabled = total === 0;
+      return;
+    }
+
+    const stop = currentTripStops[currentStopIndex];
+    if (stepperBadge) stepperBadge.textContent = String(currentStopIndex + 1);
+    if (stepperCounter) {
+      stepperCounter.textContent = `Stop ${currentStopIndex + 1} of ${total}`;
+      stepperCounter.style.display = '';
+    }
+    if (stepperName) stepperName.textContent = stop.name;
+    if (stepperContent) stepperContent.title = `Re-center on ${stop.name}`;
+    if (stepperPrev) stepperPrev.disabled = false;
+    if (stepperNext) stepperNext.disabled = currentStopIndex >= total - 1;
+  }
+
+  function fitCurrentTripBounds() {
+    const coordsToFit = fullTripCoordinates || activeTripCoordinates;
+    if (!mapInstance || !coordsToFit || !coordsToFit.length) return;
+
+    // Close any open popup cards for a clean unobstructed overview
+    markerRecords.forEach(({ popup, element }) => {
+      if (popup && popup.isOpen()) {
+        popup.remove();
+      }
+      const pinEl = element.querySelector('.pin-marker');
+      if (pinEl) pinEl.classList.remove('pin-pulse');
+    });
+
+    if (activeTripId && currentTripStops.length > 0 && currentStopIndex !== -1) {
+      currentStopIndex = -1;
+      updateStepperUI();
+    }
+
+    let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+    for (const [lng, lat] of coordsToFit) {
+      if (lng < minLng) minLng = lng;
+      if (lat < minLat) minLat = lat;
+      if (lng > maxLng) maxLng = lng;
+      if (lat > maxLat) maxLat = lat;
+    }
+    if (isFinite(minLng) && isFinite(minLat)) {
+      mapInstance.fitBounds(
+        [[minLng, minLat], [maxLng, maxLat]],
+        {
+          padding: window.innerWidth < 640 ? 40 : 80,
+          duration: 900,
+          essential: true,
+        }
+      );
+    }
+  }
+
+  function navigateToCurrentStop() {
+    if (!currentTripStops.length || !mapInstance) return;
+    if (currentStopIndex < 0) {
+      currentStopIndex = 0;
+    }
+    const stop = currentTripStops[currentStopIndex];
+    updateStepperUI();
+
+    const record = markerRecords.find(
+      (r) =>
+        (stop.placeId && r.id === stop.placeId) ||
+        (Math.abs(r.lat - stop.lat) < 0.001 && Math.abs(r.lng - stop.lng) < 0.001) ||
+        r.place.name.toLowerCase().trim() === stop.name.toLowerCase().trim()
+    );
+
+    mapInstance.flyTo({
+      center: [stop.lng, stop.lat],
+      zoom: 9.5,
+      speed: 1.8,
+      curve: 1.35,
+      essential: true,
+    });
+
+    if (record) {
+      let done = false;
+      const onFlightDone = () => {
+        if (done) return;
+        done = true;
+        markerRecords.forEach(({ popup }) => {
+          if (popup !== record.popup && popup.isOpen()) popup.remove();
+        });
+        if (!record.popup.isOpen()) {
+          record.marker.togglePopup();
+        }
+        const pinEl = record.element.querySelector('.pin-marker');
+        if (pinEl) {
+          pinEl.classList.add('pin-pulse');
+          setTimeout(() => pinEl.classList.remove('pin-pulse'), 2400);
+        }
+      };
+      mapInstance.once('moveend', onFlightDone);
+      setTimeout(onFlightDone, 800);
+    }
   }
 
   const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
@@ -447,11 +712,21 @@ const placesData = places.map((p) => {
     }
 
     if (!tripId) {
+      if (routeAnimationId) {
+        cancelAnimationFrame(routeAnimationId);
+        routeAnimationId = null;
+      }
       activeTripCoordinates = null;
+      fullTripCoordinates = null;
       activeTripMode = 'drive';
+      currentTripStops = [];
+      currentStopIndex = -1;
       if (routeGlowPath) routeGlowPath.removeAttribute('d');
       if (routeCasingPath) routeCasingPath.removeAttribute('d');
       if (routeLinePath) routeLinePath.removeAttribute('d');
+
+      const stepperEl = document.getElementById('itinerary-stepper');
+      if (stepperEl) stepperEl.style.display = 'none';
 
       if (trigger) {
         trigger.classList.remove('active');
@@ -495,6 +770,11 @@ const placesData = places.map((p) => {
     const trip = rawTrips.find((t) => t.id === tripId);
     if (!trip) return;
 
+    if (routeAnimationId) {
+      cancelAnimationFrame(routeAnimationId);
+      routeAnimationId = null;
+    }
+
     // Close any open popups so the whole route can be viewed without obstruction
     markerRecords.forEach(({ popup }) => {
       if (popup && popup.isOpen()) {
@@ -525,26 +805,28 @@ const placesData = places.map((p) => {
       }
     }
 
-    // 2. Set route coordinates on SVG overlay
-    activeTripCoordinates = trip.geometry.coordinates;
+    // 2. Set route coordinates on SVG overlay & trigger draw animation
     activeTripMode = trip.mode || 'drive';
+    currentTripStops = trip.stops || [];
+    currentStopIndex = -1;
 
     if (routeLinePath) {
       routeLinePath.style.stroke = theme.line;
-      if (activeTripMode === 'train') {
-        routeLinePath.style.strokeDasharray = '6 4';
-      } else if (activeTripMode === 'flight') {
-        routeLinePath.style.strokeDasharray = '10 6';
-      } else {
-        routeLinePath.style.strokeDasharray = 'none';
-      }
     }
     if (routeGlowPath) {
       routeGlowPath.style.stroke = theme.glow;
     }
-    updateRouteSvg();
+    startRouteDrawAnimation(trip.geometry.coordinates, trip.distanceMiles || 500);
 
-    // 3. Highlight markers in this trip and dim others
+    // 3. Show and configure itinerary stepper
+    const stepperEl = document.getElementById('itinerary-stepper');
+    if (stepperEl && currentTripStops.length > 0) {
+      stepperEl.style.display = 'inline-flex';
+      stepperEl.style.setProperty('--active-trip-color', theme.line);
+      updateStepperUI();
+    }
+
+    // 4. Highlight markers in this trip and dim others
     markerRecords.forEach(({ element, place }) => {
       const tripMatch = place.trips?.find((t) => t.tripId === tripId);
       const badge = element.querySelector<HTMLElement>('.trip-stop-badge');
@@ -583,33 +865,9 @@ const placesData = places.map((p) => {
       }
     });
 
-    // 4. Fit camera to the trip route if requested
+    // 5. Fit camera to the trip route if requested
     if (fitBounds && trip.geometry.coordinates.length > 0) {
-      let minLng = Infinity;
-      let minLat = Infinity;
-      let maxLng = -Infinity;
-      let maxLat = -Infinity;
-
-      for (const [lng, lat] of trip.geometry.coordinates) {
-        if (lng < minLng) minLng = lng;
-        if (lat < minLat) minLat = lat;
-        if (lng > maxLng) maxLng = lng;
-        if (lat > maxLat) maxLat = lat;
-      }
-
-      if (isFinite(minLng) && isFinite(minLat)) {
-        mapInstance.fitBounds(
-          [
-            [minLng, minLat],
-            [maxLng, maxLat],
-          ],
-          {
-            padding: window.innerWidth < 640 ? 40 : 80,
-            duration: 900,
-            essential: true,
-          }
-        );
-      }
+      fitCurrentTripBounds();
     }
   }
 
@@ -1046,6 +1304,18 @@ const placesData = places.map((p) => {
             pinEl.classList.add('pin-pulse');
             setTimeout(() => pinEl.classList.remove('pin-pulse'), 2400);
           }
+          if (activeTripId && currentTripStops.length > 0) {
+            const stopIdx = currentTripStops.findIndex(
+              (s) =>
+                (s.placeId && s.placeId === place.id) ||
+                (Math.abs(s.lat - place.lat) < 0.001 && Math.abs(s.lng - place.lng) < 0.001) ||
+                s.name.toLowerCase().trim() === place.name.toLowerCase().trim()
+            );
+            if (stopIdx !== -1) {
+              currentStopIndex = stopIdx;
+              updateStepperUI();
+            }
+          }
         },
         true
       );
@@ -1095,6 +1365,60 @@ const placesData = places.map((p) => {
         }
       };
     });
+
+    // Attach listeners to itinerary stepper
+    const stepperPrev = document.getElementById('stepper-prev') as HTMLButtonElement | null;
+    const stepperNext = document.getElementById('stepper-next') as HTMLButtonElement | null;
+    const stepperContent = document.getElementById('stepper-content');
+    const stepperFit = document.getElementById('stepper-fit') as HTMLButtonElement | null;
+
+    if (stepperPrev) {
+      stepperPrev.onclick = () => {
+        if (currentStopIndex > 0) {
+          currentStopIndex--;
+          navigateToCurrentStop();
+        } else if (currentStopIndex === 0) {
+          currentStopIndex = -1;
+          updateStepperUI();
+          fitCurrentTripBounds();
+        }
+      };
+    }
+
+    if (stepperNext) {
+      stepperNext.onclick = () => {
+        if (currentStopIndex < currentTripStops.length - 1) {
+          currentStopIndex++;
+          navigateToCurrentStop();
+        }
+      };
+    }
+
+    if (stepperContent) {
+      const handleContentAction = () => {
+        if (currentStopIndex < 0) {
+          currentStopIndex = 0;
+          navigateToCurrentStop();
+        } else {
+          navigateToCurrentStop();
+        }
+      };
+      stepperContent.onclick = handleContentAction;
+      stepperContent.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleContentAction();
+        }
+      };
+    }
+
+    if (stepperFit) {
+      stepperFit.onclick = () => {
+        currentStopIndex = -1;
+        updateStepperUI();
+        fitCurrentTripBounds();
+      };
+    }
 
     // Attach listeners to road trips dropdown
     const dropdownContainer = document.getElementById('trips-dropdown-container');
@@ -1319,6 +1643,12 @@ const placesData = places.map((p) => {
     }
     markerRecords = [];
     activeTripId = null;
+    if (routeAnimationId) {
+      cancelAnimationFrame(routeAnimationId);
+      routeAnimationId = null;
+    }
+    currentTripStops = [];
+    currentStopIndex = -1;
     activeTripCoordinates = null;
     routeSvg = null;
     routeGlowPath = null;
@@ -1930,6 +2260,169 @@ const placesData = places.map((p) => {
     .map-controls-overlay {
       bottom: var(--space-sm);
       right: var(--space-sm);
+    }
+  }
+
+  .itinerary-stepper {
+    position: absolute;
+    bottom: var(--space-md);
+    left: var(--space-md);
+    z-index: 12;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    background: rgba(26, 29, 33, 0.88);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--color-border);
+    border-radius: 9999px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+    user-select: none;
+    -webkit-user-select: none;
+    animation: stepperSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes stepperSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  :global(html[data-theme='light']) .itinerary-stepper {
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :global(html:not([data-theme='dark'])) .itinerary-stepper {
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    }
+  }
+
+  .stepper-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .stepper-btn:hover:not(:disabled) {
+    background: var(--color-border-subtle);
+    color: var(--color-text);
+  }
+
+  .stepper-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .stepper-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 8px;
+    cursor: pointer;
+    border-radius: 9999px;
+    transition: background-color 0.15s ease;
+  }
+
+  .stepper-content:hover {
+    background-color: var(--color-border-subtle);
+  }
+
+  .stepper-content:focus-visible,
+  .stepper-btn:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 1px;
+  }
+
+  .stepper-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    border-left: 1px solid var(--color-border);
+    padding-left: 4px;
+    margin-left: 2px;
+  }
+
+  .stepper-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    color: #ffffff;
+    background-color: var(--active-trip-color, #ec4899);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    flex-shrink: 0;
+  }
+
+  .stepper-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    line-height: 1.15;
+    text-align: left;
+    width: 130px;
+    min-width: 130px;
+  }
+
+  .stepper-counter {
+    font-size: 0.625rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    font-weight: 600;
+  }
+
+  .stepper-name {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stepper-fit {
+    border-left: 1px solid var(--color-border);
+    border-radius: 0 9999px 9999px 0;
+    margin-left: 2px;
+    padding-left: 2px;
+    width: 28px;
+  }
+
+  @media (max-width: 640px) {
+    .itinerary-stepper {
+      bottom: var(--space-xs);
+      left: var(--space-xs);
+      max-width: calc(100% - 100px);
+    }
+    .stepper-info {
+      width: 95px;
+      min-width: 95px;
     }
   }
 
