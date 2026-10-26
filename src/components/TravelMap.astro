@@ -423,6 +423,8 @@ const placesData = places.map((p) => {
 
   let currentStopIndex = -1;
   let currentTripStops: TripData['stops'] = [];
+  let currentTripStopIndices: number[] = [];
+  let tripCumulativeDistances: number[] = [];
 
   function updateRouteSvg() {
     if (!mapInstance || !activeTripCoordinates || activeTripCoordinates.length === 0) {
@@ -452,6 +454,37 @@ const placesData = places.map((p) => {
     if (routeGlowPath) routeGlowPath.style.strokeWidth = `${baseWidth * 2.5}px`;
   }
 
+  function calculateStopIndices(coords: [number, number][], stops: TripData['stops']): number[] {
+    if (!stops || stops.length === 0) return [];
+    if (!coords || coords.length === 0) return stops.map(() => 0);
+    if (stops.length === 1) return [0];
+
+    const result: number[] = new Array(stops.length);
+    result[0] = 0;
+    result[stops.length - 1] = coords.length - 1;
+
+    let searchFrom = 0;
+    for (let s = 1; s < stops.length - 1; s++) {
+      const stop = stops[s];
+      let bestDist = Infinity;
+      let bestIdx = searchFrom;
+
+      for (let i = searchFrom; i < coords.length; i++) {
+        const c = coords[i];
+        const dx = (c[0] - stop.lng) * Math.cos(((c[1] + stop.lat) * Math.PI) / 360);
+        const dy = c[1] - stop.lat;
+        const d = dx * dx + dy * dy;
+        if (d < bestDist) {
+          bestDist = d;
+          bestIdx = i;
+        }
+      }
+      result[s] = Math.max(searchFrom + 1, Math.min(coords.length - 1, bestIdx));
+      searchFrom = result[s];
+    }
+    return result;
+  }
+
   function startRouteDrawAnimation(coords: [number, number][], distanceMiles: number) {
     if (routeAnimationId) {
       cancelAnimationFrame(routeAnimationId);
@@ -467,8 +500,8 @@ const placesData = places.map((p) => {
 
     // Precalculate cumulative geographic distances so drawing speed is physically uniform
     const len = coords.length;
-    const cumulativeDistances: number[] = new Array(len);
-    cumulativeDistances[0] = 0;
+    tripCumulativeDistances = new Array(len);
+    tripCumulativeDistances[0] = 0;
     let totalDist = 0;
     for (let i = 1; i < len; i++) {
       const p1 = coords[i - 1];
@@ -476,7 +509,7 @@ const placesData = places.map((p) => {
       const dx = (p2[0] - p1[0]) * Math.cos(((p1[1] + p2[1]) * Math.PI) / 360);
       const dy = p2[1] - p1[1];
       totalDist += Math.hypot(dx, dy);
-      cumulativeDistances[i] = totalDist;
+      tripCumulativeDistances[i] = totalDist;
     }
 
     // Ensure solid hardware-accelerated lines for train and road trips to eliminate zoom lag
@@ -511,13 +544,13 @@ const placesData = places.map((p) => {
         return;
       }
 
-      // Binary search cumulativeDistances to find current segment
+      // Binary search tripCumulativeDistances to find current segment
       let low = 0;
       let high = len - 1;
       let segIdx = 0;
       while (low <= high) {
         const mid = (low + high) >> 1;
-        if (cumulativeDistances[mid] <= targetDist) {
+        if (tripCumulativeDistances[mid] <= targetDist) {
           segIdx = mid;
           low = mid + 1;
         } else {
@@ -528,8 +561,8 @@ const placesData = places.map((p) => {
       const p1 = coords[segIdx];
       const nextIdx = Math.min(segIdx + 1, len - 1);
       const p2 = coords[nextIdx];
-      const d1 = cumulativeDistances[segIdx];
-      const d2 = cumulativeDistances[nextIdx];
+      const d1 = tripCumulativeDistances[segIdx];
+      const d2 = tripCumulativeDistances[nextIdx];
       const segSpan = d2 - d1;
       const t = segSpan > 0 ? Math.min(1, Math.max(0, (targetDist - d1) / segSpan)) : 0;
 
@@ -549,6 +582,87 @@ const placesData = places.map((p) => {
     // Initial frame at departure origin
     activeTripCoordinates = [coords[0], coords[0]];
     updateRouteSvg();
+    routeAnimationId = requestAnimationFrame(step);
+  }
+
+  function animateRouteSegment(fromStopIdx: number, toStopIdx: number) {
+    if (routeAnimationId) {
+      cancelAnimationFrame(routeAnimationId);
+      routeAnimationId = null;
+    }
+    if (!fullTripCoordinates || !currentTripStopIndices.length || !tripCumulativeDistances.length) return;
+
+    const startVertex = fromStopIdx >= 0 && fromStopIdx < currentTripStopIndices.length
+      ? currentTripStopIndices[fromStopIdx]
+      : 0;
+    const endVertex = toStopIdx < currentTripStopIndices.length
+      ? currentTripStopIndices[toStopIdx]
+      : fullTripCoordinates.length - 1;
+
+    if (startVertex >= endVertex) {
+      activeTripCoordinates = fullTripCoordinates.slice(0, endVertex + 1);
+      updateRouteSvg();
+      return;
+    }
+
+    const startDist = tripCumulativeDistances[startVertex] || 0;
+    const endDist = tripCumulativeDistances[endVertex] || 0;
+    const legDist = Math.max(0.001, endDist - startDist);
+    const totalDist = tripCumulativeDistances[tripCumulativeDistances.length - 1] || 1;
+
+    // Scale duration naturally with segment distance (750ms - 1500ms) to synchronize with flyTo
+    const duration = Math.min(1500, Math.max(750, 700 + (legDist / totalDist) * 1600));
+    const startTime = performance.now();
+
+    function step(now: number) {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      // Smooth sine in-out easing for visual harmony with camera flight
+      const ease = 0.5 - 0.5 * Math.cos(Math.PI * progress);
+      const targetDist = startDist + legDist * ease;
+
+      if (progress >= 1) {
+        activeTripCoordinates = fullTripCoordinates!.slice(0, endVertex + 1);
+        updateRouteSvg();
+        routeAnimationId = null;
+        return;
+      }
+
+      // Binary search tripCumulativeDistances between startVertex and endVertex
+      let low = startVertex;
+      let high = endVertex;
+      let segIdx = startVertex;
+      while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (tripCumulativeDistances[mid] <= targetDist) {
+          segIdx = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      const p1 = fullTripCoordinates![segIdx];
+      const nextIdx = Math.min(segIdx + 1, endVertex);
+      const p2 = fullTripCoordinates![nextIdx];
+      const d1 = tripCumulativeDistances[segIdx];
+      const d2 = tripCumulativeDistances[nextIdx];
+      const segSpan = d2 - d1;
+      const t = segSpan > 0 ? Math.min(1, Math.max(0, (targetDist - d1) / segSpan)) : 0;
+
+      const tipPoint: [number, number] = [
+        p1[0] + (p2[0] - p1[0]) * t,
+        p1[1] + (p2[1] - p1[1]) * t,
+      ];
+
+      const currentSlice = fullTripCoordinates!.slice(0, segIdx + 1);
+      currentSlice.push(tipPoint);
+      activeTripCoordinates = currentSlice;
+      updateRouteSvg();
+
+      routeAnimationId = requestAnimationFrame(step);
+    }
+
     routeAnimationId = requestAnimationFrame(step);
   }
 
@@ -604,7 +718,13 @@ const placesData = places.map((p) => {
     });
 
     if (activeTripId && currentTripStops.length > 0 && currentStopIndex !== -1) {
+      if (routeAnimationId) {
+        cancelAnimationFrame(routeAnimationId);
+        routeAnimationId = null;
+      }
       currentStopIndex = -1;
+      activeTripCoordinates = fullTripCoordinates;
+      updateRouteSvg();
       updateStepperUI();
     }
 
@@ -715,6 +835,8 @@ const placesData = places.map((p) => {
       activeTripMode = 'drive';
       currentTripStops = [];
       currentStopIndex = -1;
+      currentTripStopIndices = [];
+      tripCumulativeDistances = [];
       if (routeGlowPath) routeGlowPath.removeAttribute('d');
       if (routeCasingPath) routeCasingPath.removeAttribute('d');
       if (routeLinePath) routeLinePath.removeAttribute('d');
@@ -803,6 +925,7 @@ const placesData = places.map((p) => {
     activeTripMode = trip.mode || 'drive';
     currentTripStops = trip.stops || [];
     currentStopIndex = -1;
+    currentTripStopIndices = calculateStopIndices(trip.geometry.coordinates, currentTripStops);
 
     if (routeLinePath) {
       routeLinePath.style.stroke = theme.line;
@@ -1298,7 +1421,7 @@ const placesData = places.map((p) => {
             pinEl.classList.add('pin-pulse');
             setTimeout(() => pinEl.classList.remove('pin-pulse'), 2400);
           }
-          if (activeTripId && currentTripStops.length > 0) {
+          if (activeTripId && currentTripStops.length > 0 && fullTripCoordinates) {
             const stopIdx = currentTripStops.findIndex(
               (s) =>
                 (s.placeId && s.placeId === place.id) ||
@@ -1308,6 +1431,16 @@ const placesData = places.map((p) => {
             if (stopIdx !== -1) {
               currentStopIndex = stopIdx;
               updateStepperUI();
+              if (routeAnimationId) {
+                cancelAnimationFrame(routeAnimationId);
+                routeAnimationId = null;
+              }
+              if (stopIdx === 0) {
+                activeTripCoordinates = [fullTripCoordinates[0], fullTripCoordinates[0]];
+              } else if (currentTripStopIndices[stopIdx] !== undefined) {
+                activeTripCoordinates = fullTripCoordinates.slice(0, currentTripStopIndices[stopIdx] + 1);
+              }
+              updateRouteSvg();
             }
           }
         },
@@ -1369,10 +1502,27 @@ const placesData = places.map((p) => {
     if (stepperPrev) {
       stepperPrev.onclick = () => {
         if (currentStopIndex > 0) {
-          currentStopIndex--;
+          const toIdx = currentStopIndex - 1;
+          currentStopIndex = toIdx;
+          if (routeAnimationId) {
+            cancelAnimationFrame(routeAnimationId);
+            routeAnimationId = null;
+          }
+          if (toIdx === 0 && fullTripCoordinates && fullTripCoordinates.length > 0) {
+            activeTripCoordinates = [fullTripCoordinates[0], fullTripCoordinates[0]];
+          } else if (fullTripCoordinates && currentTripStopIndices[toIdx] !== undefined) {
+            activeTripCoordinates = fullTripCoordinates.slice(0, currentTripStopIndices[toIdx] + 1);
+          }
+          updateRouteSvg();
           navigateToCurrentStop();
         } else if (currentStopIndex === 0) {
+          if (routeAnimationId) {
+            cancelAnimationFrame(routeAnimationId);
+            routeAnimationId = null;
+          }
           currentStopIndex = -1;
+          activeTripCoordinates = fullTripCoordinates;
+          updateRouteSvg();
           updateStepperUI();
           fitCurrentTripBounds();
         }
@@ -1382,8 +1532,22 @@ const placesData = places.map((p) => {
     if (stepperNext) {
       stepperNext.onclick = () => {
         if (currentStopIndex < currentTripStops.length - 1) {
-          currentStopIndex++;
-          navigateToCurrentStop();
+          const fromIdx = currentStopIndex;
+          const toIdx = currentStopIndex + 1;
+          currentStopIndex = toIdx;
+
+          if (fromIdx < 0) {
+            // First step from Overview into Stop 1 (departure point)
+            if (fullTripCoordinates && fullTripCoordinates.length > 0) {
+              activeTripCoordinates = [fullTripCoordinates[0], fullTripCoordinates[0]];
+              updateRouteSvg();
+            }
+            navigateToCurrentStop();
+          } else {
+            // Step forward: animate route drawing from previous stop to next stop!
+            animateRouteSegment(fromIdx, toIdx);
+            navigateToCurrentStop();
+          }
         }
       };
     }
@@ -1392,6 +1556,10 @@ const placesData = places.map((p) => {
       const handleContentAction = () => {
         if (currentStopIndex < 0) {
           currentStopIndex = 0;
+          if (fullTripCoordinates && fullTripCoordinates.length > 0) {
+            activeTripCoordinates = [fullTripCoordinates[0], fullTripCoordinates[0]];
+            updateRouteSvg();
+          }
           navigateToCurrentStop();
         } else {
           navigateToCurrentStop();
@@ -1408,7 +1576,13 @@ const placesData = places.map((p) => {
 
     if (stepperFit) {
       stepperFit.onclick = () => {
+        if (routeAnimationId) {
+          cancelAnimationFrame(routeAnimationId);
+          routeAnimationId = null;
+        }
         currentStopIndex = -1;
+        activeTripCoordinates = fullTripCoordinates;
+        updateRouteSvg();
         updateStepperUI();
         fitCurrentTripBounds();
       };
@@ -1643,6 +1817,8 @@ const placesData = places.map((p) => {
     }
     currentTripStops = [];
     currentStopIndex = -1;
+    currentTripStopIndices = [];
+    tripCumulativeDistances = [];
     activeTripCoordinates = null;
     routeSvg = null;
     routeGlowPath = null;
