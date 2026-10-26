@@ -1079,7 +1079,7 @@ const placesData = places.map((p) => {
       });
     }
 
-    // Attach listeners to category filter pills
+    // Attach listeners to category filter pills (with toggle-off support)
     const categoryPills = document.querySelectorAll<HTMLButtonElement>(
       '.filter-pill[data-category]'
     );
@@ -1088,7 +1088,11 @@ const placesData = places.map((p) => {
         const cat =
           (pill.dataset.category as 'all' | 'park' | 'city' | 'landmark') ||
           'all';
-        applyCategoryFilter(cat);
+        if (cat !== 'all' && activeFilter === cat) {
+          applyCategoryFilter('all');
+        } else {
+          applyCategoryFilter(cat);
+        }
       };
     });
 
