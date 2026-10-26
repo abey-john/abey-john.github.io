@@ -1,7 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
-import TravelMap from '../components/TravelMap.astro';
+import TravelMap from '../components/travel/TravelMap.astro';
 
 const places = await getCollection('places');
 const trips = await getCollection('trips');
