@@ -479,15 +479,9 @@ const placesData = places.map((p) => {
       cumulativeDistances[i] = totalDist;
     }
 
-    // Set line mode styling directly from frame 0 (train dashes, flight dashes, or solid road)
+    // Ensure solid hardware-accelerated lines for train and road trips to eliminate zoom lag
     if (routeLinePath) {
-      if (activeTripMode === 'train') {
-        routeLinePath.style.strokeDasharray = '6 4';
-      } else if (activeTripMode === 'flight') {
-        routeLinePath.style.strokeDasharray = '10 6';
-      } else {
-        routeLinePath.style.strokeDasharray = 'none';
-      }
+      routeLinePath.style.strokeDasharray = activeTripMode === 'flight' ? '12 8' : 'none';
       routeLinePath.style.strokeDashoffset = '0';
     }
     if (routeCasingPath) {
