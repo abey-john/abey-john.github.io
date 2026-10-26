@@ -234,10 +234,6 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
 export function applyCategoryFilter(category: FilterCategory): void {
   activeFilter = category;
 
-  if (activeTripId) {
-    setActiveTrip(null, false);
-  }
-
   // 1. Toggle MapLibre markers
   markerRecords.forEach(({ element, popup, type }) => {
     const isVisible = category === 'all' || type === category;
