@@ -1949,14 +1949,17 @@ const placesData = places.map((p) => {
   }
 
   :global(.custom-map-icon) {
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
     background: transparent;
     border: none;
     user-select: none;
     -webkit-user-select: none;
     -webkit-user-drag: none;
     touch-action: none;
-    transition: opacity 0.25s ease, transform 0.2s ease;
+    will-change: transform;
+    transition: opacity 0.25s ease;
   }
 
   :global(.custom-map-icon.trip-dimmed) {
