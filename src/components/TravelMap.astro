@@ -14,7 +14,26 @@ const parkCount = places.filter((p) => p.data.type === 'park').length;
 const cityCount = places.filter((p) => p.data.type === 'city').length;
 const landmarkCount = places.filter((p) => p.data.type === 'landmark').length;
 
-const tripsData = trips.map((t) => t.data);
+const parseTripDate = (dateStr?: string): number => {
+  if (!dateStr) return 0;
+  const parsed = Date.parse(dateStr);
+  if (!isNaN(parsed)) return parsed;
+  const parts = dateStr.trim().split(/\s+/);
+  if (parts.length === 2) {
+    const timestamp = Date.parse(`${parts[0]} 1, ${parts[1]}`);
+    if (!isNaN(timestamp)) return timestamp;
+  }
+  return 0;
+};
+
+// Sort trips reverse-chronologically (newest first)
+const sortedTrips = trips.slice().sort((a, b) => {
+  const timeA = parseTripDate(a.data.date);
+  const timeB = parseTripDate(b.data.date);
+  return timeB - timeA;
+});
+
+const tripsData = sortedTrips.map((t) => t.data);
 
 const placesData = places.map((p) => {
   const matchedTrips: {
@@ -27,7 +46,7 @@ const placesData = places.map((p) => {
     summary?: string;
   }[] = [];
 
-  for (const t of trips) {
+  for (const t of sortedTrips) {
     const indices: number[] = [];
     t.data.stops.forEach((stop, idx) => {
       const matchById = Boolean(stop.placeId && stop.placeId === p.data.id);
@@ -217,8 +236,9 @@ const placesData = places.map((p) => {
                   <span class="trip-item-info">
                     <span class="trip-item-name">{trip.name}</span>
                     <span class="trip-item-meta">
-                      {trip.distanceMiles > 0 ? `${trip.distanceMiles} mi` : ''}
-                      {trip.distanceMiles > 0 ? ' • ' : ''}
+                      {trip.date ? `${trip.date}` : ''}
+                      {trip.date && (trip.distanceMiles > 0 || trip.stops.length > 0) ? ' • ' : ''}
+                      {trip.distanceMiles > 0 ? `${trip.distanceMiles} mi • ` : ''}
                       {trip.stops.length} stops
                     </span>
                   </span>
@@ -2252,8 +2272,8 @@ const placesData = places.map((p) => {
     position: absolute;
     top: calc(100% + 8px);
     left: 0;
-    min-width: 260px;
-    max-width: 330px;
+    min-width: 290px;
+    max-width: 360px;
     background-color: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: 12px;
@@ -2402,6 +2422,9 @@ const placesData = places.map((p) => {
     font-weight: 400;
     line-height: 1.3;
     letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .trip-item-check {
