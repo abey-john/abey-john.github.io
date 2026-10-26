@@ -419,6 +419,9 @@ const placesData = places.map((p) => {
   let routeGlowPath: SVGPathElement | null = null;
   let routeCasingPath: SVGPathElement | null = null;
   let routeLinePath: SVGPathElement | null = null;
+  let routeLeadGroup: SVGGElement | null = null;
+  let routeLeadDot: SVGCircleElement | null = null;
+  let routeLeadHalo: SVGCircleElement | null = null;
   let routeAnimationId: number | null = null;
 
   let currentStopIndex = -1;
@@ -485,6 +488,7 @@ const placesData = places.map((p) => {
     return result;
   }
 
+
   function startRouteDrawAnimation(coords: [number, number][], distanceMiles: number) {
     if (routeAnimationId) {
       cancelAnimationFrame(routeAnimationId);
@@ -531,6 +535,13 @@ const placesData = places.map((p) => {
     const startTime = performance.now();
 
     function step(now: number) {
+      // If user stepped away to Stop 1 or another stop, immediately halt overview sweep
+      if (!mapInstance || currentStopIndex !== -1) {
+        if (routeLeadGroup) routeLeadGroup.style.display = 'none';
+        routeAnimationId = null;
+        return;
+      }
+
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / duration);
       // Organic smooth sine in-out easing for clear, steady visual tracking
@@ -538,8 +549,13 @@ const placesData = places.map((p) => {
       const targetDist = totalDist * ease;
 
       if (progress >= 1) {
-        activeTripCoordinates = fullTripCoordinates;
-        updateRouteSvg();
+        if (currentStopIndex === -1) {
+          activeTripCoordinates = fullTripCoordinates;
+          updateRouteSvg();
+        }
+        if (routeLeadGroup) {
+          routeLeadGroup.style.display = 'none';
+        }
         routeAnimationId = null;
         return;
       }
@@ -576,6 +592,12 @@ const placesData = places.map((p) => {
       activeTripCoordinates = currentSlice;
       updateRouteSvg();
 
+      if (routeLeadGroup) {
+        const pt = mapInstance.project(tipPoint);
+        routeLeadGroup.setAttribute('transform', `translate(${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`);
+        routeLeadGroup.style.display = 'block';
+      }
+
       routeAnimationId = requestAnimationFrame(step);
     }
 
@@ -590,7 +612,7 @@ const placesData = places.map((p) => {
       cancelAnimationFrame(routeAnimationId);
       routeAnimationId = null;
     }
-    if (!fullTripCoordinates || !currentTripStopIndices.length || !tripCumulativeDistances.length) return;
+    if (!fullTripCoordinates || !currentTripStopIndices.length || !tripCumulativeDistances.length || !mapInstance) return;
 
     const startVertex = fromStopIdx >= 0 && fromStopIdx < currentTripStopIndices.length
       ? currentTripStopIndices[fromStopIdx]
@@ -599,32 +621,95 @@ const placesData = places.map((p) => {
       ? currentTripStopIndices[toStopIdx]
       : fullTripCoordinates.length - 1;
 
+    const destStop = currentTripStops[toStopIdx];
+
+    // Close any open popups so the view is clear while following the route
+    markerRecords.forEach(({ popup }) => {
+      if (popup.isOpen()) popup.remove();
+    });
+
     if (startVertex >= endVertex) {
       activeTripCoordinates = fullTripCoordinates.slice(0, endVertex + 1);
       updateRouteSvg();
+      if (routeLeadGroup) routeLeadGroup.style.display = 'none';
+      if (destStop) {
+        mapInstance.jumpTo({ center: [destStop.lng, destStop.lat] });
+        activateStopMarker(destStop);
+      }
       return;
     }
 
     const startDist = tripCumulativeDistances[startVertex] || 0;
     const endDist = tripCumulativeDistances[endVertex] || 0;
     const legDist = Math.max(0.001, endDist - startDist);
-    const totalDist = tripCumulativeDistances[tripCumulativeDistances.length - 1] || 1;
+    const approxLegMiles = legDist * 69;
 
-    // Scale duration naturally with segment distance (750ms - 1500ms) to synchronize with flyTo
-    const duration = Math.min(1500, Math.max(750, 700 + (legDist / totalDist) * 1600));
+    // Scale duration naturally with segment distance:
+    // Short legs (~15 mi): ~1.3s
+    // Medium legs (~60 mi): ~1.7s
+    // Long legs (> 150 mi): ~2.2s - 2.5s
+    const duration = Math.min(2500, Math.max(1200, 1050 + Math.sqrt(approxLegMiles) * 85));
     const startTime = performance.now();
 
+    const startZoom = mapInstance.getZoom();
+    let targetZoom = 9.6;
+    if (approxLegMiles > 250) {
+      targetZoom = 7.8;
+    } else if (approxLegMiles > 120) {
+      targetZoom = 8.4;
+    } else if (approxLegMiles > 60) {
+      targetZoom = 9.0;
+    }
+    // If user was already at a comfortable zoomed-in level on a shorter leg, preserve it
+    if (startZoom >= 8.5 && startZoom <= 11.5 && approxLegMiles <= 60) {
+      targetZoom = startZoom;
+    }
+
+    // Start camera tracking from current camera position
+    const currentCenter = mapInstance.getCenter();
+    let camLng = currentCenter.lng;
+    let camLat = currentCenter.lat;
+
+    // If camera center was far away from start vertex, snap to start vertex
+    const startCoord = fullTripCoordinates[startVertex];
+    if (Math.hypot(camLng - startCoord[0], camLat - startCoord[1]) > 0.8) {
+      camLng = startCoord[0];
+      camLat = startCoord[1];
+    }
+
+    let lastTime = performance.now();
+
     function step(now: number) {
+      if (!mapInstance) return;
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / duration);
-      // Smooth sine in-out easing for visual harmony with camera flight
+      // Smooth sine in-out easing for natural acceleration and deceleration
       const ease = 0.5 - 0.5 * Math.cos(Math.PI * progress);
       const targetDist = startDist + legDist * ease;
 
+      // Smoothly ease zoom to target zoom
+      const currentZoom = startZoom + (targetZoom - startZoom) * ease;
+
       if (progress >= 1) {
         activeTripCoordinates = fullTripCoordinates!.slice(0, endVertex + 1);
-        updateRouteSvg();
         routeAnimationId = null;
+
+        if (routeLeadGroup) {
+          routeLeadGroup.style.display = 'none';
+        }
+
+        const centerLng = destStop ? destStop.lng : fullTripCoordinates![endVertex][0];
+        const centerLat = destStop ? destStop.lat : fullTripCoordinates![endVertex][1];
+
+        mapInstance.jumpTo({
+          center: [centerLng, centerLat],
+          zoom: currentZoom,
+        });
+        updateRouteSvg();
+
+        if (destStop) {
+          activateStopMarker(destStop);
+        }
         return;
       }
 
@@ -658,7 +743,42 @@ const placesData = places.map((p) => {
       const currentSlice = fullTripCoordinates!.slice(0, segIdx + 1);
       currentSlice.push(tipPoint);
       activeTripCoordinates = currentSlice;
+
+      // Damped exponential smoothing: filters out micro-turns, switchbacks, and road kinks
+      // Camera smoothly glides along the valley / road corridor without rapid rotational or directional twitching
+      const dt = Math.min(50, Math.max(8, now - lastTime));
+      lastTime = now;
+
+      const smoothFactor = 1 - Math.exp(-dt * 0.007); // smooth cinematic tracking (~0.10 per 16ms)
+      camLng += (tipPoint[0] - camLng) * smoothFactor;
+      camLat += (tipPoint[1] - camLat) * smoothFactor;
+
+      // Smoothly blend camera onto destination stop marker as we arrive (last 20% of progress)
+      let targetCamLng = camLng;
+      let targetCamLat = camLat;
+      const destLng = destStop ? destStop.lng : fullTripCoordinates![endVertex][0];
+      const destLat = destStop ? destStop.lat : fullTripCoordinates![endVertex][1];
+
+      if (progress > 0.8) {
+        const settle = (progress - 0.8) / 0.2;
+        const settleEase = settle * settle * (3 - 2 * settle); // smoothstep
+        targetCamLng = camLng + (destLng - camLng) * settleEase;
+        targetCamLat = camLat + (destLat - camLat) * settleEase;
+      }
+
+      mapInstance.jumpTo({
+        center: [targetCamLng, targetCamLat],
+        zoom: currentZoom,
+      });
+
+      // Update route path & position the lead vehicle marker at tipPoint
       updateRouteSvg();
+
+      if (routeLeadGroup) {
+        const pt = mapInstance.project(tipPoint);
+        routeLeadGroup.setAttribute('transform', `translate(${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`);
+        routeLeadGroup.style.display = 'block';
+      }
 
       routeAnimationId = requestAnimationFrame(step);
     }
@@ -747,6 +867,31 @@ const placesData = places.map((p) => {
     }
   }
 
+  function activateStopMarker(stop: TripData['stops'][0]) {
+    if (!mapInstance) return;
+    const record = markerRecords.find(
+      (r) =>
+        (stop.placeId && r.id === stop.placeId) ||
+        (Math.abs(r.lat - stop.lat) < 0.001 && Math.abs(r.lng - stop.lng) < 0.001) ||
+        r.place.name.toLowerCase().trim() === stop.name.toLowerCase().trim()
+    );
+
+    markerRecords.forEach(({ popup }) => {
+      if ((!record || popup !== record.popup) && popup.isOpen()) popup.remove();
+    });
+
+    if (record) {
+      if (!record.popup.isOpen()) {
+        record.marker.togglePopup();
+      }
+      const pinEl = record.element.querySelector('.pin-marker');
+      if (pinEl) {
+        pinEl.classList.add('pin-pulse');
+        setTimeout(() => pinEl.classList.remove('pin-pulse'), 2400);
+      }
+    }
+  }
+
   function navigateToCurrentStop() {
     if (!currentTripStops.length || !mapInstance) return;
     if (currentStopIndex < 0) {
@@ -754,13 +899,6 @@ const placesData = places.map((p) => {
     }
     const stop = currentTripStops[currentStopIndex];
     updateStepperUI();
-
-    const record = markerRecords.find(
-      (r) =>
-        (stop.placeId && r.id === stop.placeId) ||
-        (Math.abs(r.lat - stop.lat) < 0.001 && Math.abs(r.lng - stop.lng) < 0.001) ||
-        r.place.name.toLowerCase().trim() === stop.name.toLowerCase().trim()
-    );
 
     mapInstance.flyTo({
       center: [stop.lng, stop.lat],
@@ -770,26 +908,14 @@ const placesData = places.map((p) => {
       essential: true,
     });
 
-    if (record) {
-      let done = false;
-      const onFlightDone = () => {
-        if (done) return;
-        done = true;
-        markerRecords.forEach(({ popup }) => {
-          if (popup !== record.popup && popup.isOpen()) popup.remove();
-        });
-        if (!record.popup.isOpen()) {
-          record.marker.togglePopup();
-        }
-        const pinEl = record.element.querySelector('.pin-marker');
-        if (pinEl) {
-          pinEl.classList.add('pin-pulse');
-          setTimeout(() => pinEl.classList.remove('pin-pulse'), 2400);
-        }
-      };
-      mapInstance.once('moveend', onFlightDone);
-      setTimeout(onFlightDone, 800);
-    }
+    let done = false;
+    const onFlightDone = () => {
+      if (done) return;
+      done = true;
+      activateStopMarker(stop);
+    };
+    mapInstance.once('moveend', onFlightDone);
+    setTimeout(onFlightDone, 800);
   }
 
   const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
@@ -926,6 +1052,9 @@ const placesData = places.map((p) => {
     currentTripStops = trip.stops || [];
     currentStopIndex = -1;
     currentTripStopIndices = calculateStopIndices(trip.geometry.coordinates, currentTripStops);
+
+    if (routeLeadDot) routeLeadDot.style.fill = theme.line;
+    if (routeLeadHalo) routeLeadHalo.style.fill = theme.line;
 
     if (routeLinePath) {
       routeLinePath.style.stroke = theme.line;
@@ -1169,14 +1298,49 @@ const placesData = places.map((p) => {
       routeLinePath = document.createElementNS(svgNS, 'path') as SVGPathElement;
       routeLinePath.setAttribute('class', 'route-svg-line');
 
+      routeLeadGroup = document.createElementNS(svgNS, 'g') as SVGGElement;
+      routeLeadGroup.setAttribute('class', 'route-lead-marker');
+      routeLeadGroup.style.display = 'none';
+
+      routeLeadHalo = document.createElementNS(svgNS, 'circle') as SVGCircleElement;
+      routeLeadHalo.setAttribute('class', 'route-lead-halo');
+      routeLeadHalo.setAttribute('r', '14');
+      routeLeadHalo.setAttribute('cx', '0');
+      routeLeadHalo.setAttribute('cy', '0');
+
+      routeLeadDot = document.createElementNS(svgNS, 'circle') as SVGCircleElement;
+      routeLeadDot.setAttribute('class', 'route-lead-dot');
+      routeLeadDot.setAttribute('r', '5.5');
+      routeLeadDot.setAttribute('cx', '0');
+      routeLeadDot.setAttribute('cy', '0');
+
+      routeLeadGroup.appendChild(routeLeadHalo);
+      routeLeadGroup.appendChild(routeLeadDot);
+
       routeSvg.appendChild(routeGlowPath);
       routeSvg.appendChild(routeCasingPath);
       routeSvg.appendChild(routeLinePath);
+      routeSvg.appendChild(routeLeadGroup);
 
       canvasContainer.appendChild(routeSvg);
     }
 
     map.on('render', updateRouteSvg);
+
+    map.on('dragstart', () => {
+      if (routeAnimationId) {
+        cancelAnimationFrame(routeAnimationId);
+        routeAnimationId = null;
+        if (routeLeadGroup) routeLeadGroup.style.display = 'none';
+        if (currentStopIndex > 0 && currentTripStopIndices[currentStopIndex] !== undefined && fullTripCoordinates) {
+          activeTripCoordinates = fullTripCoordinates.slice(0, currentTripStopIndices[currentStopIndex] + 1);
+          updateRouteSvg();
+        } else if (currentStopIndex === 0) {
+          activeTripCoordinates = null;
+          updateRouteSvg();
+        }
+      }
+    });
 
     map.on('load', () => {
       map.fitBounds(DEFAULT_BOUNDS, {
@@ -1508,8 +1672,11 @@ const placesData = places.map((p) => {
             cancelAnimationFrame(routeAnimationId);
             routeAnimationId = null;
           }
-          if (toIdx === 0 && fullTripCoordinates && fullTripCoordinates.length > 0) {
-            activeTripCoordinates = [fullTripCoordinates[0], fullTripCoordinates[0]];
+          if (routeLeadGroup) {
+            routeLeadGroup.style.display = 'none';
+          }
+          if (toIdx === 0) {
+            activeTripCoordinates = null;
           } else if (fullTripCoordinates && currentTripStopIndices[toIdx] !== undefined) {
             activeTripCoordinates = fullTripCoordinates.slice(0, currentTripStopIndices[toIdx] + 1);
           }
@@ -1519,6 +1686,9 @@ const placesData = places.map((p) => {
           if (routeAnimationId) {
             cancelAnimationFrame(routeAnimationId);
             routeAnimationId = null;
+          }
+          if (routeLeadGroup) {
+            routeLeadGroup.style.display = 'none';
           }
           currentStopIndex = -1;
           activeTripCoordinates = fullTripCoordinates;
@@ -1538,15 +1708,20 @@ const placesData = places.map((p) => {
 
           if (fromIdx < 0) {
             // First step from Overview into Stop 1 (departure point)
-            if (fullTripCoordinates && fullTripCoordinates.length > 0) {
-              activeTripCoordinates = [fullTripCoordinates[0], fullTripCoordinates[0]];
-              updateRouteSvg();
+            if (routeAnimationId) {
+              cancelAnimationFrame(routeAnimationId);
+              routeAnimationId = null;
             }
+            if (routeLeadGroup) {
+              routeLeadGroup.style.display = 'none';
+            }
+            activeTripCoordinates = null;
+            updateRouteSvg();
             navigateToCurrentStop();
           } else {
-            // Step forward: animate route drawing from previous stop to next stop!
+            // Step forward: animate route drawing while camera smoothly tracks!
+            updateStepperUI();
             animateRouteSegment(fromIdx, toIdx);
-            navigateToCurrentStop();
           }
         }
       };
@@ -1556,10 +1731,15 @@ const placesData = places.map((p) => {
       const handleContentAction = () => {
         if (currentStopIndex < 0) {
           currentStopIndex = 0;
-          if (fullTripCoordinates && fullTripCoordinates.length > 0) {
-            activeTripCoordinates = [fullTripCoordinates[0], fullTripCoordinates[0]];
-            updateRouteSvg();
+          if (routeAnimationId) {
+            cancelAnimationFrame(routeAnimationId);
+            routeAnimationId = null;
           }
+          if (routeLeadGroup) {
+            routeLeadGroup.style.display = 'none';
+          }
+          activeTripCoordinates = null;
+          updateRouteSvg();
           navigateToCurrentStop();
         } else {
           navigateToCurrentStop();
@@ -1579,6 +1759,9 @@ const placesData = places.map((p) => {
         if (routeAnimationId) {
           cancelAnimationFrame(routeAnimationId);
           routeAnimationId = null;
+        }
+        if (routeLeadGroup) {
+          routeLeadGroup.style.display = 'none';
         }
         currentStopIndex = -1;
         activeTripCoordinates = fullTripCoordinates;
@@ -1824,6 +2007,9 @@ const placesData = places.map((p) => {
     routeGlowPath = null;
     routeCasingPath = null;
     routeLinePath = null;
+    routeLeadGroup = null;
+    routeLeadDot = null;
+    routeLeadHalo = null;
   });
 </script>
 
@@ -2638,6 +2824,35 @@ const placesData = places.map((p) => {
     stroke-linecap: round;
     stroke-linejoin: round;
     opacity: 1;
+  }
+
+  :global(.route-lead-marker) {
+    pointer-events: none;
+    will-change: transform;
+    z-index: 10;
+  }
+
+  :global(.route-lead-halo) {
+    opacity: 0.45;
+    animation: leadHaloPulse 1.2s infinite ease-out;
+    transform-origin: 0 0;
+  }
+
+  @keyframes leadHaloPulse {
+    0% {
+      r: 5px;
+      opacity: 0.75;
+    }
+    100% {
+      r: 15px;
+      opacity: 0;
+    }
+  }
+
+  :global(.route-lead-dot) {
+    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.5));
+    stroke: #ffffff;
+    stroke-width: 2px;
   }
 
   :global(.custom-map-icon) {
