@@ -1,35 +1,80 @@
 ---
 import type { CollectionEntry } from 'astro:content';
+import { getTripTheme } from '../utils/travelColors';
 
 interface Props {
   places: CollectionEntry<'places'>[];
+  trips?: CollectionEntry<'trips'>[];
 }
 
-const { places } = Astro.props;
+const { places, trips = [] } = Astro.props;
 
 const totalCount = places.length;
 const parkCount = places.filter((p) => p.data.type === 'park').length;
 const cityCount = places.filter((p) => p.data.type === 'city').length;
 const landmarkCount = places.filter((p) => p.data.type === 'landmark').length;
 
-const placesData = places.map((p) => ({
-  id: p.data.id,
-  name: p.data.name,
-  type: p.data.type,
-  lat: p.data.lat,
-  lng: p.data.lng,
-  country: p.data.country,
-  blurb: p.data.blurb,
-  photo: p.data.photo,
-  link: p.data.link,
-}));
+const tripsData = trips.map((t) => t.data);
+
+const placesData = places.map((p) => {
+  const matchedTrips: {
+    tripId: string;
+    tripName: string;
+    color: string;
+    mode: string;
+    stopIndices: number[];
+    totalStops: number;
+    summary?: string;
+  }[] = [];
+
+  for (const t of trips) {
+    const indices: number[] = [];
+    t.data.stops.forEach((stop, idx) => {
+      const matchById = Boolean(stop.placeId && stop.placeId === p.data.id);
+      const matchByCoords =
+        Math.abs(stop.lat - p.data.lat) < 0.001 &&
+        Math.abs(stop.lng - p.data.lng) < 0.001;
+      const matchByName =
+        stop.name.toLowerCase().trim() === p.data.name.toLowerCase().trim();
+
+      if (matchById || matchByCoords || matchByName) {
+        indices.push(idx + 1);
+      }
+    });
+
+    if (indices.length > 0) {
+      matchedTrips.push({
+        tripId: t.data.id,
+        tripName: t.data.name,
+        color: t.data.color,
+        mode: t.data.mode || 'drive',
+        stopIndices: indices,
+        totalStops: t.data.stops.length,
+        summary: t.data.summary,
+      });
+    }
+  }
+
+  return {
+    id: p.data.id,
+    name: p.data.name,
+    type: p.data.type,
+    lat: p.data.lat,
+    lng: p.data.lng,
+    country: p.data.country,
+    blurb: p.data.blurb,
+    photo: p.data.photo,
+    link: p.data.link,
+    trips: matchedTrips,
+  };
+});
 ---
 
 <div class="travel-map-container">
   <div
     class="map-filter-bar"
     role="group"
-    aria-label="Filter places by category"
+    aria-label="Filter places by category and view road trip routes"
   >
     <button
       type="button"
@@ -107,6 +152,88 @@ const placesData = places.map((p) => ({
       <span class="pill-label">Landmarks</span>
       <span class="pill-count">{landmarkCount}</span>
     </button>
+
+    {tripsData.length > 0 && (
+      <div class="filter-divider" role="separator" aria-orientation="vertical"></div>
+      <div class="trips-dropdown-container" id="trips-dropdown-container">
+        <button
+          type="button"
+          class="filter-pill trips-dropdown-trigger"
+          id="trips-dropdown-trigger"
+          aria-expanded="false"
+          aria-haspopup="true"
+          aria-controls="trips-dropdown-menu"
+          title="Browse trips & itineraries"
+        >
+          <span class="pill-icon trip-icon" id="trips-trigger-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="6" cy="19" r="3"></circle>
+              <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path>
+              <circle cx="18" cy="5" r="3"></circle>
+            </svg>
+          </span>
+          <span class="pill-label" id="trips-trigger-label">Trips</span>
+          <span class="pill-count" id="trips-trigger-count">{tripsData.length}</span>
+          <svg class="dropdown-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+
+        <div
+          class="trips-dropdown-menu"
+          id="trips-dropdown-menu"
+          role="menu"
+          aria-label="Trips and itineraries"
+        >
+          <div class="trips-dropdown-header">
+            <span class="trips-dropdown-title">Trips</span>
+            <button
+              type="button"
+              class="trips-dropdown-clear"
+              id="trips-dropdown-clear"
+              title="Clear active route"
+              style="display: none;"
+            >
+              Clear Route
+            </button>
+          </div>
+          <div class="trips-dropdown-list">
+            {tripsData.map((trip) => {
+              const theme = getTripTheme(trip.color);
+              return (
+                <button
+                  type="button"
+                  class="trips-dropdown-item"
+                  role="menuitem"
+                  data-trip-id={trip.id}
+                  id={`trip-item-${trip.id}`}
+                  style={`--item-accent-color: ${theme.line}; --item-accent-bg: ${theme.bg}; --item-accent-border: ${theme.border}; --item-accent-glow: ${theme.glow};`}
+                >
+                  <span
+                    class="trip-item-dot"
+                    style={`background-color: ${theme.line};`}
+                    aria-hidden="true"
+                  ></span>
+                  <span class="trip-item-info">
+                    <span class="trip-item-name">{trip.name}</span>
+                    <span class="trip-item-meta">
+                      {trip.distanceMiles > 0 ? `${trip.distanceMiles} mi` : ''}
+                      {trip.distanceMiles > 0 ? ' • ' : ''}
+                      {trip.stops.length} stops
+                    </span>
+                  </span>
+                  <span class="trip-item-check" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    )}
   </div>
 
   <div class="map-wrapper" id="map-wrapper">
@@ -119,6 +246,7 @@ const placesData = places.map((p) => ({
       tabindex="0"
     >
     </div>
+    <script type="application/json" id="trips-json" set:html={JSON.stringify(tripsData)}></script>
 
     <div class="map-controls-overlay">
       <div class="map-legend" role="note" aria-label="Map Legend">
@@ -186,8 +314,53 @@ const placesData = places.map((p) => ({
   import * as maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+  import { getTripTheme } from '../utils/travelColors';
 
   maplibregl.setWorkerUrl(workerUrl);
+
+  interface PlaceTripInfo {
+    tripId: string;
+    tripName: string;
+    color: string;
+    mode?: string;
+    stopIndices: number[];
+    totalStops: number;
+    summary?: string;
+  }
+
+  interface PlaceData {
+    id: string;
+    name: string;
+    type: 'city' | 'park' | 'landmark';
+    lat: number;
+    lng: number;
+    country: string;
+    blurb?: string;
+    photo?: string;
+    link?: string;
+    trips?: PlaceTripInfo[];
+  }
+
+  interface TripData {
+    id: string;
+    name: string;
+    summary?: string;
+    date?: string;
+    color: string;
+    mode?: string;
+    stops: {
+      name: string;
+      placeId?: string;
+      lat: number;
+      lng: number;
+    }[];
+    distanceMiles: number;
+    durationHours: number;
+    geometry: {
+      type: 'LineString';
+      coordinates: [number, number][];
+    };
+  }
 
   let mapInstance: maplibregl.Map | null = null;
   let markerRecords: {
@@ -199,13 +372,238 @@ const placesData = places.map((p) => ({
     type: string;
     lat: number;
     lng: number;
+    place: PlaceData;
   }[] = [];
+  let rawTrips: TripData[] = [];
+  let activeTripId: string | null = null;
   let activeFilter: 'all' | 'park' | 'city' | 'landmark' = 'all';
 
   const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
+  const DEFAULT_BOUNDS: [[number, number], [number, number]] = [
+    [-125.0, 24.39],
+    [-66.93, 49.38],
+  ];
+
+
+  function setActiveTrip(tripId: string | null, fitBounds = false) {
+    if (!mapInstance) return;
+
+    if (activeTripId === tripId && !fitBounds) {
+      tripId = null;
+    }
+    activeTripId = tripId;
+
+    // 1. Update trips dropdown trigger and items
+    const trigger = document.getElementById('trips-dropdown-trigger') as HTMLButtonElement | null;
+    const triggerLabel = document.getElementById('trips-trigger-label');
+    const triggerCount = document.getElementById('trips-trigger-count');
+    const clearBtn = document.getElementById('trips-dropdown-clear') as HTMLButtonElement | null;
+    const dropdownItems = document.querySelectorAll<HTMLButtonElement>('.trips-dropdown-item');
+
+    dropdownItems.forEach((item) => {
+      const isSelected = item.dataset.tripId === tripId;
+      item.classList.toggle('selected', isSelected);
+      item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+    });
+
+    if (clearBtn) {
+      clearBtn.style.display = tripId ? 'inline-block' : 'none';
+    }
+
+    const source = mapInstance.getSource('active-trip-route') as
+      | maplibregl.GeoJSONSource
+      | undefined;
+
+    if (!tripId) {
+      if (trigger) {
+        trigger.classList.remove('active');
+        trigger.setAttribute('aria-pressed', 'false');
+        trigger.style.removeProperty('--active-trip-color');
+      }
+      if (triggerLabel) triggerLabel.textContent = 'Trips';
+      if (triggerCount) triggerCount.textContent = String(rawTrips.length);
+
+      const triggerIcon = document.getElementById('trips-trigger-icon');
+      if (triggerIcon) {
+        triggerIcon.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle></svg>`;
+      }
+
+      if (source) {
+        source.setData({
+          type: 'FeatureCollection',
+          features: [],
+        });
+      }
+
+      if (mapInstance.getLayer('trip-route-line')) {
+        mapInstance.setPaintProperty('trip-route-line', 'line-dasharray', undefined);
+      }
+
+      markerRecords.forEach(({ element, popup }) => {
+        element.classList.remove('in-active-trip', 'trip-dimmed');
+        const badge = element.querySelector<HTMLElement>('.trip-stop-badge');
+        if (badge) {
+          badge.innerHTML = '';
+          badge.removeAttribute('title');
+          badge.style.display = 'none';
+        }
+        if (popup && popup.isOpen()) {
+          popup.remove();
+        }
+      });
+
+      if (fitBounds) {
+        mapInstance.fitBounds(DEFAULT_BOUNDS, {
+          padding: window.innerWidth < 640 ? 20 : 40,
+          bearing: 0,
+          pitch: 0,
+          duration: 900,
+          essential: true,
+        });
+      }
+
+      return;
+    }
+
+    const trip = rawTrips.find((t) => t.id === tripId);
+    if (!trip) return;
+
+    // Close any open popups so the whole route can be viewed without obstruction
+    markerRecords.forEach(({ popup }) => {
+      if (popup && popup.isOpen()) {
+        popup.remove();
+      }
+    });
+
+    const theme = getTripTheme(trip.color);
+
+    if (trigger) {
+      trigger.classList.add('active');
+      trigger.setAttribute('aria-pressed', 'true');
+      trigger.style.setProperty('--active-trip-color', theme.line);
+    }
+    if (triggerLabel) triggerLabel.textContent = trip.name;
+    if (triggerCount) {
+      triggerCount.textContent = trip.distanceMiles > 0 ? `${trip.distanceMiles} mi` : `${trip.stops.length} stops`;
+    }
+
+    const triggerIcon = document.getElementById('trips-trigger-icon');
+    if (triggerIcon) {
+      if (trip.mode === 'train') {
+        triggerIcon.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"></rect><path d="M4 11h16"></path><path d="M12 3v8"></path><path d="m8 19-2 3"></path><path d="m16 19 2 3"></path><circle cx="8" cy="15" r="1" fill="currentColor"></circle><circle cx="16" cy="15" r="1" fill="currentColor"></circle></svg>`;
+      } else if (trip.mode === 'flight') {
+        triggerIcon.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.3c.4-.2.6-.6.5-1.1z"></path></svg>`;
+      } else {
+        triggerIcon.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>`;
+      }
+    }
+
+    // Apply dashed line for trains
+    if (mapInstance.getLayer('trip-route-line')) {
+      if (trip.mode === 'train') {
+        mapInstance.setPaintProperty('trip-route-line', 'line-dasharray', [2, 1.5]);
+      } else if (trip.mode === 'flight') {
+        mapInstance.setPaintProperty('trip-route-line', 'line-dasharray', [3, 2]);
+      } else {
+        mapInstance.setPaintProperty('trip-route-line', 'line-dasharray', undefined);
+      }
+    }
+
+    // 2. Set route GeoJSON on the map
+    if (source) {
+      source.setData({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            properties: {
+              tripId: trip.id,
+              lineColor: theme.line,
+              glowColor: theme.glow,
+            },
+            geometry: trip.geometry,
+          },
+        ],
+      });
+    }
+
+    // 3. Highlight markers in this trip and dim others
+    markerRecords.forEach(({ element, place }) => {
+      const tripMatch = place.trips?.find((t) => t.tripId === tripId);
+      const badge = element.querySelector<HTMLElement>('.trip-stop-badge');
+
+      if (tripMatch) {
+        element.classList.add('in-active-trip');
+        element.classList.remove('trip-dimmed');
+        element.style.setProperty('--active-trip-color', theme.line);
+        element.style.setProperty('--active-trip-glow', theme.glow);
+
+        if (badge) {
+          const isLoopStartEnd =
+            tripMatch.stopIndices.includes(1) &&
+            tripMatch.stopIndices.includes(tripMatch.totalStops);
+
+          if (isLoopStartEnd) {
+            badge.innerHTML = `<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+            badge.title = 'Start & Finish';
+          } else {
+            badge.textContent = tripMatch.stopIndices.join(',');
+            badge.title = tripMatch.stopIndices.length > 1
+              ? `Stops ${tripMatch.stopIndices.join(', ')}`
+              : `Stop ${tripMatch.stopIndices[0]}`;
+          }
+          badge.style.display = 'flex';
+          badge.style.backgroundColor = theme.line;
+        }
+      } else {
+        element.classList.remove('in-active-trip');
+        element.classList.add('trip-dimmed');
+        if (badge) {
+          badge.innerHTML = '';
+          badge.removeAttribute('title');
+          badge.style.display = 'none';
+        }
+      }
+    });
+
+    // 4. Fit camera to the trip route if requested
+    if (fitBounds && trip.geometry.coordinates.length > 0) {
+      let minLng = Infinity;
+      let minLat = Infinity;
+      let maxLng = -Infinity;
+      let maxLat = -Infinity;
+
+      for (const [lng, lat] of trip.geometry.coordinates) {
+        if (lng < minLng) minLng = lng;
+        if (lat < minLat) minLat = lat;
+        if (lng > maxLng) maxLng = lng;
+        if (lat > maxLat) maxLat = lat;
+      }
+
+      if (isFinite(minLng) && isFinite(minLat)) {
+        mapInstance.fitBounds(
+          [
+            [minLng, minLat],
+            [maxLng, maxLat],
+          ],
+          {
+            padding: window.innerWidth < 640 ? 40 : 80,
+            duration: 900,
+            essential: true,
+          }
+        );
+      }
+    }
+  }
+
   function applyCategoryFilter(category: 'all' | 'park' | 'city' | 'landmark') {
     activeFilter = category;
+
+    // Reset active trip when changing category filters
+    if (activeTripId) {
+      setActiveTrip(null, false);
+    }
 
     // 1. Toggle MapLibre markers
     markerRecords.forEach(({ element, popup, type }) => {
@@ -217,7 +615,7 @@ const placesData = places.map((p) => ({
     });
 
     // 2. Update pill UI button states
-    const pills = document.querySelectorAll<HTMLButtonElement>('.filter-pill');
+    const pills = document.querySelectorAll<HTMLButtonElement>('.filter-pill[data-category]');
     pills.forEach((pill) => {
       const isSelected = pill.dataset.category === category;
       pill.classList.toggle('active', isSelected);
@@ -276,8 +674,12 @@ const placesData = places.map((p) => ({
       mapInstance = null;
     }
     markerRecords = [];
+    activeTripId = null;
 
-    const rawPlaces = JSON.parse(mapEl.dataset.places);
+    const rawPlaces: PlaceData[] = JSON.parse(mapEl.dataset.places);
+    rawTrips = JSON.parse(
+      document.getElementById('trips-json')?.textContent || '[]'
+    );
 
     const map = new maplibregl.Map({
       container: mapEl,
@@ -293,13 +695,13 @@ const placesData = places.map((p) => ({
     });
     mapInstance = map;
 
-    const DEFAULT_BOUNDS: [[number, number], [number, number]] = [
-      [-125.0, 24.39],
-      [-66.93, 49.38],
-    ];
 
     function recenterMap() {
       if (!mapInstance) return;
+
+      // Reset active road trip and filters
+      setActiveTrip(null, false);
+      applyCategoryFilter('all');
 
       // Close open popups for a clean overview
       markerRecords.forEach(({ popup }) => {
@@ -357,6 +759,75 @@ const placesData = places.map((p) => ({
     map.scrollZoom.setWheelZoomRate(1 / 450);
 
     map.on('load', () => {
+      // 1. Add route source & layers
+      if (!map.getSource('active-trip-route')) {
+        map.addSource('active-trip-route', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+
+        // Layer 1: Ambient soft glow
+        map.addLayer({
+          id: 'trip-route-glow',
+          type: 'line',
+          source: 'active-trip-route',
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: {
+            'line-color': ['get', 'glowColor'],
+            'line-width': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              4, 7,
+              8, 12,
+              12, 18,
+            ],
+            'line-opacity': 0.65,
+            'line-blur': 4,
+          },
+        });
+
+        // Layer 2: Subtle dark casing for contrast
+        map.addLayer({
+          id: 'trip-route-casing',
+          type: 'line',
+          source: 'active-trip-route',
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: {
+            'line-color': 'rgba(15, 23, 42, 0.7)',
+            'line-width': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              4, 4.5,
+              8, 7,
+              12, 9,
+            ],
+            'line-opacity': 0.9,
+          },
+        });
+
+        // Layer 3: Vibrant highway route
+        map.addLayer({
+          id: 'trip-route-line',
+          type: 'line',
+          source: 'active-trip-route',
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: {
+            'line-color': ['get', 'lineColor'],
+            'line-width': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              4, 2.8,
+              8, 4.5,
+              12, 6,
+            ],
+            'line-opacity': 1.0,
+          },
+        });
+      }
+
       map.fitBounds(DEFAULT_BOUNDS, {
         padding: window.innerWidth < 640 ? 20 : 40,
         duration: 0,
@@ -387,6 +858,48 @@ const placesData = places.map((p) => ({
           ? 'tag-landmark'
           : 'tag-city';
 
+      // Build trips badge markup if place belongs to any trips
+      let tripsHtml = '';
+      if (place.trips && place.trips.length > 0) {
+        tripsHtml = `
+          <div class="popup-trips-section">
+            ${place.trips
+              .map((t) => {
+                const theme = getTripTheme(t.color);
+                const stopIndicesStr = t.stopIndices.join(', ');
+                const modeLabel = t.mode === 'train' ? 'Train' : t.mode === 'flight' ? 'Flight' : 'Road Trip';
+                let stopDesc = `${modeLabel} • Stop ${stopIndicesStr} of ${t.totalStops}`;
+                if (
+                  t.stopIndices.includes(1) &&
+                  t.stopIndices.includes(t.totalStops)
+                ) {
+                  stopDesc = `${modeLabel} • Start & Finish ★`;
+                } else if (t.stopIndices.length > 1) {
+                  stopDesc = `${modeLabel} • Stops ${stopIndicesStr} of ${t.totalStops}`;
+                } else if (t.stopIndices.includes(1)) {
+                  stopDesc = `${modeLabel} • Start`;
+                } else if (t.stopIndices.includes(t.totalStops)) {
+                  stopDesc = `${modeLabel} • Finish`;
+                }
+
+                return `
+                  <div class="popup-trip-pill" style="--trip-accent: ${theme.line}; --trip-glow: ${theme.glow}; --trip-bg: ${theme.bg}; --trip-border: ${theme.border};">
+                    <div class="popup-trip-content">
+                      <span class="popup-trip-dot" aria-hidden="true"></span>
+                      <span class="popup-trip-text">Part of <strong>${t.tripName}</strong></span>
+                      <span class="popup-trip-stop-tag">(${stopDesc})</span>
+                    </div>
+                    <button type="button" class="btn-fit-trip" data-trip-id="${t.tripId}" title="View ${t.tripName} route on map">
+                      <span>View Route &rarr;</span>
+                    </button>
+                  </div>
+                `;
+              })
+              .join('')}
+          </div>
+        `;
+      }
+
       const popupContent = hasBlurb
         ? `<div class="popup-card">
             <header class="popup-header">
@@ -403,6 +916,7 @@ const placesData = places.map((p) => ({
                 : ''
             }
             <p class="popup-blurb">${place.blurb}</p>
+            ${tripsHtml}
             ${
               place.link
                 ? `<div class="popup-footer"><a href="${place.link}" class="popup-link">Read full story &rarr;</a></div>`
@@ -414,6 +928,7 @@ const placesData = places.map((p) => ({
               ${typeTag}
             </span>
             <h3 class="popup-title">${place.name}</h3>
+            ${tripsHtml}
           </div>`;
 
       const popup = new maplibregl.Popup({
@@ -421,10 +936,27 @@ const placesData = places.map((p) => ({
         closeButton: true,
         closeOnClick: true,
         className: 'custom-maplibre-popup',
-        maxWidth: '300px',
+        maxWidth: '320px',
       })
         .setLngLat([place.lng, place.lat])
         .setHTML(popupContent);
+
+      // Listen for popup open to bind "View Full Route" buttons
+      popup.on('open', () => {
+        const popupEl = popup.getElement();
+        if (!popupEl) return;
+        const fitBtns = popupEl.querySelectorAll<HTMLButtonElement>('.btn-fit-trip');
+        fitBtns.forEach((btn) => {
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            const tid = btn.dataset.tripId;
+            if (tid) {
+              setActiveTrip(tid, true);
+              popup.remove();
+            }
+          };
+        });
+      });
 
       const el = document.createElement('div');
       el.className = 'custom-map-icon';
@@ -441,6 +973,11 @@ const placesData = places.map((p) => ({
       pin.title = place.name;
       pin.innerHTML = iconHtml;
       el.appendChild(pin);
+
+      const stopBadge = document.createElement('span');
+      stopBadge.className = 'trip-stop-badge';
+      stopBadge.setAttribute('aria-hidden', 'true');
+      el.appendChild(stopBadge);
 
       // Seamless drag forwarding: dragging starting on a marker pans the map instead of blocking
       let isDown = false;
@@ -479,7 +1016,6 @@ const placesData = places.map((p) => ({
           didDrag = true;
           mapEl.classList.add('is-dragging');
 
-          // Pan map 1:1 smoothly
           map.panBy([-dx, -dy], { duration: 0 });
 
           const now = performance.now();
@@ -501,7 +1037,6 @@ const placesData = places.map((p) => ({
         mapEl.classList.remove('is-dragging');
 
         if (didDrag) {
-          // Glide with inertia if released with velocity
           const speed = Math.hypot(velX, velY);
           if (speed > 0.12) {
             const momentumFactor = Math.min(speed * 280, 420);
@@ -564,18 +1099,90 @@ const placesData = places.map((p) => ({
         type: place.type,
         lat: place.lat,
         lng: place.lng,
+        place,
       });
     }
 
-    // Attach listeners to filter pills
-    const pills = document.querySelectorAll<HTMLButtonElement>('.filter-pill');
-    pills.forEach((pill) => {
+    // Attach listeners to category filter pills
+    const categoryPills = document.querySelectorAll<HTMLButtonElement>(
+      '.filter-pill[data-category]'
+    );
+    categoryPills.forEach((pill) => {
       pill.onclick = () => {
         const cat =
           (pill.dataset.category as 'all' | 'park' | 'city' | 'landmark') ||
           'all';
         applyCategoryFilter(cat);
       };
+    });
+
+    // Attach listeners to road trips dropdown
+    const dropdownContainer = document.getElementById('trips-dropdown-container');
+    const dropdownTrigger = document.getElementById('trips-dropdown-trigger');
+    const dropdownClear = document.getElementById('trips-dropdown-clear');
+
+    function closeTripsDropdown() {
+      if (dropdownContainer) {
+        dropdownContainer.classList.remove('open');
+      }
+      if (dropdownTrigger) {
+        dropdownTrigger.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    function toggleTripsDropdown() {
+      if (!dropdownContainer || !dropdownTrigger) return;
+      const isOpen = dropdownContainer.classList.contains('open');
+      if (isOpen) {
+        closeTripsDropdown();
+      } else {
+        dropdownContainer.classList.add('open');
+        dropdownTrigger.setAttribute('aria-expanded', 'true');
+      }
+    }
+
+    if (dropdownTrigger) {
+      dropdownTrigger.onclick = (e) => {
+        e.stopPropagation();
+        toggleTripsDropdown();
+      };
+    }
+
+    if (dropdownClear) {
+      dropdownClear.onclick = (e) => {
+        e.stopPropagation();
+        setActiveTrip(null, true);
+        closeTripsDropdown();
+      };
+    }
+
+    const dropdownTripItems = document.querySelectorAll<HTMLButtonElement>('.trips-dropdown-item');
+    dropdownTripItems.forEach((item) => {
+      item.onclick = (e) => {
+        e.stopPropagation();
+        const tid = item.dataset.tripId;
+        if (!tid) return;
+        if (activeTripId === tid) {
+          setActiveTrip(null, true);
+        } else {
+          setActiveTrip(tid, true);
+        }
+        closeTripsDropdown();
+      };
+    });
+
+    // Close trips dropdown on outside click
+    document.addEventListener('click', (e) => {
+      if (dropdownContainer && !dropdownContainer.contains(e.target as Node)) {
+        closeTripsDropdown();
+      }
+    });
+
+    // Close trips dropdown on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeTripsDropdown();
+      }
     });
 
     // Attach listeners to legend items for quick toggling
@@ -629,7 +1236,6 @@ const placesData = places.map((p) => ({
       if (!mapInstance) return;
       const currentFlight = ++activeFlightId;
 
-      // Close any existing open popups immediately for a clean flight
       markerRecords.forEach(({ popup }) => {
         if (popup.isOpen()) {
           popup.remove();
@@ -732,6 +1338,7 @@ const placesData = places.map((p) => ({
       mapInstance = null;
     }
     markerRecords = [];
+    activeTripId = null;
   });
 </script>
 
@@ -864,6 +1471,228 @@ const placesData = places.map((p) => ({
   .filter-pill.active[data-category='landmark'] .pill-count {
     background-color: rgba(255, 255, 255, 0.25);
     color: #ffffff;
+  }
+
+  .filter-divider {
+    width: 1px;
+    height: 22px;
+    background-color: var(--color-border);
+    margin: 0 4px;
+    opacity: 0.7;
+  }
+
+  /* Road Trips Dropdown */
+  .trips-dropdown-container {
+    position: relative;
+    display: inline-block;
+  }
+
+  .trips-dropdown-trigger {
+    /* Uses standard .filter-pill styles */
+  }
+
+  .trips-dropdown-trigger:hover {
+    border-color: var(--color-text-muted);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .trips-dropdown-trigger.active {
+    background-color: var(--active-trip-color, #d97706);
+    color: #ffffff;
+    border-color: var(--active-trip-color, #d97706);
+    box-shadow: 0 2px 12px var(--active-trip-glow, rgba(217, 119, 6, 0.35));
+  }
+
+  .trips-dropdown-trigger.active .pill-count {
+    background-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+
+  .dropdown-chevron {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 0.7;
+    margin-left: 2px;
+  }
+
+  .trips-dropdown-container.open .dropdown-chevron {
+    transform: rotate(180deg);
+  }
+
+  .trips-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    min-width: 260px;
+    max-width: 330px;
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    padding: 6px;
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    animation: dropdownFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes dropdownFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .trips-dropdown-container.open .trips-dropdown-menu {
+    display: flex;
+  }
+
+  .trips-dropdown-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px 6px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    margin-bottom: 4px;
+  }
+
+  .trips-dropdown-title {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+  }
+
+  .trips-dropdown-clear {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-sans);
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .trips-dropdown-clear:hover {
+    color: #ef4444;
+    background-color: rgba(239, 68, 68, 0.1);
+  }
+
+  .trips-dropdown-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 310px;
+    overflow-y: auto;
+  }
+
+  .trips-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 9px;
+    background: none;
+    border: 1px solid transparent;
+    color: var(--color-text);
+    text-align: left;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .trips-dropdown-item:hover {
+    background-color: var(--color-border-subtle);
+  }
+
+  :global(html[data-theme='dark']) .trips-dropdown-item:hover,
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) .trips-dropdown-item:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+  }
+
+  .trips-dropdown-item.selected {
+    background-color: var(--item-accent-bg, rgba(255, 255, 255, 0.08));
+    border-color: var(--item-accent-border, rgba(255, 255, 255, 0.15));
+  }
+
+  .trips-dropdown-item.selected .trip-item-name {
+    font-weight: 600;
+  }
+
+  .trip-item-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+    box-shadow: 0 0 8px var(--item-accent-glow, rgba(255, 255, 255, 0.2));
+  }
+
+  .trip-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .trip-item-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .trip-item-meta {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+  }
+
+  .trip-item-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--item-accent-color, #f59e0b);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .trips-dropdown-item.selected .trip-item-check {
+    opacity: 1;
+  }
+
+  @media (max-width: 640px) {
+    .trips-dropdown-menu {
+      left: auto;
+      right: 0;
+      min-width: 240px;
+    }
   }
 
   .map-wrapper {
@@ -1120,12 +1949,71 @@ const placesData = places.map((p) => ({
   }
 
   :global(.custom-map-icon) {
+    position: relative;
     background: transparent;
     border: none;
     user-select: none;
     -webkit-user-select: none;
     -webkit-user-drag: none;
     touch-action: none;
+    transition: opacity 0.25s ease, transform 0.2s ease;
+  }
+
+  :global(.custom-map-icon.trip-dimmed) {
+    opacity: 0.25 !important;
+  }
+
+  :global(.custom-map-icon.in-active-trip) {
+    z-index: 10 !important;
+  }
+
+  :global(.custom-map-icon.in-active-trip .pin-park),
+  :global(.custom-map-icon.in-active-trip .pin-city) {
+    box-shadow:
+      0 0 0 3.5px var(--active-trip-color, #f59e0b),
+      0 0 16px var(--active-trip-glow, rgba(245, 158, 11, 0.55)) !important;
+    transform: scale(1.12);
+  }
+
+  /* Diamond landmarks: shadow goes on the 45-deg rotated pseudo-element, not the container */
+  :global(.custom-map-icon.in-active-trip .pin-landmark) {
+    box-shadow: none !important;
+    transform: scale(1.12);
+  }
+
+  :global(.custom-map-icon.in-active-trip .pin-landmark::before) {
+    box-shadow:
+      0 0 0 3.5px var(--active-trip-color, #f59e0b),
+      0 0 16px var(--active-trip-glow, rgba(245, 158, 11, 0.55)) !important;
+  }
+
+  :global(.custom-map-icon.in-active-trip .pin-landmark:hover::before) {
+    box-shadow:
+      0 0 0 4px var(--active-trip-color, #f59e0b),
+      0 0 20px var(--active-trip-glow, rgba(245, 158, 11, 0.75)) !important;
+  }
+
+  :global(.trip-stop-badge) {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9999px;
+    background-color: var(--active-trip-color, #f59e0b);
+    color: #ffffff;
+    font-size: 0.625rem;
+    font-weight: 800;
+    font-family: var(--font-mono);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    z-index: 10;
+    pointer-events: none;
+    line-height: 1;
   }
 
   :global(.pin-marker) {
@@ -1267,6 +2155,11 @@ const placesData = places.map((p) => ({
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
   }
 
+  :global(.maplibregl-popup),
+  :global(.custom-maplibre-popup) {
+    z-index: 9999 !important;
+  }
+
   :global(.custom-maplibre-popup .maplibregl-popup-content) {
     background-color: var(--color-bg) !important;
     color: var(--color-text) !important;
@@ -1377,5 +2270,84 @@ const placesData = places.map((p) => ({
     font-weight: 600;
     color: var(--color-accent);
     text-decoration: underline;
+  }
+
+  :global(.popup-trips-section) {
+    margin-top: var(--space-xs);
+    padding-top: var(--space-xs);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  :global(.popup-trip-pill) {
+    background-color: var(--trip-bg, rgba(245, 158, 11, 0.08));
+    border: 1px solid var(--trip-border, rgba(245, 158, 11, 0.3));
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.75rem;
+  }
+
+  :global(.popup-trip-content) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    line-height: 1.25;
+  }
+
+  :global(.popup-trip-dot) {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--trip-accent, #f59e0b);
+    box-shadow: 0 0 6px var(--trip-glow, rgba(245, 158, 11, 0.5));
+    flex-shrink: 0;
+  }
+
+  :global(.popup-trip-text) {
+    color: var(--color-text);
+    font-size: 0.75rem;
+  }
+
+  :global(.popup-trip-text strong) {
+    font-weight: 600;
+  }
+
+  :global(.popup-trip-stop-tag) {
+    color: var(--color-text-muted);
+    font-size: 0.6875rem;
+    font-family: var(--font-mono);
+  }
+
+  :global(.btn-fit-trip) {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--trip-accent, #f59e0b);
+    border: 1px solid var(--trip-border, rgba(245, 158, 11, 0.4));
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  :global(.btn-fit-trip:hover) {
+    background-color: var(--trip-accent, #f59e0b);
+    color: #ffffff;
+    border-color: var(--trip-accent, #f59e0b);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   }
 </style>

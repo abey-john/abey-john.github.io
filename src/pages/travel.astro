@@ -4,6 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import TravelMap from '../components/TravelMap.astro';
 
 const places = await getCollection('places');
+const trips = await getCollection('trips');
 
 const sortedPlaces = places
   .slice()
@@ -24,7 +25,7 @@ const sortedPlaces = places
     </header>
 
     <section class="map-section" aria-label="Interactive travel map">
-      <TravelMap places={places} />
+      <TravelMap places={places} trips={trips} />
     </section>
 
     <section

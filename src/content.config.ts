@@ -8,6 +8,7 @@ import {
   notionPlacesLoader,
   notionMusicLoader,
   notionSettingsLoader,
+  notionTripsLoader,
 } from './loaders/notion';
 
 const about = defineCollection({
@@ -133,6 +134,32 @@ const settings = defineCollection({
   }),
 });
 
+const trips = defineCollection({
+  loader: notionTripsLoader(),
+  schema: z.object({
+    id: z.string(),
+    name: z.string(),
+    summary: z.string().optional(),
+    date: z.string().optional(),
+    color: z.string().default('Amber'),
+    mode: z.enum(['drive', 'train', 'flight']).default('drive'),
+    stops: z.array(
+      z.object({
+        name: z.string(),
+        placeId: z.string().optional(),
+        lat: z.number(),
+        lng: z.number(),
+      })
+    ),
+    distanceMiles: z.number().default(0),
+    durationHours: z.number().default(0),
+    geometry: z.object({
+      type: z.literal('LineString'),
+      coordinates: z.array(z.tuple([z.number(), z.number()])),
+    }),
+  }),
+});
+
 export const collections = {
   about,
   now,
@@ -140,5 +167,5 @@ export const collections = {
   places,
   music,
   settings,
+  trips,
 };
-

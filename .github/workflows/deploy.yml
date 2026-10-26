@@ -53,6 +53,7 @@ jobs:
           NOTION_LAUNCHES_DB_ID: ${{ secrets.NOTION_LAUNCHES_DB_ID }}
           NOTION_MUSIC_DB_ID: ${{ secrets.NOTION_MUSIC_DB_ID }}
           NOTION_PLACES_DB_ID: ${{ secrets.NOTION_PLACES_DB_ID }}
+          NOTION_TRIPS_DB_ID: ${{ secrets.NOTION_TRIPS_DB_ID }}
         run: npm run build
 
       - name: Upload GitHub Pages artifact
