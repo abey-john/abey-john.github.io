@@ -1469,28 +1469,30 @@ export function notionTripsLoader(): Loader {
               '';
             const routeRaw = p.Route?.rich_text?.[0]?.plain_text || '';
 
-            // Automatically detect mode ('drive', 'train', 'flight')
+            // Determine travel mode ('drive', 'train', 'flight')
+            // Priority 1: Explicit Notion "Type" property (authoritative)
+            // Priority 2: Fallback to trip Name only if Type is not provided
             let mode: 'drive' | 'train' | 'flight' = 'drive';
-            const typeLower = rawType.toLowerCase();
-            const nameLower = name.toLowerCase();
-            const summaryLower = summary.toLowerCase();
-            if (
-              typeLower.includes('train') ||
-              typeLower.includes('rail') ||
-              nameLower.includes('train') ||
-              nameLower.includes('rail') ||
-              summaryLower.includes('train') ||
-              summaryLower.includes('rail')
-            ) {
-              mode = 'train';
-            } else if (
-              typeLower.includes('flight') ||
-              typeLower.includes('fly') ||
-              typeLower.includes('plane') ||
-              nameLower.includes('flight') ||
-              nameLower.includes('fly')
-            ) {
-              mode = 'flight';
+            const typeLower = rawType.toLowerCase().trim();
+            const nameLower = name.toLowerCase().trim();
+
+            if (typeLower) {
+              if (/\b(?:train|rail|railway|railroad|transit|amtrak|eurail)\b/i.test(typeLower)) {
+                mode = 'train';
+              } else if (/\b(?:flight|fly|plane|flying|airline|air)\b/i.test(typeLower)) {
+                mode = 'flight';
+              } else {
+                mode = 'drive';
+              }
+            } else {
+              // Fallback inference if Type was left empty in Notion
+              if (/\b(?:train|railway|railroad|amtrak|eurail)\b/i.test(nameLower)) {
+                mode = 'train';
+              } else if (/\b(?:flight|fly|plane|flying)\b/i.test(nameLower)) {
+                mode = 'flight';
+              } else {
+                mode = 'drive';
+              }
             }
 
             // Split into stop tokens
@@ -1580,7 +1582,11 @@ export function notionTripsLoader(): Loader {
               if (fs.existsSync(cacheFile)) {
                 try {
                   const c = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-                  if ((c.hash === hash || c.hash === legacyHash) && c.geometry?.coordinates?.length) {
+                  if (
+                    (c.hash === hash || (c.hash === legacyHash && (!c.mode || c.mode === mode))) &&
+                    (!c.mode || c.mode === mode) &&
+                    c.geometry?.coordinates?.length
+                  ) {
                     cachedData = c;
                   }
                 } catch {}
