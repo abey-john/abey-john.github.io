@@ -378,6 +378,41 @@ const placesData = places.map((p) => {
   let activeTripId: string | null = null;
   let activeFilter: 'all' | 'park' | 'city' | 'landmark' = 'all';
 
+  let activeTripCoordinates: [number, number][] | null = null;
+  let activeTripMode: string = 'drive';
+  let routeSvg: SVGSVGElement | null = null;
+  let routeGlowPath: SVGPathElement | null = null;
+  let routeCasingPath: SVGPathElement | null = null;
+  let routeLinePath: SVGPathElement | null = null;
+
+  function updateRouteSvg() {
+    if (!mapInstance || !activeTripCoordinates || activeTripCoordinates.length === 0) {
+      if (routeLinePath && routeLinePath.hasAttribute('d')) {
+        routeGlowPath?.removeAttribute('d');
+        routeCasingPath?.removeAttribute('d');
+        routeLinePath.removeAttribute('d');
+      }
+      return;
+    }
+
+    const len = activeTripCoordinates.length;
+    let d = '';
+    for (let i = 0; i < len; i++) {
+      const pt = mapInstance.project(activeTripCoordinates[i]);
+      d += (i === 0 ? 'M' : 'L') + pt.x.toFixed(1) + ' ' + pt.y.toFixed(1);
+    }
+
+    if (routeGlowPath) routeGlowPath.setAttribute('d', d);
+    if (routeCasingPath) routeCasingPath.setAttribute('d', d);
+    if (routeLinePath) routeLinePath.setAttribute('d', d);
+
+    const zoom = mapInstance.getZoom();
+    const baseWidth = Math.max(2.2, Math.min(8, 2.8 + (zoom - 4) * (3.2 / 8)));
+    if (routeLinePath) routeLinePath.style.strokeWidth = `${baseWidth}px`;
+    if (routeCasingPath) routeCasingPath.style.strokeWidth = `${baseWidth + 2.5}px`;
+    if (routeGlowPath) routeGlowPath.style.strokeWidth = `${baseWidth * 2.5}px`;
+  }
+
   const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
   const DEFAULT_BOUNDS: [[number, number], [number, number]] = [
@@ -411,11 +446,13 @@ const placesData = places.map((p) => {
       clearBtn.style.display = tripId ? 'inline-block' : 'none';
     }
 
-    const source = mapInstance.getSource('active-trip-route') as
-      | maplibregl.GeoJSONSource
-      | undefined;
-
     if (!tripId) {
+      activeTripCoordinates = null;
+      activeTripMode = 'drive';
+      if (routeGlowPath) routeGlowPath.removeAttribute('d');
+      if (routeCasingPath) routeCasingPath.removeAttribute('d');
+      if (routeLinePath) routeLinePath.removeAttribute('d');
+
       if (trigger) {
         trigger.classList.remove('active');
         trigger.setAttribute('aria-pressed', 'false');
@@ -427,17 +464,6 @@ const placesData = places.map((p) => {
       const triggerIcon = document.getElementById('trips-trigger-icon');
       if (triggerIcon) {
         triggerIcon.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle></svg>`;
-      }
-
-      if (source) {
-        source.setData({
-          type: 'FeatureCollection',
-          features: [],
-        });
-      }
-
-      if (mapInstance.getLayer('trip-route-line')) {
-        mapInstance.setPaintProperty('trip-route-line', 'line-dasharray', undefined);
       }
 
       markerRecords.forEach(({ element, popup }) => {
@@ -499,34 +525,24 @@ const placesData = places.map((p) => {
       }
     }
 
-    // Apply dashed line for trains
-    if (mapInstance.getLayer('trip-route-line')) {
-      if (trip.mode === 'train') {
-        mapInstance.setPaintProperty('trip-route-line', 'line-dasharray', [2, 1.5]);
-      } else if (trip.mode === 'flight') {
-        mapInstance.setPaintProperty('trip-route-line', 'line-dasharray', [3, 2]);
+    // 2. Set route coordinates on SVG overlay
+    activeTripCoordinates = trip.geometry.coordinates;
+    activeTripMode = trip.mode || 'drive';
+
+    if (routeLinePath) {
+      routeLinePath.style.stroke = theme.line;
+      if (activeTripMode === 'train') {
+        routeLinePath.style.strokeDasharray = '6 4';
+      } else if (activeTripMode === 'flight') {
+        routeLinePath.style.strokeDasharray = '10 6';
       } else {
-        mapInstance.setPaintProperty('trip-route-line', 'line-dasharray', undefined);
+        routeLinePath.style.strokeDasharray = 'none';
       }
     }
-
-    // 2. Set route GeoJSON on the map
-    if (source) {
-      source.setData({
-        type: 'FeatureCollection',
-        features: [
-          {
-            type: 'Feature',
-            properties: {
-              tripId: trip.id,
-              lineColor: theme.line,
-              glowColor: theme.glow,
-            },
-            geometry: trip.geometry,
-          },
-        ],
-      });
+    if (routeGlowPath) {
+      routeGlowPath.style.stroke = theme.glow;
     }
+    updateRouteSvg();
 
     // 3. Highlight markers in this trip and dim others
     markerRecords.forEach(({ element, place }) => {
@@ -758,76 +774,36 @@ const placesData = places.map((p) => {
     map.scrollZoom.enable();
     map.scrollZoom.setWheelZoomRate(1 / 450);
 
+    // Setup SVG route overlay inside canvas container
+    const canvasContainer = mapEl.querySelector('.maplibregl-canvas-container');
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const existingSvg = mapEl.querySelector('.trip-route-svg');
+    if (existingSvg) existingSvg.remove();
+
+    if (canvasContainer) {
+      routeSvg = document.createElementNS(svgNS, 'svg') as SVGSVGElement;
+      routeSvg.setAttribute('class', 'trip-route-svg');
+      routeSvg.setAttribute('aria-hidden', 'true');
+
+      routeGlowPath = document.createElementNS(svgNS, 'path') as SVGPathElement;
+      routeGlowPath.setAttribute('class', 'route-svg-glow');
+
+      routeCasingPath = document.createElementNS(svgNS, 'path') as SVGPathElement;
+      routeCasingPath.setAttribute('class', 'route-svg-casing');
+
+      routeLinePath = document.createElementNS(svgNS, 'path') as SVGPathElement;
+      routeLinePath.setAttribute('class', 'route-svg-line');
+
+      routeSvg.appendChild(routeGlowPath);
+      routeSvg.appendChild(routeCasingPath);
+      routeSvg.appendChild(routeLinePath);
+
+      canvasContainer.appendChild(routeSvg);
+    }
+
+    map.on('render', updateRouteSvg);
+
     map.on('load', () => {
-      // 1. Add route source & layers
-      if (!map.getSource('active-trip-route')) {
-        map.addSource('active-trip-route', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] },
-        });
-
-        // Layer 1: Ambient soft glow
-        map.addLayer({
-          id: 'trip-route-glow',
-          type: 'line',
-          source: 'active-trip-route',
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          paint: {
-            'line-color': ['get', 'glowColor'],
-            'line-width': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              4, 7,
-              8, 12,
-              12, 18,
-            ],
-            'line-opacity': 0.65,
-            'line-blur': 4,
-          },
-        });
-
-        // Layer 2: Subtle dark casing for contrast
-        map.addLayer({
-          id: 'trip-route-casing',
-          type: 'line',
-          source: 'active-trip-route',
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          paint: {
-            'line-color': 'rgba(15, 23, 42, 0.7)',
-            'line-width': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              4, 4.5,
-              8, 7,
-              12, 9,
-            ],
-            'line-opacity': 0.9,
-          },
-        });
-
-        // Layer 3: Vibrant highway route
-        map.addLayer({
-          id: 'trip-route-line',
-          type: 'line',
-          source: 'active-trip-route',
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          paint: {
-            'line-color': ['get', 'lineColor'],
-            'line-width': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              4, 2.8,
-              8, 4.5,
-              12, 6,
-            ],
-            'line-opacity': 1.0,
-          },
-        });
-      }
-
       map.fitBounds(DEFAULT_BOUNDS, {
         padding: window.innerWidth < 640 ? 20 : 40,
         duration: 0,
@@ -1339,6 +1315,11 @@ const placesData = places.map((p) => {
     }
     markerRecords = [];
     activeTripId = null;
+    activeTripCoordinates = null;
+    routeSvg = null;
+    routeGlowPath = null;
+    routeCasingPath = null;
+    routeLinePath = null;
   });
 </script>
 
@@ -1946,6 +1927,50 @@ const placesData = places.map((p) => {
       bottom: var(--space-sm);
       right: var(--space-sm);
     }
+  }
+
+  :global(.trip-route-svg) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+    overflow: visible;
+  }
+
+  :global(.route-svg-glow) {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: blur(4px);
+    opacity: 0.65;
+  }
+
+  :global(.route-svg-casing) {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke: rgba(15, 23, 42, 0.75);
+    opacity: 0.9;
+  }
+
+  :global(html[data-theme='light'] .route-svg-casing) {
+    stroke: rgba(255, 255, 255, 0.85);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :global(html:not([data-theme='dark']) .route-svg-casing) {
+      stroke: rgba(255, 255, 255, 0.85);
+    }
+  }
+
+  :global(.route-svg-line) {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 1;
   }
 
   :global(.custom-map-icon) {
