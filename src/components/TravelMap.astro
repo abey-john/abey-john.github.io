@@ -275,6 +275,7 @@ const placesData = places.map((p) => {
         <div class="stepper-info">
           <span class="stepper-counter" id="stepper-counter" style="display: none;"></span>
           <span class="stepper-name" id="stepper-name">Trip Overview</span>
+          <span class="stepper-summary" id="stepper-summary" style="display: none;"></span>
         </div>
       </div>
 
@@ -811,14 +812,17 @@ const placesData = places.map((p) => {
     const stepperBadge = document.getElementById('stepper-badge');
     const stepperCounter = document.getElementById('stepper-counter');
     const stepperName = document.getElementById('stepper-name');
+    const stepperSummary = document.getElementById('stepper-summary');
     const stepperContent = document.getElementById('stepper-content');
     const stepperPrev = document.getElementById('stepper-prev') as HTMLButtonElement | null;
     const stepperNext = document.getElementById('stepper-next') as HTMLButtonElement | null;
+    const stepperEl = document.getElementById('itinerary-stepper');
 
     if (!currentTripStops.length) return;
     const total = currentTripStops.length;
 
     if (currentStopIndex < 0) {
+      const currentTrip = rawTrips.find((t) => t.id === activeTripId);
       if (stepperBadge) {
         stepperBadge.innerHTML = `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle></svg>`;
       }
@@ -827,7 +831,24 @@ const placesData = places.map((p) => {
         stepperCounter.style.display = 'none';
       }
       if (stepperName) stepperName.textContent = 'Trip Overview';
-      if (stepperContent) stepperContent.title = 'Start itinerary (Stop 1)';
+      if (stepperSummary) {
+        if (currentTrip?.summary) {
+          stepperSummary.textContent = currentTrip.summary;
+          stepperSummary.title = currentTrip.summary;
+          stepperSummary.style.display = '-webkit-box';
+          stepperEl?.classList.add('has-summary');
+        } else {
+          stepperSummary.textContent = '';
+          stepperSummary.removeAttribute('title');
+          stepperSummary.style.display = 'none';
+          stepperEl?.classList.remove('has-summary');
+        }
+      }
+      if (stepperContent) {
+        stepperContent.title = currentTrip?.summary
+          ? `${currentTrip.summary} • Start itinerary (Stop 1)`
+          : 'Start itinerary (Stop 1)';
+      }
       if (stepperPrev) {
         stepperPrev.disabled = true;
         stepperPrev.title = 'Previous stop (←)';
@@ -840,6 +861,12 @@ const placesData = places.map((p) => {
     }
 
     const stop = currentTripStops[currentStopIndex];
+    stepperEl?.classList.remove('has-summary');
+    if (stepperSummary) {
+      stepperSummary.textContent = '';
+      stepperSummary.removeAttribute('title');
+      stepperSummary.style.display = 'none';
+    }
     if (stepperBadge) stepperBadge.textContent = String(currentStopIndex + 1);
     if (stepperCounter) {
       stepperCounter.textContent = `Stop ${currentStopIndex + 1} of ${total}`;
@@ -1001,7 +1028,10 @@ const placesData = places.map((p) => {
       if (routeLinePath) routeLinePath.removeAttribute('d');
 
       const stepperEl = document.getElementById('itinerary-stepper');
-      if (stepperEl) stepperEl.style.display = 'none';
+      if (stepperEl) {
+        stepperEl.style.display = 'none';
+        stepperEl.classList.remove('has-summary');
+      }
 
       if (trigger) {
         trigger.classList.remove('active');
@@ -2719,6 +2749,7 @@ const placesData = places.map((p) => {
     user-select: none;
     -webkit-user-select: none;
     animation: stepperSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: border-radius 0.2s ease, padding 0.2s ease;
   }
 
   @keyframes stepperSlideUp {
@@ -2823,6 +2854,31 @@ const placesData = places.map((p) => {
     text-align: left;
     width: 130px;
     min-width: 130px;
+    transition: max-width 0.2s ease;
+  }
+
+  .itinerary-stepper.has-summary {
+    border-radius: 18px;
+    padding: 6px 8px;
+  }
+
+  .itinerary-stepper.has-summary .stepper-info {
+    width: auto;
+    min-width: 140px;
+    max-width: 320px;
+  }
+
+  .stepper-summary {
+    font-size: 0.6875rem;
+    color: var(--color-text-muted);
+    line-height: 1.35;
+    margin-top: 3px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 400;
   }
 
   .stepper-counter {
@@ -2856,11 +2912,24 @@ const placesData = places.map((p) => {
     .itinerary-stepper {
       bottom: var(--space-xs);
       left: var(--space-xs);
-      max-width: calc(100% - 100px);
+      max-width: calc(100% - 80px);
     }
     .stepper-info {
       width: 95px;
       min-width: 95px;
+    }
+    .itinerary-stepper.has-summary {
+      border-radius: 16px;
+      padding: 5px 7px;
+    }
+    .itinerary-stepper.has-summary .stepper-info {
+      width: auto;
+      min-width: 95px;
+      max-width: 190px;
+    }
+    .stepper-summary {
+      font-size: 0.625rem;
+      line-height: 1.25;
     }
   }
 
