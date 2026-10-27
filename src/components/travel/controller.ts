@@ -389,8 +389,8 @@ export function initTravelMap(): void {
     touchPitch: false,
     pitchWithRotate: false,
     fadeDuration: 0,
-    maxTileCacheSize: 150,
-    renderWorldCopies: false,
+    maxTileCacheSize: 50,
+    renderWorldCopies: true,
     crossSourceCollisions: false,
     collectResourceTiming: false,
   });
