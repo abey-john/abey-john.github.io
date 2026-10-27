@@ -388,6 +388,11 @@ export function initTravelMap(): void {
     dragRotate: false,
     touchPitch: false,
     pitchWithRotate: false,
+    fadeDuration: 0,
+    maxTileCacheSize: 150,
+    renderWorldCopies: false,
+    crossSourceCollisions: false,
+    collectResourceTiming: false,
   });
   mapInstance = map;
 
