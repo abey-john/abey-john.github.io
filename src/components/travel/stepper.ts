@@ -115,8 +115,8 @@ export function navigateToCurrentStop(
   map.flyTo({
     center: [stop.lng, stop.lat],
     zoom: 9.5,
-    speed: 1.8,
-    curve: 1.35,
+    speed: 1.25,
+    curve: 1.42,
     essential: true,
   });
 
@@ -127,7 +127,7 @@ export function navigateToCurrentStop(
     activateStopMarker(stop, markerRecords);
   };
   map.once('moveend', onFlightDone);
-  setTimeout(onFlightDone, 800);
+  setTimeout(onFlightDone, 2000);
 }
 
 export function fitCurrentTripBounds(
@@ -157,6 +157,28 @@ export function fitCurrentTripBounds(
     if (lat > maxLat) maxLat = lat;
   }
   if (isFinite(minLng) && isFinite(minLat)) {
+    const centerLng = (minLng + maxLng) / 2;
+    const centerLat = (minLat + maxLat) / 2;
+    const currentCenter = map.getCenter();
+
+    // Calculate approximate great-circle distance in miles between current view and target trip
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(centerLat - currentCenter.lat);
+    const dLng = toRad(centerLng - currentCenter.lng);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(currentCenter.lat)) *
+        Math.cos(toRad(centerLat)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const approxMiles = 3959 * c;
+
+    // Domestic/regional trips keep the fast snappy 900ms duration.
+    // Intercontinental trips (e.g. US <-> Switzerland, ~4,500+ miles) scale to 2200ms
+    // so flying to/from Europe feels smooth and majestic rather than an instant warp.
+    const duration = approxMiles > 2500 ? 2200 : 900;
+
     map.fitBounds(
       [
         [minLng, minLat],
@@ -164,7 +186,7 @@ export function fitCurrentTripBounds(
       ],
       {
         padding: window.innerWidth < 640 ? 40 : 80,
-        duration: 900,
+        duration,
         essential: true,
       }
     );

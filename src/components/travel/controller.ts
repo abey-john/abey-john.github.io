@@ -74,6 +74,26 @@ function cancelCurrentAnimation() {
   }
 }
 
+function getOverviewResetDuration(map: maplibregl.Map): number {
+  const currentCenter = map.getCenter();
+  const defaultCenterLng = -95.965;
+  const defaultCenterLat = 36.885;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(defaultCenterLat - currentCenter.lat);
+  const dLng = toRad(defaultCenterLng - currentCenter.lng);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(currentCenter.lat)) *
+      Math.cos(toRad(defaultCenterLat)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const approxMiles = 3959 * c;
+
+  // Intercontinental reset (e.g. from Switzerland) takes 2200ms; domestic stays snappy 900ms
+  return approxMiles > 2500 ? 2200 : 900;
+}
+
 export function setActiveTrip(tripId: string | null, fitBounds = false): void {
   if (!mapInstance) return;
 
@@ -122,7 +142,7 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
         padding: window.innerWidth < 640 ? 20 : 40,
         bearing: 0,
         pitch: 0,
-        duration: 900,
+        duration: getOverviewResetDuration(mapInstance),
         essential: true,
       });
     }
@@ -297,7 +317,7 @@ export function recenterMap(): void {
     padding: window.innerWidth < 640 ? 20 : 40,
     bearing: 0,
     pitch: 0,
-    duration: 800,
+    duration: getOverviewResetDuration(mapInstance),
     essential: true,
   });
 }
@@ -330,8 +350,8 @@ export function flyToPlace(id: string, lat: number, lng: number, type: string): 
   mapInstance.flyTo({
     center: [lng, lat],
     zoom: 8.5,
-    speed: 2.0,
-    curve: 1.35,
+    speed: 1.35,
+    curve: 1.42,
     essential: true,
   });
 
