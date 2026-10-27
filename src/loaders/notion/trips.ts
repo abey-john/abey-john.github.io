@@ -226,24 +226,27 @@ export function notionTripsLoader(): Loader {
                     let legMeters = 0;
                     let legSeconds = 0;
 
-                    // 1. Try BRouter railway routing
-                    try {
-                      const brouterUrl = `https://brouter.de/brouter?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=rail&format=geojson`;
-                      const bRes = await fetch(brouterUrl, {
-                        headers: { 'User-Agent': 'PersonalWebsite/1.0' },
-                      });
-                      if (bRes.ok) {
-                        const bData = await bRes.json();
-                        const feat = bData.features?.[0];
-                        if (feat?.geometry?.coordinates?.length) {
-                          legCoords = feat.geometry.coordinates as [number, number][];
-                          legMeters = Number(feat.properties?.['track-length'] || 0);
-                          legSeconds = Number(feat.properties?.['total-time'] || 0);
+                    // 1. For train tours: Try BRouter railway routing
+                    if (mode === 'train') {
+                      try {
+                        const brouterUrl = `https://brouter.de/brouter?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=rail&format=geojson`;
+                        const bRes = await fetch(brouterUrl, {
+                          headers: { 'User-Agent': 'PersonalWebsite/1.0' },
+                        });
+                        if (bRes.ok) {
+                          const bData = await bRes.json();
+                          const feat = bData.features?.[0];
+                          const coords = feat?.geometry?.coordinates;
+                          if (coords && coords.length > 0) {
+                            legCoords = coords as [number, number][];
+                            legMeters = Number(feat.properties?.['track-length'] || 0);
+                            legSeconds = Number(feat.properties?.['total-time'] || 0);
+                          }
                         }
-                      }
-                    } catch {}
+                      } catch {}
+                    }
 
-                    // 2. If rail search failed, fallback to valley road corridor (OSRM)
+                    // 2. Try standard road driving routing fallback (OSRM)
                     if (!legCoords) {
                       try {
                         const osrmLegUrl = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
@@ -260,49 +263,24 @@ export function notionTripsLoader(): Loader {
                       } catch {}
                     }
 
-                    // 3. If car-free stop (e.g. Zermatt), snap to rail-road transfer node (Täsch)
-                    if (!legCoords) {
-                      try {
-                        const fromLng =
-                          Math.abs(from.lat - 46.02) < 0.05 && Math.abs(from.lng - 7.75) < 0.05
-                            ? 7.7744
-                            : from.lng;
-                        const fromLat =
-                          Math.abs(from.lat - 46.02) < 0.05 && Math.abs(from.lng - 7.75) < 0.05
-                            ? 46.0678
-                            : from.lat;
-                        const toLng =
-                          Math.abs(to.lat - 46.02) < 0.05 && Math.abs(to.lng - 7.75) < 0.05
-                            ? 7.7744
-                            : to.lng;
-                        const toLat =
-                          Math.abs(to.lat - 46.02) < 0.05 && Math.abs(to.lng - 7.75) < 0.05
-                            ? 46.0678
-                            : to.lat;
-
-                        const snapUrl = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
-                        const sRes = await fetch(snapUrl);
-                        if (sRes.ok) {
-                          const sData = await sRes.json();
-                          const r = sData.routes?.[0];
-                          if (r?.geometry?.coordinates?.length) {
-                            const c = r.geometry.coordinates as [number, number][];
-                            if (fromLng !== from.lng) c.unshift([from.lng, from.lat]);
-                            if (toLng !== to.lng) c.push([to.lng, to.lat]);
-                            legCoords = c;
-                            legMeters = Number(r.distance || 0);
-                            legSeconds = Number(r.duration || 0);
-                          }
-                        }
-                      } catch {}
-                    }
-
-                    // 4. Fallback if everything fails
+                    // 3. Straight line fallback if all network routing fails
                     if (!legCoords) {
                       legCoords = [
                         [from.lng, from.lat],
                         [to.lng, to.lat],
                       ];
+                    }
+
+                    // 4. Ensure leg accurately connects to the exact from and to coordinates
+                    if (legCoords && legCoords.length > 0) {
+                      const startPt = legCoords[0];
+                      const endPt = legCoords[legCoords.length - 1];
+                      if (Math.hypot(startPt[0] - from.lng, startPt[1] - from.lat) > 0.004) {
+                        legCoords.unshift([from.lng, from.lat]);
+                      }
+                      if (Math.hypot(endPt[0] - to.lng, endPt[1] - to.lat) > 0.004) {
+                        legCoords.push([to.lng, to.lat]);
+                      }
                     }
 
                     totalMeters += legMeters;

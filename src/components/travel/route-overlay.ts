@@ -359,13 +359,6 @@ export function animateRouteSegment(
         routeLeadGroup.style.display = 'none';
       }
 
-      const centerLng = destStop ? destStop.lng : fullTripCoordinates[endVertex][0];
-      const centerLat = destStop ? destStop.lat : fullTripCoordinates[endVertex][1];
-
-      map.jumpTo({
-        center: [centerLng, centerLat],
-        zoom: currentZoom,
-      });
       updateRouteSvg(map, finalCoords, overlay);
 
       if (destStop) {

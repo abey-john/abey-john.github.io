@@ -84,11 +84,21 @@ export function activateStopMarker(
   stop: TripStop,
   markerRecords: MarkerRecord[]
 ): void {
+  const cleanStr = (s: string) =>
+    (s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '')
+      .trim();
+
+  const targetName = cleanStr(stop.name);
+
   const record = markerRecords.find(
     (r) =>
       (stop.placeId && r.id === stop.placeId) ||
-      (Math.abs(r.lat - stop.lat) < 0.001 && Math.abs(r.lng - stop.lng) < 0.001) ||
-      r.place.name.toLowerCase().trim() === stop.name.toLowerCase().trim()
+      cleanStr(r.place.name) === targetName ||
+      (Math.abs(r.lat - stop.lat) < 0.04 && Math.abs(r.lng - stop.lng) < 0.04)
   );
 
   markerRecords.forEach(({ popup }) => {
@@ -112,6 +122,11 @@ export function navigateToCurrentStop(
   stop: TripStop,
   markerRecords: MarkerRecord[]
 ): void {
+  // Dismiss any existing open popup so it doesn't linger or fly across the screen
+  markerRecords.forEach(({ popup }) => {
+    if (popup.isOpen()) popup.remove();
+  });
+
   map.flyTo({
     center: [stop.lng, stop.lat],
     zoom: 9.5,
@@ -127,7 +142,7 @@ export function navigateToCurrentStop(
     activateStopMarker(stop, markerRecords);
   };
   map.once('moveend', onFlightDone);
-  setTimeout(onFlightDone, 2000);
+  setTimeout(onFlightDone, 1800);
 }
 
 export function fitCurrentTripBounds(
