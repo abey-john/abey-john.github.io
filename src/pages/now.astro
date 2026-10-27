@@ -2,6 +2,10 @@
 import { getEntry, render } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
 import LocalTimeBadge from '../components/LocalTimeBadge.astro';
+import { getSiteConfig } from '../config';
+
+const siteConfig = await getSiteConfig();
+const timezone = siteConfig.timezone || 'America/Los_Angeles';
 
 const nowEntry = await getEntry('now', 'index');
 const { Content } = nowEntry ? await render(nowEntry) : { Content: null };
@@ -11,7 +15,7 @@ const formattedDate = nowEntry?.data.updated
       month: 'long',
       day: 'numeric',
       year: 'numeric',
-      timeZone: 'UTC',
+      timeZone: timezone,
     }).format(nowEntry.data.updated)
   : null;
 ---

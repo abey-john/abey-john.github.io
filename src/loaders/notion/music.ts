@@ -43,8 +43,16 @@ export function notionMusicLoader(): Loader {
           }> = [];
           let recommendation: any = null;
           let recentListen: any = null;
+          let latestEditedMs = 0;
 
           for (const page of res.results) {
+            if ((page as any).last_edited_time) {
+              const editedMs = new Date((page as any).last_edited_time).getTime();
+              if (!isNaN(editedMs) && editedMs > latestEditedMs) {
+                latestEditedMs = editedMs;
+              }
+            }
+
             const p = page.properties;
             const title = p.Title?.title?.[0]?.plain_text || 'Untitled';
             const artist = p.Artist?.rich_text?.[0]?.plain_text || 'Unknown Artist';
@@ -200,7 +208,7 @@ export function notionMusicLoader(): Loader {
           });
 
           const fullMusicContent = {
-            updated: new Date(),
+            updated: latestEditedMs > 0 ? new Date(latestEditedMs) : new Date(),
             favorites: topTen,
             vinyl: vinylList,
             recommendation: recommendation || {

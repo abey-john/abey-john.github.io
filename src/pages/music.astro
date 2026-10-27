@@ -38,12 +38,13 @@ const sortedVinyl = [...vinyl].sort((a, b) => {
   });
 });
 
+const timezone = siteConfig.timezone || 'America/Los_Angeles';
 const formattedDate = updated
   ? new Intl.DateTimeFormat('en-US', {
       month: 'long',
       day: 'numeric',
       year: 'numeric',
-      timeZone: 'UTC',
+      timeZone: timezone,
     }).format(updated)
   : null;
 
