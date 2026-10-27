@@ -92,7 +92,10 @@ export function stripExifMetadata(buffer: Buffer, ext: string): Buffer {
  * Downloads a remote image from Notion to public/assets/notion/ and src/assets/notion/ so it never expires.
  * Automatically strips all EXIF and GPS metadata before saving.
  */
-export async function downloadRemoteImage(url: string): Promise<string> {
+export async function downloadRemoteImage(
+  url: string,
+  options?: { maxWidth?: number; quality?: number; format?: 'webp' | 'original' }
+): Promise<string> {
   if (!url || !url.startsWith('http')) return url;
 
   try {
@@ -108,7 +111,11 @@ export async function downloadRemoteImage(url: string): Promise<string> {
     // Determine extension
     const cleanUrl = url.split('?')[0];
     const extMatch = cleanUrl.match(/\.(webp|png|jpe?g|svg|gif)$/i);
-    const ext = extMatch ? extMatch[1].toLowerCase() : 'webp';
+    const rawExt = extMatch ? extMatch[1].toLowerCase() : 'webp';
+
+    const isVectorOrAnim = rawExt === 'svg' || rawExt === 'gif';
+    const shouldConvertToWebp = !isVectorOrAnim && options?.format !== 'original';
+    const ext = shouldConvertToWebp ? 'webp' : rawExt;
 
     const hash = crypto.createHash('md5').update(cleanUrl).digest('hex').slice(0, 12);
     const filename = `${hash}.${ext}`;
@@ -116,17 +123,39 @@ export async function downloadRemoteImage(url: string): Promise<string> {
     const srcTargetPath = path.join(srcNotionDir, filename);
 
     if (!fs.existsSync(srcTargetPath) || !fs.existsSync(publicTargetPath)) {
-      const response = await fetch(url);
-      if (response.ok) {
-        const rawBuffer = Buffer.from(await response.arrayBuffer());
+      let rawBuffer: Buffer | null = null;
+
+      // Check if existing raw version already exists locally on disk
+      const existingRawPublic = path.join(publicNotionDir, `${hash}.${rawExt}`);
+      const existingRawSrc = path.join(srcNotionDir, `${hash}.${rawExt}`);
+      if (fs.existsSync(existingRawPublic)) {
+        rawBuffer = fs.readFileSync(existingRawPublic);
+      } else if (fs.existsSync(existingRawSrc)) {
+        rawBuffer = fs.readFileSync(existingRawSrc);
+      } else {
+        const response = await fetch(url);
+        if (response.ok) {
+          rawBuffer = Buffer.from(await response.arrayBuffer());
+        }
+      }
+
+      if (rawBuffer) {
         let cleanBuffer: Buffer = rawBuffer;
-        if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+
+        if (!isVectorOrAnim) {
           try {
-            cleanBuffer = await sharp(rawBuffer).rotate().toBuffer();
+            let pipeline = sharp(rawBuffer).rotate();
+            const maxWidth = options?.maxWidth || 1000;
+            pipeline = pipeline.resize({ width: maxWidth, withoutEnlargement: true });
+            if (shouldConvertToWebp) {
+              pipeline = pipeline.webp({ quality: options?.quality || 82 });
+            }
+            cleanBuffer = await pipeline.toBuffer();
           } catch {
-            cleanBuffer = stripExifMetadata(rawBuffer, ext);
+            cleanBuffer = stripExifMetadata(rawBuffer, rawExt);
           }
         }
+
         if (!fs.existsSync(publicTargetPath)) {
           fs.writeFileSync(publicTargetPath, cleanBuffer);
         }
@@ -148,19 +177,23 @@ export async function downloadRemoteImage(url: string): Promise<string> {
 /**
  * Extract an image source from Notion property (uploaded file, external URL, or text path).
  */
-export async function extractImageSource(filesProp: any, textProp: any): Promise<string> {
+export async function extractImageSource(
+  filesProp: any,
+  textProp: any,
+  options?: { maxWidth?: number; quality?: number; format?: 'webp' | 'original' }
+): Promise<string> {
   const fileObj = filesProp?.files?.[0];
   if (fileObj) {
     const rawUrl = fileObj.file?.url || fileObj.external?.url;
     if (rawUrl) {
-      return await downloadRemoteImage(rawUrl);
+      return await downloadRemoteImage(rawUrl, options);
     }
   }
 
   const textVal = textProp?.rich_text?.[0]?.plain_text;
   if (textVal) {
     if (textVal.startsWith('http')) {
-      return await downloadRemoteImage(textVal);
+      return await downloadRemoteImage(textVal, options);
     }
     return textVal;
   }
