@@ -44,6 +44,14 @@ jobs:
       - name: Check EXIF metadata
         run: npm run check:exif
 
+      - name: Cache Notion route geometries
+        uses: actions/cache@v4
+        with:
+          path: src/assets/notion/routes
+          key: notion-routes-${{ runner.os }}
+          restore-keys: |
+            notion-routes-${{ runner.os }}
+
       - name: Build static site with Notion data
         env:
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}

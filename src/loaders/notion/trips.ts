@@ -346,49 +346,115 @@ export function notionTripsLoader(): Loader {
                   );
                 }
               } else if (mode === 'drive') {
-                // Fetch from OSRM driving
+                // Fetch from OSRM driving with retries
                 try {
                   const coordsParam = routingPoints.map((s) => `${s.lng},${s.lat}`).join(';');
                   const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsParam}?overview=full&geometries=geojson`;
-                  const osrmRes = await fetch(osrmUrl);
-                  if (osrmRes.ok) {
-                    const osrmData = await osrmRes.json();
-                    if (osrmData.code === 'Ok' && osrmData.routes?.[0]) {
-                      const r = osrmData.routes[0];
-                      distanceMiles = Math.round((r.distance / 1609.34) * 10) / 10;
-                      durationHours = Math.round((r.duration / 3600) * 10) / 10;
 
-                      const rawCoords = r.geometry.coordinates as [number, number][];
-                      const simplified = simplifyCoordinates(rawCoords, 0.0001).map(
-                        ([lng, lat]) =>
-                          [
-                            Math.round(lng * 100000) / 100000,
-                            Math.round(lat * 100000) / 100000,
-                          ] as [number, number]
-                      );
+                  let osrmData: any = null;
+                  for (let attempt = 1; attempt <= 3; attempt++) {
+                    try {
+                      const res = await fetch(osrmUrl, {
+                        headers: { 'User-Agent': 'PersonalWebsite/1.0' },
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        if (data.code === 'Ok' && data.routes?.[0]) {
+                          osrmData = data;
+                          break;
+                        }
+                      }
+                    } catch (e) {
+                      if (attempt === 3) throw e;
+                    }
+                    await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+                  }
 
-                      geometry = {
-                        type: 'LineString',
-                        coordinates: simplified,
-                      };
+                  if (osrmData?.routes?.[0]) {
+                    const r = osrmData.routes[0];
+                    distanceMiles = Math.round((r.distance / 1609.34) * 10) / 10;
+                    durationHours = Math.round((r.duration / 3600) * 10) / 10;
 
-                      fs.writeFileSync(
-                        cacheFile,
-                        JSON.stringify(
-                          {
-                            hash,
-                            distanceMiles,
-                            durationHours,
-                            mode: 'drive',
-                            geometry,
-                          },
-                          null,
-                          2
-                        )
-                      );
-                      logger.info(
-                        `Fetched road route for "${name}": ${distanceMiles} mi, ${geometry.coordinates.length} points.`
-                      );
+                    const rawCoords = r.geometry.coordinates as [number, number][];
+                    const simplified = simplifyCoordinates(rawCoords, 0.0001).map(
+                      ([lng, lat]) =>
+                        [
+                          Math.round(lng * 100000) / 100000,
+                          Math.round(lat * 100000) / 100000,
+                        ] as [number, number]
+                    );
+
+                    geometry = {
+                      type: 'LineString',
+                      coordinates: simplified,
+                    };
+
+                    fs.writeFileSync(
+                      cacheFile,
+                      JSON.stringify(
+                        {
+                          hash,
+                          distanceMiles,
+                          durationHours,
+                          mode: 'drive',
+                          geometry,
+                        },
+                        null,
+                        2
+                      )
+                    );
+                    logger.info(
+                      `Fetched road route for "${name}": ${distanceMiles} mi, ${geometry.coordinates.length} points.`
+                    );
+                  } else {
+                    // Fallback to BRouter car-fast if OSRM was unreachable or returned error
+                    try {
+                      const brouterPoints = routingPoints.map((s) => `${s.lng},${s.lat}`).join('|');
+                      const brouterUrl = `https://brouter.de/brouter?lonlats=${brouterPoints}&profile=car-fast&format=geojson`;
+                      const bRes = await fetch(brouterUrl, {
+                        headers: { 'User-Agent': 'PersonalWebsite/1.0' },
+                      });
+                      if (bRes.ok) {
+                        const bData = await bRes.json();
+                        const feat = bData.features?.[0];
+                        if (feat?.geometry?.coordinates?.length) {
+                          const legCoords = feat.geometry.coordinates as [number, number][];
+                          const legMeters = Number(feat.properties?.['track-length'] || 0);
+                          const legSeconds = Number(feat.properties?.['total-time'] || 0);
+                          distanceMiles = Math.round((legMeters / 1609.34) * 10) / 10;
+                          durationHours = Math.round((legSeconds / 3600) * 10) / 10;
+                          const simplified = simplifyCoordinates(legCoords, 0.0001).map(
+                            ([lng, lat]) =>
+                              [
+                                Math.round(lng * 100000) / 100000,
+                                Math.round(lat * 100000) / 100000,
+                              ] as [number, number]
+                          );
+                          geometry = {
+                            type: 'LineString',
+                            coordinates: simplified,
+                          };
+                          fs.writeFileSync(
+                            cacheFile,
+                            JSON.stringify(
+                              {
+                                hash,
+                                distanceMiles,
+                                durationHours,
+                                mode: 'drive',
+                                geometry,
+                              },
+                              null,
+                              2
+                            )
+                          );
+                          logger.info(
+                            `Fetched road route via BRouter fallback for "${name}": ${distanceMiles} mi, ${geometry.coordinates.length} points.`
+                          );
+                        }
+                      }
+                    } catch (bErr: any) {
+                      logger.warn(`BRouter fallback also failed for "${name}": ${bErr.message}`);
                     }
                   }
                 } catch (err: any) {
