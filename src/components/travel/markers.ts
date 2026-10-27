@@ -2,6 +2,56 @@ import * as maplibregl from 'maplibre-gl';
 import { getTripTheme } from '../../utils/travelColors';
 import type { PlaceData, MarkerRecord } from './types';
 
+function ensurePopupInView(map: maplibregl.Map, mapEl: HTMLElement, popup: maplibregl.Popup): void {
+  requestAnimationFrame(() => {
+    if (!popup.isOpen() || map.isMoving()) return;
+    const popupEl = popup.getElement();
+    if (!popupEl || !popupEl.isConnected) return;
+
+    const mapRect = mapEl.getBoundingClientRect();
+    const popupRect = popupEl.getBoundingClientRect();
+
+    if (
+      mapRect.width === 0 ||
+      mapRect.height === 0 ||
+      popupRect.width === 0 ||
+      popupRect.height === 0
+    ) {
+      return;
+    }
+
+    // Safe padding from map edges (clearing the floating filter bar only if genuinely clipped)
+    const PADDING = {
+      top: 54,
+      bottom: 36,
+      left: 16,
+      right: 16,
+    };
+
+    let dx = 0;
+    let dy = 0;
+
+    if (popupRect.top < mapRect.top + PADDING.top) {
+      dy = popupRect.top - (mapRect.top + PADDING.top);
+    } else if (popupRect.bottom > mapRect.bottom - PADDING.bottom) {
+      dy = popupRect.bottom - (mapRect.bottom - PADDING.bottom);
+    }
+
+    if (popupRect.left < mapRect.left + PADDING.left) {
+      dx = popupRect.left - (mapRect.left + PADDING.left);
+    } else if (popupRect.right > mapRect.right - PADDING.right) {
+      dx = popupRect.right - (mapRect.right - PADDING.right);
+    }
+
+    if (Math.abs(dx) > 16 || Math.abs(dy) > 16) {
+      map.panBy([dx, dy], {
+        duration: 260,
+        easing: (t) => t * (2 - t),
+      });
+    }
+  });
+}
+
 export function createMarkers(
   map: maplibregl.Map,
   mapEl: HTMLElement,
@@ -11,10 +61,23 @@ export function createMarkers(
     onMarkerClick: (place: PlaceData) => void;
   }
 ): MarkerRecord[] {
+  // Pre-cache place photos in background so marker popups render instantaneously
+  if (typeof window !== 'undefined') {
+    places.forEach((p) => {
+      if (p.photo) {
+        const webpUrl = p.photo.replace(/\.(png|jpe?g)$/i, '.webp');
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = webpUrl;
+      }
+    });
+  }
+
   const records: MarkerRecord[] = [];
 
   for (const place of places) {
     const hasBlurb = Boolean(place.blurb && place.blurb.trim().length > 0);
+    const hasDetails = hasBlurb || Boolean(place.photo);
     const isPark = place.type === 'park';
     const isLandmark = place.type === 'landmark';
 
@@ -41,29 +104,20 @@ export function createMarkers(
             .map((t) => {
               const theme = getTripTheme(t.color);
               const stopIndicesStr = t.stopIndices.join(', ');
-              const modeLabel = t.mode === 'train' ? 'Train' : t.mode === 'flight' ? 'Flight' : 'Road Trip';
-              let stopDesc = `${modeLabel} • Stop ${stopIndicesStr} of ${t.totalStops}`;
-              if (t.stopIndices.includes(1) && t.stopIndices.includes(t.totalStops)) {
-                stopDesc = `${modeLabel} • Start & Finish ★`;
-              } else if (t.stopIndices.length > 1) {
-                stopDesc = `${modeLabel} • Stops ${stopIndicesStr} of ${t.totalStops}`;
-              } else if (t.stopIndices.includes(1)) {
-                stopDesc = `${modeLabel} • Start`;
-              } else if (t.stopIndices.includes(t.totalStops)) {
-                stopDesc = `${modeLabel} • Finish`;
-              }
+              const stopDesc =
+                t.stopIndices.length > 1
+                  ? `Stops ${stopIndicesStr} of ${t.totalStops}`
+                  : `Stop ${stopIndicesStr} of ${t.totalStops}`;
 
               return `
-                <div class="popup-trip-pill" style="--trip-accent: ${theme.line}; --trip-glow: ${theme.glow}; --trip-bg: ${theme.bg}; --trip-border: ${theme.border};">
-                  <div class="popup-trip-content">
-                    <span class="popup-trip-dot" aria-hidden="true"></span>
-                    <span class="popup-trip-text">Part of <strong>${t.tripName}</strong></span>
-                    <span class="popup-trip-stop-tag">(${stopDesc})</span>
+                <button type="button" class="popup-trip-pill btn-fit-trip" data-trip-id="${t.tripId}" title="View ${t.tripName} route on map" style="--trip-accent: ${theme.line}; --trip-glow: ${theme.glow}; --trip-bg: ${theme.bg}; --trip-border: ${theme.border};">
+                  <span class="popup-trip-dot" aria-hidden="true"></span>
+                  <div class="popup-trip-info">
+                    <span class="popup-trip-name">${t.tripName}</span>
+                    <span class="popup-trip-stop">${stopDesc}</span>
                   </div>
-                  <button type="button" class="btn-fit-trip" data-trip-id="${t.tripId}" title="View ${t.tripName} route on map">
-                    <span>View Route &rarr;</span>
-                  </button>
-                </div>
+                  <span class="popup-trip-arrow" aria-hidden="true">&rarr;</span>
+                </button>
               `;
             })
             .join('')}
@@ -71,7 +125,7 @@ export function createMarkers(
       `;
     }
 
-    const popupContent = hasBlurb
+    const popupContent = hasDetails
       ? `<div class="popup-card">
           <header class="popup-header">
             <span class="popup-type-tag ${tagClass}">
@@ -82,11 +136,14 @@ export function createMarkers(
           ${
             place.photo
               ? `<div class="popup-photo-container">
-                  <img src="${place.photo}" alt="${place.name}" class="popup-img" loading="lazy" />
+                  <picture>
+                    <source srcset="${place.photo.replace(/\.(png|jpe?g)$/i, '.webp')}" type="image/webp" />
+                    <img src="${place.photo}" alt="${place.name}" class="popup-img" width="216" height="216" loading="eager" decoding="async" />
+                  </picture>
                 </div>`
               : ''
           }
-          <p class="popup-blurb">${place.blurb}</p>
+          ${hasBlurb ? `<p class="popup-blurb">${place.blurb}</p>` : ''}
           ${tripsHtml}
           ${
             place.link
@@ -107,12 +164,14 @@ export function createMarkers(
       closeButton: true,
       closeOnClick: true,
       className: 'custom-maplibre-popup',
-      maxWidth: '320px',
+      maxWidth: '240px',
     })
       .setLngLat([place.lng, place.lat])
       .setHTML(popupContent);
 
     popup.on('open', () => {
+      ensurePopupInView(map, mapEl, popup);
+
       const popupEl = popup.getElement();
       if (!popupEl) return;
       const fitBtns = popupEl.querySelectorAll<HTMLButtonElement>('.btn-fit-trip');

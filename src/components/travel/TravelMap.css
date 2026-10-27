@@ -1098,6 +1098,9 @@ html[data-theme='light'] .route-svg-casing {
 .maplibregl-popup,
 .custom-maplibre-popup {
   z-index: 9999 !important;
+  width: 240px;
+  max-width: 240px !important;
+  contain: layout style;
 }
 
 .custom-maplibre-popup .maplibregl-popup-content {
@@ -1107,12 +1110,56 @@ html[data-theme='light'] .route-svg-casing {
   border: 1px solid var(--color-border) !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
   padding: 0 !important;
+  width: 240px;
+  box-sizing: border-box;
   overflow: hidden;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: popupBloom 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: bottom center;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+.custom-maplibre-popup.maplibregl-popup-anchor-top .maplibregl-popup-content {
+  transform-origin: top center;
+}
+.custom-maplibre-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-content {
+  transform-origin: bottom center;
+}
+
+@keyframes popupBloom {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .custom-maplibre-popup .maplibregl-popup-tip {
   border-top-color: var(--color-bg) !important;
   border-bottom-color: var(--color-bg) !important;
+  animation: popupTipFade 220ms ease-out forwards;
+}
+
+@keyframes popupTipFade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .custom-maplibre-popup .maplibregl-popup-content,
+  .custom-maplibre-popup .maplibregl-popup-tip {
+    animation: none !important;
+  }
 }
 
 .custom-maplibre-popup .maplibregl-popup-close-button {
@@ -1128,25 +1175,32 @@ html[data-theme='light'] .route-svg-casing {
 }
 
 .popup-card {
-  padding: var(--space-md);
+  width: 240px;
+  max-width: 240px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: 8px;
   font-family: var(--font-sans);
+  box-sizing: border-box;
 }
 
 .popup-compact {
-  padding: var(--space-sm) var(--space-md);
+  width: 240px;
+  max-width: 240px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: 6px;
   font-family: var(--font-sans);
+  box-sizing: border-box;
 }
 
 .popup-header {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding-right: 18px;
 }
 
 .popup-type-tag {
@@ -1178,30 +1232,42 @@ html[data-theme='light'] .route-svg-casing {
 }
 
 .popup-photo-container {
-  margin: var(--space-xs) 0;
+  width: 216px;
+  height: 216px;
+  min-height: 216px;
+  aspect-ratio: 1 / 1;
+  margin: 2px 0 0;
   border-radius: var(--radius-sm);
   overflow: hidden;
   background-color: var(--color-border-subtle);
-  max-height: 140px;
+  flex-shrink: 0;
+}
+
+.popup-photo-container picture {
+  display: block;
+  width: 216px;
+  height: 216px;
 }
 
 .popup-img {
-  width: 100%;
-  height: 120px;
+  width: 216px;
+  height: 216px;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
+  object-position: center 20%;
   display: block;
 }
 
 .popup-blurb {
-  font-size: var(--font-size-sm);
+  font-size: 0.8125rem;
   color: var(--color-text-muted);
   margin: 0;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
 .popup-footer {
-  margin-top: var(--space-xs);
-  padding-top: var(--space-xs);
+  margin-top: 2px;
+  padding-top: 6px;
   border-top: 1px solid var(--color-border);
 }
 
@@ -1213,8 +1279,8 @@ html[data-theme='light'] .route-svg-casing {
 }
 
 .popup-trips-section {
-  margin-top: var(--space-xs);
-  padding-top: var(--space-xs);
+  margin-top: 2px;
+  padding-top: 6px;
   border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
@@ -1222,23 +1288,30 @@ html[data-theme='light'] .route-svg-casing {
 }
 
 .popup-trip-pill {
+  width: 100%;
   background-color: var(--trip-bg, rgba(245, 158, 11, 0.08));
-  border: 1px solid var(--trip-border, rgba(245, 158, 11, 0.3));
+  border: 1px solid var(--trip-border, rgba(245, 158, 11, 0.25));
   border-radius: var(--radius-sm);
-  padding: 6px 10px;
+  padding: 6px 8px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  font-size: 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  box-sizing: border-box;
 }
 
-.popup-trip-content {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  line-height: 1.25;
+.popup-trip-pill:hover {
+  background-color: var(--trip-border, rgba(245, 158, 11, 0.18));
+  border-color: var(--trip-accent, #f59e0b);
+  transform: translateY(-1px);
+}
+
+.popup-trip-pill:hover .popup-trip-arrow {
+  transform: translateX(2px);
+  color: var(--trip-accent, var(--color-text));
 }
 
 .popup-trip-dot {
@@ -1250,43 +1323,38 @@ html[data-theme='light'] .route-svg-casing {
   flex-shrink: 0;
 }
 
-.popup-trip-text {
+.popup-trip-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.popup-trip-name {
   color: var(--color-text);
   font-size: 0.75rem;
-}
-
-.popup-trip-text strong {
   font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.popup-trip-stop-tag {
+.popup-trip-stop {
   color: var(--color-text-muted);
   font-size: 0.6875rem;
   font-family: var(--font-mono);
-}
-
-.btn-fit-trip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  font-family: var(--font-sans);
-  background-color: var(--color-bg);
-  color: var(--trip-accent, #f59e0b);
-  border: 1px solid var(--trip-border, rgba(245, 158, 11, 0.4));
-  border-radius: 4px;
-  cursor: pointer;
+  line-height: 1.1;
   white-space: nowrap;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.btn-fit-trip:hover {
-  background-color: var(--trip-accent, #f59e0b);
-  color: #ffffff;
-  border-color: var(--trip-accent, #f59e0b);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+.popup-trip-arrow {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  transition: transform 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+  line-height: 1;
 }
