@@ -103,9 +103,12 @@ export function createMarkers(
           ${place.trips
             .map((t) => {
               const theme = getTripTheme(t.color);
+              const isStartAndFinish =
+                t.stopIndices.includes(1) && t.stopIndices.includes(t.totalStops);
               const stopIndicesStr = t.stopIndices.join(', ');
-              const stopDesc =
-                t.stopIndices.length > 1
+              const stopDesc = isStartAndFinish
+                ? 'Start & Finish'
+                : t.stopIndices.length > 1
                   ? `Stops ${stopIndicesStr} of ${t.totalStops}`
                   : `Stop ${stopIndicesStr} of ${t.totalStops}`;
 
