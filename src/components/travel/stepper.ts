@@ -1,5 +1,6 @@
 import type * as maplibregl from 'maplibre-gl';
 import type { TripStop, TripData, MarkerRecord } from './types';
+import { isImageModalOpen } from './image-modal';
 
 export function updateStepperUI(
   currentStopIndex: number,
@@ -226,7 +227,7 @@ export function setupKeyboardNav(callbacks: {
       return;
     }
 
-    if (!callbacks.isTripActive()) return;
+    if (!callbacks.isTripActive() || isImageModalOpen()) return;
 
     if (e.key === 'ArrowRight') {
       e.preventDefault();

@@ -20,6 +20,7 @@ import {
 } from './route-overlay';
 import { createMarkers } from './markers';
 import { setupTripsDropdown, updateTripsDropdownUI } from './dropdown';
+import { initImageModal, openImageModal } from './image-modal';
 import {
   updateStepperUI,
   activateStopMarker,
@@ -62,6 +63,7 @@ let tripCumulativeDistances: number[] = [];
 
 let cleanupDropdownListeners: (() => void) | null = null;
 let cleanupKeyNavListener: (() => void) | null = null;
+let cleanupImageModalListener: (() => void) | null = null;
 let activeFlightId = 0;
 
 function cancelCurrentAnimation() {
@@ -519,6 +521,9 @@ export function initTravelMap(): void {
         }
       }
     },
+    onOpenImageModal: (modalData) => {
+      openImageModal(modalData);
+    },
   });
 
   // Attach listeners to category filter pills
@@ -755,6 +760,8 @@ export function initTravelMap(): void {
     };
   });
 
+  cleanupImageModalListener = initImageModal();
+
   requestAnimationFrame(() => {
     map.resize();
   });
@@ -787,6 +794,10 @@ export function cleanupTravelMap(): void {
   if (cleanupKeyNavListener) {
     cleanupKeyNavListener();
     cleanupKeyNavListener = null;
+  }
+  if (cleanupImageModalListener) {
+    cleanupImageModalListener();
+    cleanupImageModalListener = null;
   }
 
   overlayElements = {

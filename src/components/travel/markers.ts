@@ -59,6 +59,13 @@ export function createMarkers(
   callbacks: {
     onSelectTrip: (tripId: string) => void;
     onMarkerClick: (place: PlaceData) => void;
+    onOpenImageModal?: (data: {
+      url: string;
+      name: string;
+      tag?: string;
+      tagClass?: string;
+      blurb?: string;
+    }) => void;
   }
 ): MarkerRecord[] {
   // Pre-cache place photos in background so marker popups render instantaneously
@@ -146,10 +153,29 @@ export function createMarkers(
           ${
             place.photo
               ? `<div class="popup-photo-container">
-                  <picture>
-                    <source srcset="${place.photo.replace(/\.(png|jpe?g)$/i, '.webp')}" type="image/webp" />
-                    <img src="${place.photo}" alt="${place.name}" class="popup-img" width="216" height="216" loading="eager" decoding="async" />
-                  </picture>
+                  <button
+                    type="button"
+                    class="popup-photo-btn"
+                    aria-label="Expand image of ${place.name}"
+                    title="Click to expand"
+                    data-photo-url="${place.photo}"
+                    data-photo-name="${place.name}"
+                    data-photo-tag="${typeTag}"
+                    data-photo-tag-class="${tagClass}"
+                  >
+                    <picture>
+                      <source srcset="${place.photo.replace(/\.(png|jpe?g)$/i, '.webp')}" type="image/webp" />
+                      <img src="${place.photo}" alt="${place.name}" class="popup-img" width="216" height="216" loading="eager" decoding="async" />
+                    </picture>
+                    <span class="popup-photo-expand-badge" aria-hidden="true" title="Expand photo">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <polyline points="9 21 3 21 3 15"></polyline>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                      </svg>
+                    </span>
+                  </button>
                 </div>`
               : ''
           }
@@ -184,6 +210,24 @@ export function createMarkers(
 
       const popupEl = popup.getElement();
       if (!popupEl) return;
+
+      const photoBtn = popupEl.querySelector<HTMLButtonElement>('.popup-photo-btn');
+      if (photoBtn) {
+        photoBtn.onclick = (e) => {
+          e.stopPropagation();
+          const photoUrl = photoBtn.dataset.photoUrl;
+          if (photoUrl && callbacks.onOpenImageModal) {
+            callbacks.onOpenImageModal({
+              url: photoUrl,
+              name: photoBtn.dataset.photoName || place.name,
+              tag: photoBtn.dataset.photoTag || typeTag,
+              tagClass: photoBtn.dataset.photoTagClass || tagClass,
+              blurb: place.blurb,
+            });
+          }
+        };
+      }
+
       const fitBtns = popupEl.querySelectorAll<HTMLButtonElement>('.btn-fit-trip');
       fitBtns.forEach((btn) => {
         btn.onclick = (e) => {
