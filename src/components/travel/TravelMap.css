@@ -1098,8 +1098,6 @@ html[data-theme='light'] .route-svg-casing {
 .maplibregl-popup,
 .custom-maplibre-popup {
   z-index: 9999 !important;
-  width: 240px;
-  max-width: 240px !important;
   contain: layout style;
 }
 
@@ -1110,7 +1108,6 @@ html[data-theme='light'] .route-svg-casing {
   border: 1px solid var(--color-border) !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
   padding: 0 !important;
-  width: 240px;
   box-sizing: border-box;
   overflow: hidden;
   max-height: calc(100vh - 160px);
@@ -1120,6 +1117,29 @@ html[data-theme='light'] .route-svg-casing {
   transform-origin: bottom center;
   will-change: transform, opacity;
   transform: translateZ(0);
+}
+
+/* 1. Popups WITH Photos: clean fixed 240px width to fit 216px square photo */
+.custom-maplibre-popup.popup-has-photo {
+  width: 240px;
+  max-width: 240px !important;
+}
+
+.custom-maplibre-popup.popup-has-photo .maplibregl-popup-content {
+  width: 240px;
+}
+
+/* 2. Popups WITHOUT Photos: content-adaptive, compact width */
+.custom-maplibre-popup.popup-no-photo {
+  width: auto;
+  min-width: 110px;
+  max-width: 220px !important;
+}
+
+.custom-maplibre-popup.popup-no-photo .maplibregl-popup-content {
+  width: auto;
+  min-width: 110px;
+  max-width: 220px;
 }
 
 .custom-maplibre-popup.maplibregl-popup-anchor-top .maplibregl-popup-content {
@@ -1170,6 +1190,11 @@ html[data-theme='light'] .route-svg-casing {
   border: none !important;
 }
 
+.custom-maplibre-popup.popup-no-photo .maplibregl-popup-close-button {
+  padding: 4px 8px !important;
+  font-size: 1rem !important;
+}
+
 .custom-maplibre-popup .maplibregl-popup-close-button:hover {
   color: var(--color-text) !important;
 }
@@ -1185,15 +1210,29 @@ html[data-theme='light'] .route-svg-casing {
   box-sizing: border-box;
 }
 
-.popup-compact {
-  width: 240px;
-  max-width: 240px;
+.popup-card.no-photo {
+  width: auto;
+  min-width: 110px;
+  max-width: 220px;
   padding: 10px 12px;
+  gap: 6px;
+}
+
+.popup-compact {
+  width: auto;
+  min-width: 110px;
+  max-width: 220px;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   font-family: var(--font-sans);
   box-sizing: border-box;
+}
+
+.popup-compact .popup-title {
+  padding-right: 18px;
+  font-size: 0.9375rem;
 }
 
 .popup-header {

@@ -125,8 +125,15 @@ export function createMarkers(
       `;
     }
 
+    const hasPhoto = Boolean(place.photo);
+    const hasTrips = Boolean(place.trips && place.trips.length > 0);
+    const popupClass = hasPhoto
+      ? 'custom-maplibre-popup popup-has-photo'
+      : 'custom-maplibre-popup popup-no-photo';
+    const popupMaxWidth = hasPhoto ? '240px' : hasTrips || hasBlurb ? '220px' : '170px';
+
     const popupContent = hasDetails
-      ? `<div class="popup-card">
+      ? `<div class="popup-card ${hasPhoto ? 'has-photo' : 'no-photo'}">
           <header class="popup-header">
             <span class="popup-type-tag ${tagClass}">
               ${typeTag}
@@ -163,8 +170,8 @@ export function createMarkers(
       offset: 16,
       closeButton: true,
       closeOnClick: true,
-      className: 'custom-maplibre-popup',
-      maxWidth: '240px',
+      className: popupClass,
+      maxWidth: popupMaxWidth,
     })
       .setLngLat([place.lng, place.lat])
       .setHTML(popupContent);
