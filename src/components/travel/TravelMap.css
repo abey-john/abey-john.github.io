@@ -136,14 +136,30 @@
   opacity: 0.7;
 }
 
-/* Road Trips Dropdown */
+/* Road Trips Dropdown (Left-aligned) */
 .trips-dropdown-container {
   position: relative;
   display: inline-block;
 }
 
 .trips-dropdown-trigger {
-  /* Uses standard .filter-pill styles */
+  /* Inherits neutral unselected .filter-pill styling */
+}
+
+.trips-dropdown-trigger .trip-icon {
+  background-color: transparent;
+  color: #8b5cf6;
+  transition: color 0.18s ease;
+}
+
+html[data-theme='light'] .trips-dropdown-trigger .trip-icon {
+  color: #7c3aed;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .trips-dropdown-trigger .trip-icon {
+    color: #7c3aed;
+  }
 }
 
 .trips-dropdown-trigger:hover {
@@ -158,6 +174,11 @@
   box-shadow: 0 2px 12px var(--active-trip-glow, rgba(217, 119, 6, 0.35));
 }
 
+.trips-dropdown-trigger.active .trip-icon {
+  background-color: transparent;
+  color: #ffffff;
+}
+
 .trips-dropdown-trigger.active .pill-count {
   background-color: rgba(255, 255, 255, 0.25);
   color: #ffffff;
@@ -165,7 +186,7 @@
 
 .dropdown-chevron {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  opacity: 0.7;
+  opacity: 0.75;
   margin-left: 2px;
 }
 
@@ -277,10 +298,10 @@
 }
 
 html[data-theme='dark'] .trips-dropdown-item:hover {
-    background-color: rgba(255, 255, 255, 0.06);
-  }
+  background-color: rgba(255, 255, 255, 0.06);
+}
 
-  @media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .trips-dropdown-item:hover {
     background-color: rgba(255, 255, 255, 0.06);
   }
@@ -350,9 +371,10 @@ html[data-theme='dark'] .trips-dropdown-item:hover {
 
 @media (max-width: 640px) {
   .trips-dropdown-menu {
-    left: auto;
-    right: 0;
-    min-width: 240px;
+    left: 0;
+    right: auto;
+    min-width: 260px;
+    max-width: calc(100vw - 32px);
   }
 }
 

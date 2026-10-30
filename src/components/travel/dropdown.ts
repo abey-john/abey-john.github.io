@@ -52,11 +52,12 @@ export function updateTripsDropdownUI(
       trigger.classList.remove('active');
       trigger.setAttribute('aria-pressed', 'false');
       trigger.style.removeProperty('--active-trip-color');
+      trigger.style.removeProperty('--active-trip-glow');
     }
     if (triggerLabel) triggerLabel.textContent = 'Trips';
     if (triggerCount) triggerCount.textContent = String(totalTripsCount);
     if (triggerIcon) {
-      triggerIcon.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle></svg>`;
+      triggerIcon.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path><circle cx="18" cy="5" r="3"></circle></svg>`;
     }
     return;
   }
@@ -67,6 +68,7 @@ export function updateTripsDropdownUI(
     trigger.classList.add('active');
     trigger.setAttribute('aria-pressed', 'true');
     trigger.style.setProperty('--active-trip-color', theme.line);
+    trigger.style.setProperty('--active-trip-glow', theme.glow);
   }
   if (triggerLabel) triggerLabel.textContent = trip.name;
   if (triggerCount) {

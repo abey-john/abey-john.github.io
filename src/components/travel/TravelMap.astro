@@ -94,8 +94,91 @@ const placesData = places.map((p) => {
   <div
     class="map-filter-bar"
     role="group"
-    aria-label="Filter places by category and view road trip routes"
+    aria-label="Browse trip routes and filter places by category"
   >
+    {tripsData.length > 0 && (
+      <div class="trips-dropdown-container" id="trips-dropdown-container">
+        <button
+          type="button"
+          class="filter-pill trips-dropdown-trigger"
+          id="trips-dropdown-trigger"
+          aria-expanded="false"
+          aria-haspopup="true"
+          aria-controls="trips-dropdown-menu"
+          title="Browse trips & itineraries"
+        >
+          <span class="pill-icon trip-icon" id="trips-trigger-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="6" cy="19" r="3"></circle>
+              <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path>
+              <circle cx="18" cy="5" r="3"></circle>
+            </svg>
+          </span>
+          <span class="pill-label" id="trips-trigger-label">Trips</span>
+          <span class="pill-count" id="trips-trigger-count">{tripsData.length}</span>
+          <svg class="dropdown-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+
+        <div
+          class="trips-dropdown-menu"
+          id="trips-dropdown-menu"
+          role="menu"
+          aria-label="Trips and itineraries"
+        >
+          <div class="trips-dropdown-header">
+            <span class="trips-dropdown-title">Trips</span>
+            <button
+              type="button"
+              class="trips-dropdown-clear"
+              id="trips-dropdown-clear"
+              title="Clear active route"
+              style="display: none;"
+            >
+              Clear Route
+            </button>
+          </div>
+          <div class="trips-dropdown-list">
+            {tripsData.map((trip) => {
+              const theme = getTripTheme(trip.color);
+              return (
+                <button
+                  type="button"
+                  class="trips-dropdown-item"
+                  role="menuitem"
+                  data-trip-id={trip.id}
+                  id={`trip-item-${trip.id}`}
+                  style={`--item-accent-color: ${theme.line}; --item-accent-bg: ${theme.bg}; --item-accent-border: ${theme.border}; --item-accent-glow: ${theme.glow};`}
+                >
+                  <span
+                    class="trip-item-dot"
+                    style={`background-color: ${theme.line};`}
+                    aria-hidden="true"
+                  ></span>
+                  <span class="trip-item-info">
+                    <span class="trip-item-name">{trip.name}</span>
+                    <span class="trip-item-meta">
+                      {trip.date ? `${trip.date}` : ''}
+                      {trip.date && (trip.distanceMiles > 0 || trip.stops.length > 0) ? ' • ' : ''}
+                      {trip.distanceMiles > 0 ? `${trip.distanceMiles} mi • ` : ''}
+                      {trip.stops.length} stops
+                    </span>
+                  </span>
+                  <span class="trip-item-check" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div class="filter-divider" role="separator" aria-orientation="vertical"></div>
+    )}
+
     <button
       type="button"
       class="filter-pill active"
@@ -172,89 +255,6 @@ const placesData = places.map((p) => {
       <span class="pill-label">Landmarks</span>
       <span class="pill-count">{landmarkCount}</span>
     </button>
-
-    {tripsData.length > 0 && (
-      <div class="filter-divider" role="separator" aria-orientation="vertical"></div>
-      <div class="trips-dropdown-container" id="trips-dropdown-container">
-        <button
-          type="button"
-          class="filter-pill trips-dropdown-trigger"
-          id="trips-dropdown-trigger"
-          aria-expanded="false"
-          aria-haspopup="true"
-          aria-controls="trips-dropdown-menu"
-          title="Browse trips & itineraries"
-        >
-          <span class="pill-icon trip-icon" id="trips-trigger-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="6" cy="19" r="3"></circle>
-              <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path>
-              <circle cx="18" cy="5" r="3"></circle>
-            </svg>
-          </span>
-          <span class="pill-label" id="trips-trigger-label">Trips</span>
-          <span class="pill-count" id="trips-trigger-count">{tripsData.length}</span>
-          <svg class="dropdown-chevron" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </button>
-
-        <div
-          class="trips-dropdown-menu"
-          id="trips-dropdown-menu"
-          role="menu"
-          aria-label="Trips and itineraries"
-        >
-          <div class="trips-dropdown-header">
-            <span class="trips-dropdown-title">Trips</span>
-            <button
-              type="button"
-              class="trips-dropdown-clear"
-              id="trips-dropdown-clear"
-              title="Clear active route"
-              style="display: none;"
-            >
-              Clear Route
-            </button>
-          </div>
-          <div class="trips-dropdown-list">
-            {tripsData.map((trip) => {
-              const theme = getTripTheme(trip.color);
-              return (
-                <button
-                  type="button"
-                  class="trips-dropdown-item"
-                  role="menuitem"
-                  data-trip-id={trip.id}
-                  id={`trip-item-${trip.id}`}
-                  style={`--item-accent-color: ${theme.line}; --item-accent-bg: ${theme.bg}; --item-accent-border: ${theme.border}; --item-accent-glow: ${theme.glow};`}
-                >
-                  <span
-                    class="trip-item-dot"
-                    style={`background-color: ${theme.line};`}
-                    aria-hidden="true"
-                  ></span>
-                  <span class="trip-item-info">
-                    <span class="trip-item-name">{trip.name}</span>
-                    <span class="trip-item-meta">
-                      {trip.date ? `${trip.date}` : ''}
-                      {trip.date && (trip.distanceMiles > 0 || trip.stops.length > 0) ? ' • ' : ''}
-                      {trip.distanceMiles > 0 ? `${trip.distanceMiles} mi • ` : ''}
-                      {trip.stops.length} stops
-                    </span>
-                  </span>
-                  <span class="trip-item-check" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    )}
   </div>
 
   <div class="map-wrapper" id="map-wrapper">
