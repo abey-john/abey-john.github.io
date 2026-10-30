@@ -12,13 +12,24 @@ export function notionPlacesLoader(): Loader {
 
       if (NOTION_API_KEY && dbId) {
         try {
-          const res = await notionRequest(`databases/${dbId}/query`, 'POST', {
-            page_size: 100,
-          });
+          const allResults: any[] = [];
+          let startCursor: string | undefined = undefined;
+          let hasMore = true;
+
+          while (hasMore) {
+            const body: Record<string, any> = { page_size: 100 };
+            if (startCursor) body.start_cursor = startCursor;
+            const res = await notionRequest(`databases/${dbId}/query`, 'POST', body);
+            if (Array.isArray(res.results)) {
+              allResults.push(...res.results);
+            }
+            hasMore = Boolean(res.has_more && res.next_cursor);
+            startCursor = res.next_cursor || undefined;
+          }
 
           store.clear();
 
-          for (const page of res.results) {
+          for (const page of allResults) {
             const p = page.properties;
             const name = p.Name?.title?.[0]?.plain_text || 'Untitled';
             const id = page.id;
@@ -43,9 +54,16 @@ export function notionPlacesLoader(): Loader {
             }
 
             const rawType = (p.Type?.select?.name || '').toLowerCase();
-            let placeType: 'city' | 'park' | 'landmark' = 'city';
+            let placeType: 'city' | 'park' | 'landmark' | 'venue' = 'city';
 
-            if (rawType.includes('landmark')) {
+            if (
+              rawType.includes('venue') ||
+              rawType.includes('stadium') ||
+              rawType.includes('concert') ||
+              rawType.includes('arena')
+            ) {
+              placeType = 'venue';
+            } else if (rawType.includes('landmark')) {
               placeType = 'landmark';
             } else if (rawType.includes('park') || rawType.includes('nature')) {
               placeType = 'park';
@@ -69,7 +87,7 @@ export function notionPlacesLoader(): Loader {
             store.set({ id, data });
           }
 
-          logger.info(`Loaded ${res.results.length} places from Notion.`);
+          logger.info(`Loaded ${allResults.length} places from Notion.`);
           return;
         } catch (err: any) {
           logger.warn(`Failed loading places from Notion: ${err.message}.`);

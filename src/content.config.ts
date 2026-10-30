@@ -48,7 +48,7 @@ const places = defineCollection({
   schema: z.object({
     id: z.string(),
     name: z.string(),
-    type: z.enum(['city', 'park', 'landmark']),
+    type: z.enum(['city', 'park', 'landmark', 'venue']),
     lat: z.number(),
     lng: z.number(),
     country: z.string(),

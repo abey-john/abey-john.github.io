@@ -13,7 +13,7 @@ export interface PlaceTripInfo {
 export interface PlaceData {
   id: string;
   name: string;
-  type: 'city' | 'park' | 'landmark';
+  type: 'city' | 'park' | 'landmark' | 'venue';
   lat: number;
   lng: number;
   country: string;

@@ -36,6 +36,7 @@ const DEFAULT_BOUNDS: [[number, number], [number, number]] = [
   [-125.0, 24.39],
   [-66.93, 49.38],
 ];
+const VENUE_MIN_ZOOM = 9;
 
 let mapInstance: maplibregl.Map | null = null;
 let markerRecords: MarkerRecord[] = [];
@@ -86,9 +87,9 @@ function getOverviewResetDuration(map: maplibregl.Map): number {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(currentCenter.lat)) *
-      Math.cos(toRad(defaultCenterLat)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
+    Math.cos(toRad(defaultCenterLat)) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const approxMiles = 3959 * c;
 
@@ -138,6 +139,8 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
         popup.remove();
       }
     });
+
+    syncMarkerVisibility();
 
     if (fitBounds) {
       mapInstance.fitBounds(DEFAULT_BOUNDS, {
@@ -247,23 +250,40 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
     }
   });
 
+  syncMarkerVisibility();
+
   // Fit camera to the trip route if requested
   if (fitBounds && currentTrip.geometry.coordinates.length > 0) {
     fitCurrentTripBounds(mapInstance, fullTripCoordinates, markerRecords);
   }
 }
 
-export function applyCategoryFilter(category: FilterCategory): void {
-  activeFilter = category;
+function syncMarkerVisibility(): void {
+  const currentZoom = mapInstance ? mapInstance.getZoom() : 0;
 
-  // 1. Toggle MapLibre markers
   markerRecords.forEach(({ element, popup, type }) => {
-    const isVisible = category === 'all' || type === category;
+    let isVisible = false;
+    if (type === 'venue') {
+      const categoryAllowsVenue = activeFilter === 'all' || activeFilter === 'city';
+      const zoomAllowsVenue =
+        currentZoom >= VENUE_MIN_ZOOM || element.classList.contains('in-active-trip');
+      isVisible = categoryAllowsVenue && zoomAllowsVenue;
+    } else {
+      isVisible = activeFilter === 'all' || type === activeFilter;
+    }
+
     element.style.display = isVisible ? 'flex' : 'none';
     if (!isVisible && popup.isOpen()) {
       popup.remove();
     }
   });
+}
+
+export function applyCategoryFilter(category: FilterCategory): void {
+  activeFilter = category;
+
+  // 1. Toggle MapLibre markers
+  syncMarkerVisibility();
 
   // 2. Update pill UI button states
   const pills = document.querySelectorAll<HTMLButtonElement>('.filter-pill[data-category]');
@@ -489,6 +509,11 @@ export function initTravelMap(): void {
       padding: window.innerWidth < 640 ? 20 : 40,
       duration: 0,
     });
+    syncMarkerVisibility();
+  });
+
+  map.on('zoom', () => {
+    syncMarkerVisibility();
   });
 
   // Create markers with callbacks
@@ -774,7 +799,7 @@ export function cleanupTravelMap(): void {
   if (mapInstance) {
     try {
       mapInstance.remove();
-    } catch (e) {}
+    } catch (e) { }
     mapInstance = null;
   }
   markerRecords = [];

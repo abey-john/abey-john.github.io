@@ -10,10 +10,10 @@ interface Props {
 
 const { places, trips = [] } = Astro.props;
 
-const totalCount = places.length;
 const parkCount = places.filter((p) => p.data.type === 'park').length;
 const cityCount = places.filter((p) => p.data.type === 'city').length;
 const landmarkCount = places.filter((p) => p.data.type === 'landmark').length;
+const totalCount = parkCount + cityCount + landmarkCount;
 
 const parseTripDate = (dateStr?: string): number => {
   if (!dateStr) return 0;

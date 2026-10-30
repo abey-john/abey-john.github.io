@@ -948,7 +948,8 @@ html[data-theme='light'] .route-svg-casing {
 }
 
 .custom-map-icon.in-active-trip .pin-park,
-.custom-map-icon.in-active-trip .pin-city {
+.custom-map-icon.in-active-trip .pin-city,
+.custom-map-icon.in-active-trip .pin-venue {
   box-shadow:
     0 0 0 3.5px var(--active-trip-color, #f59e0b),
     0 0 16px var(--active-trip-glow, rgba(245, 158, 11, 0.55)) !important;
@@ -1094,6 +1095,16 @@ html[data-theme='light'] .route-svg-casing {
   color: #ffffff;
   border-radius: 6px;
   border: 2px solid #ffffff;
+}
+
+.pin-venue {
+  width: 20px;
+  height: 20px;
+  background-color: #e11d48;
+  color: #ffffff;
+  border-radius: 5px;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
 .pin-landmark {
@@ -1300,6 +1311,10 @@ html[data-theme='light'] .route-svg-casing {
 
 .tag-landmark {
   color: #d97706;
+}
+
+.tag-venue {
+  color: #e11d48;
 }
 
 .popup-title {

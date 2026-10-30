@@ -7,7 +7,7 @@ const places = await getCollection('places');
 const trips = await getCollection('trips');
 
 const sortedPlaces = places
-  .slice()
+  .filter((p) => p.data.type !== 'venue')
   .sort((a, b) => a.data.name.localeCompare(b.data.name));
 ---
 
