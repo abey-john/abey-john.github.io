@@ -129,6 +129,7 @@
 }
 
 .filter-divider {
+  display: none;
   width: 1px;
   height: 22px;
   background-color: var(--color-border);
@@ -136,10 +137,11 @@
   opacity: 0.7;
 }
 
-/* Road Trips Dropdown (Left-aligned) */
+/* Road Trips Dropdown (Far-right aligned on desktop) */
 .trips-dropdown-container {
   position: relative;
   display: inline-block;
+  margin-left: auto;
 }
 
 .trips-dropdown-trigger {
@@ -197,7 +199,8 @@ html[data-theme='light'] .trips-dropdown-trigger .trip-icon {
 .trips-dropdown-menu {
   position: absolute;
   top: calc(100% + 8px);
-  left: 0;
+  right: 0;
+  left: auto;
   min-width: 290px;
   max-width: 360px;
   background-color: var(--color-bg);
@@ -370,11 +373,16 @@ html[data-theme='dark'] .trips-dropdown-item:hover {
 }
 
 @media (max-width: 640px) {
+  .filter-divider {
+    display: block;
+  }
+  .trips-dropdown-container {
+    margin-left: 0;
+  }
   .trips-dropdown-menu {
-    left: 0;
-    right: auto;
-    min-width: 260px;
-    max-width: calc(100vw - 32px);
+    left: auto;
+    right: 0;
+    min-width: 240px;
   }
 }
 

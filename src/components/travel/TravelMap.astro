@@ -94,9 +94,87 @@ const placesData = places.map((p) => {
   <div
     class="map-filter-bar"
     role="group"
-    aria-label="Browse trip routes and filter places by category"
+    aria-label="Filter places by category and view road trip routes"
   >
+    <button
+      type="button"
+      class="filter-pill active"
+      data-category="all"
+      aria-pressed="true"
+      id="filter-pill-all"
+    >
+      <span class="pill-icon all-icon" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          width="13"
+          height="13"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="10"></circle>
+          <polygon
+            points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"
+          ></polygon>
+        </svg>
+      </span>
+      <span class="pill-label">All</span>
+      <span class="pill-count">{totalCount}</span>
+    </button>
+    <button
+      type="button"
+      class="filter-pill filter-park"
+      data-category="park"
+      aria-pressed="false"
+      id="filter-pill-park"
+    >
+      <span class="pill-icon park-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+          <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z"></path>
+        </svg>
+      </span>
+      <span class="pill-label">Parks</span>
+      <span class="pill-count">{parkCount}</span>
+    </button>
+    <button
+      type="button"
+      class="filter-pill filter-city"
+      data-category="city"
+      aria-pressed="false"
+      id="filter-pill-city"
+    >
+      <span class="pill-icon city-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+          <path
+            d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"
+          ></path>
+        </svg>
+      </span>
+      <span class="pill-label">Cities</span>
+      <span class="pill-count">{cityCount}</span>
+    </button>
+    <button
+      type="button"
+      class="filter-pill filter-landmark"
+      data-category="landmark"
+      aria-pressed="false"
+      id="filter-pill-landmark"
+    >
+      <span class="pill-icon landmark-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
+          <path
+            d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"
+          ></path>
+        </svg>
+      </span>
+      <span class="pill-label">Landmarks</span>
+      <span class="pill-count">{landmarkCount}</span>
+    </button>
+
     {tripsData.length > 0 && (
+      <div class="filter-divider" role="separator" aria-orientation="vertical"></div>
       <div class="trips-dropdown-container" id="trips-dropdown-container">
         <button
           type="button"
@@ -176,85 +254,7 @@ const placesData = places.map((p) => {
           </div>
         </div>
       </div>
-      <div class="filter-divider" role="separator" aria-orientation="vertical"></div>
     )}
-
-    <button
-      type="button"
-      class="filter-pill active"
-      data-category="all"
-      aria-pressed="true"
-      id="filter-pill-all"
-    >
-      <span class="pill-icon all-icon" aria-hidden="true">
-        <svg
-          viewBox="0 0 24 24"
-          width="13"
-          height="13"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="12" cy="12" r="10"></circle>
-          <polygon
-            points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"
-          ></polygon>
-        </svg>
-      </span>
-      <span class="pill-label">All</span>
-      <span class="pill-count">{totalCount}</span>
-    </button>
-    <button
-      type="button"
-      class="filter-pill filter-park"
-      data-category="park"
-      aria-pressed="false"
-      id="filter-pill-park"
-    >
-      <span class="pill-icon park-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
-          <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z"></path>
-        </svg>
-      </span>
-      <span class="pill-label">Parks</span>
-      <span class="pill-count">{parkCount}</span>
-    </button>
-    <button
-      type="button"
-      class="filter-pill filter-city"
-      data-category="city"
-      aria-pressed="false"
-      id="filter-pill-city"
-    >
-      <span class="pill-icon city-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
-          <path
-            d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"
-          ></path>
-        </svg>
-      </span>
-      <span class="pill-label">Cities</span>
-      <span class="pill-count">{cityCount}</span>
-    </button>
-    <button
-      type="button"
-      class="filter-pill filter-landmark"
-      data-category="landmark"
-      aria-pressed="false"
-      id="filter-pill-landmark"
-    >
-      <span class="pill-icon landmark-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
-          <path
-            d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"
-          ></path>
-        </svg>
-      </span>
-      <span class="pill-label">Landmarks</span>
-      <span class="pill-count">{landmarkCount}</span>
-    </button>
   </div>
 
   <div class="map-wrapper" id="map-wrapper">
