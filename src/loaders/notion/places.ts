@@ -31,17 +31,26 @@ export function notionPlacesLoader(): Loader {
 
           for (const page of allResults) {
             const p = page.properties;
-            const name = p.Name?.title?.[0]?.plain_text || 'Untitled';
+            const name = (p.Name?.title?.[0]?.plain_text || 'Untitled').trim();
             const id = page.id;
             const photo = await extractImageSource(p.Photo, p.PhotoPath);
-            const country = p.Country?.rich_text?.[0]?.plain_text || '';
+            const country = (
+              p.Country?.rich_text?.[0]?.plain_text ||
+              p.Country?.select?.name ||
+              ''
+            ).trim();
+            const state = (
+              p.State?.rich_text?.[0]?.plain_text ||
+              p.State?.select?.name ||
+              ''
+            ).trim();
 
             let lat = typeof p.Latitude?.number === 'number' ? p.Latitude.number : null;
             let lng = typeof p.Longitude?.number === 'number' ? p.Longitude.number : null;
 
             // Auto-infer coordinates if not explicitly provided in Notion
             if (lat === null || lng === null || (lat === 0 && lng === 0)) {
-              const geocoded = await geocodeLocation(name, country);
+              const geocoded = await geocodeLocation(name, country, state);
               if (geocoded) {
                 lat = geocoded.lat;
                 lng = geocoded.lng;
@@ -78,6 +87,7 @@ export function notionPlacesLoader(): Loader {
               lat,
               lng,
               country,
+              state: state || undefined,
               blurb: richTextToHtml(p.Blurb?.rich_text) || undefined,
               photo: photo || undefined,
               link: undefined,

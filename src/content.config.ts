@@ -52,6 +52,7 @@ const places = defineCollection({
     lat: z.number(),
     lng: z.number(),
     country: z.string(),
+    state: z.string().optional(),
     blurb: z.string().optional(),
     photo: z.string().optional(),
     link: z.string().optional(),

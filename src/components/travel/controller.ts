@@ -279,6 +279,53 @@ function syncMarkerVisibility(): void {
   });
 }
 
+function updateDirectoryList(): void {
+  const searchInput = document.getElementById('places-search-input') as HTMLInputElement | null;
+  const clearBtn = document.getElementById('places-search-clear');
+  const query = (searchInput?.value || '').trim().toLowerCase();
+
+  if (clearBtn) {
+    clearBtn.style.display = query.length > 0 ? 'inline-flex' : 'none';
+  }
+
+  let totalVisibleCount = 0;
+  const groups = document.querySelectorAll<HTMLElement>('.places-group[data-group-type]');
+
+  groups.forEach((group) => {
+    const groupType = group.dataset.groupType || '';
+    const categoryMatchesGroup = activeFilter === 'all' || groupType === activeFilter;
+    let groupVisibleCount = 0;
+
+    const cards = group.querySelectorAll<HTMLElement>('.place-card');
+    cards.forEach((card) => {
+      const searchStr = card.dataset.search || (card.dataset.name || '').toLowerCase();
+      const matchesSearch = !query || searchStr.includes(query);
+      const visible = categoryMatchesGroup && matchesSearch;
+      card.style.display = visible ? '' : 'none';
+      if (visible) {
+        groupVisibleCount++;
+        totalVisibleCount++;
+      }
+    });
+
+    group.style.display = groupVisibleCount > 0 ? '' : 'none';
+    const countBadge = group.querySelector<HTMLElement>('[data-group-count]');
+    if (countBadge) {
+      countBadge.textContent = String(groupVisibleCount);
+    }
+  });
+
+  const summaryCountEl = document.getElementById('summary-count');
+  if (summaryCountEl) {
+    summaryCountEl.textContent = `(${totalVisibleCount})`;
+  }
+
+  const emptyStateEl = document.getElementById('places-empty-state');
+  if (emptyStateEl) {
+    emptyStateEl.style.display = totalVisibleCount === 0 ? 'block' : 'none';
+  }
+}
+
 export function applyCategoryFilter(category: FilterCategory): void {
   activeFilter = category;
 
@@ -306,21 +353,8 @@ export function applyCategoryFilter(category: FilterCategory): void {
     legendLandmark.classList.toggle('legend-dimmed', category !== 'all' && category !== 'landmark');
   }
 
-  // 4. Filter text directory cards below the map
-  const placeCards = document.querySelectorAll<HTMLElement>('.place-card');
-  let visibleCount = 0;
-  placeCards.forEach((card) => {
-    const cardType = card.dataset.type;
-    const visible = category === 'all' || cardType === category;
-    card.style.display = visible ? '' : 'none';
-    if (visible) visibleCount++;
-  });
-
-  // 5. Update summary count in fallback directory
-  const summaryCountEl = document.getElementById('summary-count');
-  if (summaryCountEl) {
-    summaryCountEl.textContent = `(${visibleCount})`;
-  }
+  // 4. Filter grouped text directory and update counts
+  updateDirectoryList();
 }
 
 export function recenterMap(): void {
@@ -757,6 +791,51 @@ export function initTravelMap(): void {
         e.preventDefault();
         handleLandmark();
       }
+    };
+  }
+
+  // Attach search bar listeners for the places directory
+  const placesDetails = document.querySelector<HTMLDetailsElement>('.places-details');
+  const searchBar = document.querySelector<HTMLElement>('.places-search-bar');
+  const searchInput = document.getElementById('places-search-input') as HTMLInputElement | null;
+  const searchClear = document.getElementById('places-search-clear');
+  if (placesDetails && searchInput) {
+    placesDetails.ontoggle = () => {
+      if (!placesDetails.open && searchInput.value) {
+        searchInput.value = '';
+        updateDirectoryList();
+      }
+    };
+  }
+  if (searchBar) {
+    searchBar.onclick = (e) => {
+      e.stopPropagation();
+    };
+  }
+  if (searchInput) {
+    searchInput.onclick = (e) => {
+      e.stopPropagation();
+    };
+    searchInput.onkeydown = (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.stopPropagation();
+      }
+    };
+    searchInput.onkeyup = (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.stopPropagation();
+      }
+    };
+    searchInput.oninput = () => {
+      updateDirectoryList();
+    };
+  }
+  if (searchClear && searchInput) {
+    searchClear.onclick = (e) => {
+      e.stopPropagation();
+      searchInput.value = '';
+      updateDirectoryList();
+      searchInput.focus();
     };
   }
 

@@ -17,6 +17,7 @@ export interface PlaceData {
   lat: number;
   lng: number;
   country: string;
+  state?: string;
   blurb?: string;
   photo?: string;
   link?: string;
