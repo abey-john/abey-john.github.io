@@ -1,5 +1,5 @@
 import type { Loader, LoaderContext } from 'astro/loaders';
-import { NOTION_API_KEY, notionRequest } from './client';
+import { NOTION_API_KEY, queryNotionDatabase } from './client';
 import { extractImageSource } from './images';
 import { richTextToHtml } from './text';
 import { geocodeLocation } from './geo';
@@ -12,20 +12,7 @@ export function notionPlacesLoader(): Loader {
 
       if (NOTION_API_KEY && dbId) {
         try {
-          const allResults: any[] = [];
-          let startCursor: string | undefined = undefined;
-          let hasMore = true;
-
-          while (hasMore) {
-            const body: Record<string, any> = { page_size: 100 };
-            if (startCursor) body.start_cursor = startCursor;
-            const res = await notionRequest(`databases/${dbId}/query`, 'POST', body);
-            if (Array.isArray(res.results)) {
-              allResults.push(...res.results);
-            }
-            hasMore = Boolean(res.has_more && res.next_cursor);
-            startCursor = res.next_cursor || undefined;
-          }
+          const allResults = await queryNotionDatabase(dbId);
 
           store.clear();
 

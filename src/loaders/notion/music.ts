@@ -1,7 +1,7 @@
 import type { Loader, LoaderContext } from 'astro/loaders';
 import fs from 'node:fs';
 import path from 'node:path';
-import { NOTION_API_KEY, notionRequest } from './client';
+import { NOTION_API_KEY, queryNotionDatabase } from './client';
 import { extractImageSource } from './images';
 import { richTextToHtml } from './text';
 import { fetchAudioPreview, processInBatches } from './music-previews';
@@ -14,9 +14,7 @@ export function notionMusicLoader(): Loader {
 
       if (NOTION_API_KEY && dbId) {
         try {
-          const res = await notionRequest(`databases/${dbId}/query`, 'POST', {
-            page_size: 100,
-          });
+          const results = await queryNotionDatabase(dbId);
 
           store.clear();
 
@@ -45,7 +43,7 @@ export function notionMusicLoader(): Loader {
           let recentListen: any = null;
           let latestEditedMs = 0;
 
-          for (const page of res.results) {
+          for (const page of results) {
             if ((page as any).last_edited_time) {
               const editedMs = new Date((page as any).last_edited_time).getTime();
               if (!isNaN(editedMs) && editedMs > latestEditedMs) {

@@ -1,5 +1,5 @@
 import type { Loader, LoaderContext } from 'astro/loaders';
-import { NOTION_API_KEY, notionRequest } from './client';
+import { NOTION_API_KEY, queryNotionDatabase } from './client';
 import { extractImageSource } from './images';
 
 export function notionLaunchesLoader(): Loader {
@@ -10,14 +10,13 @@ export function notionLaunchesLoader(): Loader {
 
       if (NOTION_API_KEY && dbId) {
         try {
-          const res = await notionRequest(`databases/${dbId}/query`, 'POST', {
-            page_size: 100,
+          const results = await queryNotionDatabase(dbId, {
             sorts: [{ property: 'Order', direction: 'ascending' }],
           });
 
           store.clear();
 
-          for (const page of res.results) {
+          for (const page of results) {
             try {
               const p = page.properties;
               const title = p.Title?.title?.[0]?.plain_text || 'Untitled';
@@ -60,7 +59,7 @@ export function notionLaunchesLoader(): Loader {
             }
           }
 
-          logger.info(`Loaded ${res.results.length} launches from Notion.`);
+          logger.info(`Loaded ${results.length} launches from Notion.`);
           return;
         } catch (err: any) {
           logger.warn(`Failed loading launches from Notion: ${err.message}.`);

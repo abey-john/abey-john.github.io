@@ -2,7 +2,7 @@ import type { Loader, LoaderContext } from 'astro/loaders';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { NOTION_API_KEY, notionRequest } from './client';
+import { NOTION_API_KEY, queryNotionDatabase } from './client';
 import { geocodeLocation, simplifyCoordinates } from './geo';
 
 export function notionTripsLoader(): Loader {
@@ -15,18 +15,39 @@ export function notionTripsLoader(): Loader {
         try {
           // 1. Fetch places to cross-reference stop coordinates
           const placesDbId = process.env.NOTION_PLACES_DB_ID;
-          const placesMap: { name: string; id: string; lat: number; lng: number }[] = [];
+          const placesMap: {
+            name: string;
+            id: string;
+            lat: number | null;
+            lng: number | null;
+            country: string;
+            state: string;
+          }[] = [];
           if (placesDbId) {
             try {
-              const pRes = await notionRequest(`databases/${placesDbId}/query`, 'POST', {
-                page_size: 100,
-              });
-              for (const p of pRes.results) {
-                const name = p.properties.Name?.title?.[0]?.plain_text || '';
-                const lat = p.properties.Latitude?.number;
-                const lng = p.properties.Longitude?.number;
-                if (name && typeof lat === 'number' && typeof lng === 'number') {
-                  placesMap.push({ name, id: p.id, lat, lng });
+              const pResults = await queryNotionDatabase(placesDbId);
+              for (const p of pResults) {
+                const name = (p.properties.Name?.title?.[0]?.plain_text || '').trim();
+                const lat =
+                  typeof p.properties.Latitude?.number === 'number'
+                    ? p.properties.Latitude.number
+                    : null;
+                const lng =
+                  typeof p.properties.Longitude?.number === 'number'
+                    ? p.properties.Longitude.number
+                    : null;
+                const country = (
+                  p.properties.Country?.rich_text?.[0]?.plain_text ||
+                  p.properties.Country?.select?.name ||
+                  ''
+                ).trim();
+                const state = (
+                  p.properties.State?.rich_text?.[0]?.plain_text ||
+                  p.properties.State?.select?.name ||
+                  ''
+                ).trim();
+                if (name) {
+                  placesMap.push({ name, id: p.id, lat, lng, country, state });
                 }
               }
             } catch (err: any) {
@@ -35,9 +56,7 @@ export function notionTripsLoader(): Loader {
           }
 
           // 2. Fetch Trips from Notion
-          const res = await notionRequest(`databases/${dbId}/query`, 'POST', {
-            page_size: 100,
-          });
+          const tripResults = await queryNotionDatabase(dbId);
 
           store.clear();
 
@@ -51,7 +70,7 @@ export function notionTripsLoader(): Loader {
               .trim();
           };
 
-          for (const page of res.results) {
+          for (const page of tripResults) {
             const p = page.properties;
             const name = p.Name?.title?.[0]?.plain_text || 'Untitled Trip';
             const id = page.id;
@@ -138,13 +157,30 @@ export function notionTripsLoader(): Loader {
               }
 
               if (matched) {
-                waypoints.push({
-                  name: matched.name,
-                  placeId: matched.id,
-                  lat: matched.lat,
-                  lng: matched.lng,
-                  isWaypoint: isVia,
-                });
+                if (
+                  matched.lat === null ||
+                  matched.lng === null ||
+                  (matched.lat === 0 && matched.lng === 0)
+                ) {
+                  const geocoded = await geocodeLocation(
+                    matched.name,
+                    matched.country,
+                    matched.state
+                  );
+                  if (geocoded) {
+                    matched.lat = geocoded.lat;
+                    matched.lng = geocoded.lng;
+                  }
+                }
+                if (matched.lat !== null && matched.lng !== null) {
+                  waypoints.push({
+                    name: matched.name,
+                    placeId: matched.id,
+                    lat: matched.lat,
+                    lng: matched.lng,
+                    isWaypoint: isVia,
+                  });
+                }
               } else {
                 // Fallback: Geocode globally if stop isn't in places DB
                 const geocoded = await geocodeLocation(cleanToken);
@@ -470,7 +506,7 @@ export function notionTripsLoader(): Loader {
             store.set({ id, data });
           }
 
-          logger.info(`Loaded ${res.results.length} trips from Notion.`);
+          logger.info(`Loaded ${tripResults.length} trips from Notion.`);
           return;
         } catch (err: any) {
           logger.warn(`Failed loading trips from Notion: ${err.message}.`);

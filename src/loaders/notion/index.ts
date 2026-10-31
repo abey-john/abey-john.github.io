@@ -1,4 +1,4 @@
-export { notionRequest, NOTION_API_KEY, NOTION_VERSION } from './client';
+export { notionRequest, queryNotionDatabase, NOTION_API_KEY, NOTION_VERSION } from './client';
 export {
   downloadRemoteImage,
   stripExifMetadata,
