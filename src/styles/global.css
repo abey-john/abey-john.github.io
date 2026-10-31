@@ -8,9 +8,14 @@
   --color-accent-hover: #1d4ed8;
   --color-focus: #2563eb;
 
-  --font-sans: 'Geist Variable', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-heading: 'Geist Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans:
+    'Geist Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    sans-serif;
+  --font-mono:
+    'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+  --font-heading:
+    'Geist Variable', -apple-system, BlinkMacSystemFont, sans-serif;
   --heading-letter-spacing: -0.03em;
   --heading-font-weight: 650;
   --body-letter-spacing: -0.011em;
@@ -37,7 +42,7 @@
 
 /* System preference if no manual theme chosen */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme='light']) {
     color-scheme: dark;
     --color-bg: #121214;
     --color-text: #f3f4f6;
@@ -51,7 +56,7 @@
 }
 
 /* Explicit dark theme */
-html[data-theme="dark"] {
+html[data-theme='dark'] {
   color-scheme: dark;
   --color-bg: #121214;
   --color-text: #f3f4f6;
@@ -64,7 +69,7 @@ html[data-theme="dark"] {
 }
 
 /* Explicit light theme */
-html[data-theme="light"] {
+html[data-theme='light'] {
   color-scheme: light;
   --color-bg: #ffffff;
   --color-text: #171717;
@@ -93,7 +98,10 @@ body {
   line-height: 1.6;
   letter-spacing: var(--body-letter-spacing, normal);
   -webkit-font-smoothing: antialiased;
-  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease;
 }
 
 h1,

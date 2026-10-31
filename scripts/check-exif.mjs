@@ -72,7 +72,10 @@ function hasPngExif(buffer) {
 
 function hasWebpExif(buffer) {
   if (buffer.length < 12) return false;
-  if (buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WEBP') {
+  if (
+    buffer.toString('ascii', 0, 4) !== 'RIFF' ||
+    buffer.toString('ascii', 8, 12) !== 'WEBP'
+  ) {
     return false;
   }
 
@@ -114,12 +117,16 @@ for (const file of files) {
 }
 
 if (violations.length > 0) {
-  console.error(`Error: Found ${violations.length} image(s) containing EXIF metadata:`);
+  console.error(
+    `Error: Found ${violations.length} image(s) containing EXIF metadata:`
+  );
   for (const v of violations) {
     console.error(`  - ${v}`);
   }
   process.exit(1);
 }
 
-console.log(`EXIF check passed: all ${files.length} assets are free of EXIF metadata.`);
+console.log(
+  `EXIF check passed: all ${files.length} assets are free of EXIF metadata.`
+);
 process.exit(0);

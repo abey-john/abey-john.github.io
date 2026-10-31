@@ -17,12 +17,18 @@ export function openImageModal(data: ImageModalData): void {
   const modalEl = document.getElementById('travel-image-modal');
   if (!modalEl) return;
 
-  const pictureSource = document.getElementById('travel-modal-source') as HTMLSourceElement | null;
-  const imgEl = document.getElementById('travel-modal-img') as HTMLImageElement | null;
+  const pictureSource = document.getElementById(
+    'travel-modal-source'
+  ) as HTMLSourceElement | null;
+  const imgEl = document.getElementById(
+    'travel-modal-img'
+  ) as HTMLImageElement | null;
   const tagEl = document.getElementById('travel-modal-tag');
   const titleEl = document.getElementById('travel-modal-title');
   const blurbEl = document.getElementById('travel-modal-blurb');
-  const closeBtn = document.getElementById('travel-modal-close-btn') as HTMLButtonElement | null;
+  const closeBtn = document.getElementById(
+    'travel-modal-close-btn'
+  ) as HTMLButtonElement | null;
 
   if (imgEl) {
     const webpUrl = data.url.replace(/\.(png|jpe?g)$/i, '.webp');
@@ -76,7 +82,10 @@ export function closeImageModal(): void {
   modalEl.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('travel-modal-open');
 
-  if (previousFocusedElement && typeof previousFocusedElement.focus === 'function') {
+  if (
+    previousFocusedElement &&
+    typeof previousFocusedElement.focus === 'function'
+  ) {
     try {
       previousFocusedElement.focus();
     } catch (e) {}

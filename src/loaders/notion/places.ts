@@ -32,8 +32,12 @@ export function notionPlacesLoader(): Loader {
               ''
             ).trim();
 
-            let lat = typeof p.Latitude?.number === 'number' ? p.Latitude.number : null;
-            let lng = typeof p.Longitude?.number === 'number' ? p.Longitude.number : null;
+            let lat =
+              typeof p.Latitude?.number === 'number' ? p.Latitude.number : null;
+            let lng =
+              typeof p.Longitude?.number === 'number'
+                ? p.Longitude.number
+                : null;
 
             // Auto-infer coordinates if not explicitly provided in Notion
             if (lat === null || lng === null || (lat === 0 && lng === 0)) {
@@ -43,7 +47,9 @@ export function notionPlacesLoader(): Loader {
                 lng = geocoded.lng;
                 logger.info(`Auto-geocoded "${name}": [${lat}, ${lng}]`);
               } else {
-                logger.warn(`Could not geocode coordinates for "${name}". Defaulting to [0, 0].`);
+                logger.warn(
+                  `Could not geocode coordinates for "${name}". Defaulting to [0, 0].`
+                );
                 lat = lat ?? 0;
                 lng = lng ?? 0;
               }
@@ -77,7 +83,7 @@ export function notionPlacesLoader(): Loader {
               state: state || undefined,
               blurb: richTextToHtml(p.Blurb?.rich_text) || undefined,
               photo: photo || undefined,
-              link: undefined,
+              link: undefined
             };
 
             const data = await parseData({ id, data: item });
@@ -95,6 +101,6 @@ export function notionPlacesLoader(): Loader {
         'No places loaded from Notion. Ensure NOTION_API_KEY and NOTION_PLACES_DB_ID are configured.'
       );
       store.clear();
-    },
+    }
   };
 }

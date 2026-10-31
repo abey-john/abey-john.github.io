@@ -21,7 +21,7 @@ export const defaultSiteConfig: SiteConfig = {
   github: '',
   linkedin: '',
   ratingMax: 10,
-  description: '',
+  description: ''
 };
 
 export const siteConfig = defaultSiteConfig;
@@ -42,7 +42,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
         github: entry.data.github || defaultSiteConfig.github,
         linkedin: entry.data.linkedin || defaultSiteConfig.linkedin,
         ratingMax: entry.data.ratingMax ?? defaultSiteConfig.ratingMax,
-        description: entry.data.description || defaultSiteConfig.description,
+        description: entry.data.description || defaultSiteConfig.description
       };
     }
   } catch {
@@ -50,4 +50,3 @@ export async function getSiteConfig(): Promise<SiteConfig> {
   }
   return defaultSiteConfig;
 }
-

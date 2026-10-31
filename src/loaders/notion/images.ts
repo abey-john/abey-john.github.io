@@ -4,7 +4,8 @@ import crypto from 'node:crypto';
 import sharp from 'sharp';
 
 function stripJpeg(buffer: Buffer): Buffer {
-  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return buffer;
+  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8)
+    return buffer;
   const chunks = [buffer.subarray(0, 2)];
   let offset = 2;
   let modified = false;
@@ -39,7 +40,12 @@ function stripPng(buffer: Buffer): Buffer {
     const length = buffer.readUInt32BE(offset);
     const type = buffer.toString('ascii', offset + 4, offset + 8);
     const totalChunkLength = 12 + length;
-    if (type === 'eXIf' || type === 'tEXt' || type === 'zTXt' || type === 'iTXt') {
+    if (
+      type === 'eXIf' ||
+      type === 'tEXt' ||
+      type === 'zTXt' ||
+      type === 'iTXt'
+    ) {
       modified = true;
     } else {
       chunks.push(buffer.subarray(offset, offset + totalChunkLength));
@@ -51,7 +57,10 @@ function stripPng(buffer: Buffer): Buffer {
 
 function stripWebp(buffer: Buffer): Buffer {
   if (buffer.length < 12) return buffer;
-  if (buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WEBP') {
+  if (
+    buffer.toString('ascii', 0, 4) !== 'RIFF' ||
+    buffer.toString('ascii', 8, 12) !== 'WEBP'
+  ) {
     return buffer;
   }
   const chunks = [];
@@ -94,7 +103,11 @@ export function stripExifMetadata(buffer: Buffer, ext: string): Buffer {
  */
 export async function downloadRemoteImage(
   url: string,
-  options?: { maxWidth?: number; quality?: number; format?: 'webp' | 'original' }
+  options?: {
+    maxWidth?: number;
+    quality?: number;
+    format?: 'webp' | 'original';
+  }
 ): Promise<string> {
   if (!url || !url.startsWith('http')) return url;
 
@@ -114,10 +127,15 @@ export async function downloadRemoteImage(
     const rawExt = extMatch ? extMatch[1].toLowerCase() : 'webp';
 
     const isVectorOrAnim = rawExt === 'svg' || rawExt === 'gif';
-    const shouldConvertToWebp = !isVectorOrAnim && options?.format !== 'original';
+    const shouldConvertToWebp =
+      !isVectorOrAnim && options?.format !== 'original';
     const ext = shouldConvertToWebp ? 'webp' : rawExt;
 
-    const hash = crypto.createHash('md5').update(cleanUrl).digest('hex').slice(0, 12);
+    const hash = crypto
+      .createHash('md5')
+      .update(cleanUrl)
+      .digest('hex')
+      .slice(0, 12);
     const filename = `${hash}.${ext}`;
     const publicTargetPath = path.join(publicNotionDir, filename);
     const srcTargetPath = path.join(srcNotionDir, filename);
@@ -146,7 +164,10 @@ export async function downloadRemoteImage(
           try {
             let pipeline = sharp(rawBuffer).rotate();
             const maxWidth = options?.maxWidth || 1000;
-            pipeline = pipeline.resize({ width: maxWidth, withoutEnlargement: true });
+            pipeline = pipeline.resize({
+              width: maxWidth,
+              withoutEnlargement: true
+            });
             if (shouldConvertToWebp) {
               pipeline = pipeline.webp({ quality: options?.quality || 82 });
             }
@@ -180,7 +201,11 @@ export async function downloadRemoteImage(
 export async function extractImageSource(
   filesProp: any,
   textProp: any,
-  options?: { maxWidth?: number; quality?: number; format?: 'webp' | 'original' }
+  options?: {
+    maxWidth?: number;
+    quality?: number;
+    format?: 'webp' | 'original';
+  }
 ): Promise<string> {
   const fileObj = filesProp?.files?.[0];
   if (fileObj) {

@@ -44,7 +44,7 @@ const addressObject =
     ? {
         '@type': 'PostalAddress',
         addressLocality: locationParts[0],
-        ...(locationParts[1] ? { addressRegion: locationParts[1] } : {}),
+        ...(locationParts[1] ? { addressRegion: locationParts[1] } : {})
       }
     : undefined;
 
@@ -68,19 +68,15 @@ const personSchema = {
           '@type': 'Organization',
           name: 'Amazon Web Services',
           alternateName: 'AWS',
-          url: 'https://aws.amazon.com',
-        },
+          url: 'https://aws.amazon.com'
+        }
       }
     : {}),
   ...(addressObject ? { address: addressObject } : {}),
   ...(sameAs.length > 0 ? { sameAs } : {}),
   ...(siteConfig.email ? { email: `mailto:${siteConfig.email}` } : {}),
   ...(metaDescription ? { description: metaDescription } : {}),
-  knowsAbout: [
-    'Software Engineering',
-    'Distributed Systems',
-    'Cloud Computing',
-  ],
+  knowsAbout: ['Software Engineering', 'Distributed Systems', 'Cloud Computing']
 };
 
 const jsonLd = schema || personSchema;
@@ -90,15 +86,13 @@ const jsonLd = schema || personSchema;
 <html lang="en">
   <head>
     <ClientRouter />
-    {
-      import.meta.env.PROD && (
-        <script
-          defer
-          src="https://cloud.umami.is/script.js"
-          data-website-id="f59f07a8-f491-49d2-90c9-a660a68dcc22"
-        />
-      )
-    }
+    {import.meta.env.PROD && (
+      <script
+        defer
+        src="https://cloud.umami.is/script.js"
+        data-website-id="f59f07a8-f491-49d2-90c9-a660a68dcc22"
+      />
+    )}
     <script is:inline>
       function applyTheme() {
         try {
@@ -130,11 +124,9 @@ const jsonLd = schema || personSchema;
     {metaDescription && <meta name="description" content={metaDescription} />}
 
     <meta property="og:title" content={pageTitle} />
-    {
-      metaDescription && (
-        <meta property="og:description" content={metaDescription} />
-      )
-    }
+    {metaDescription && (
+      <meta property="og:description" content={metaDescription} />
+    )}
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content={siteConfig.name || 'Abey John'} />
@@ -147,11 +139,9 @@ const jsonLd = schema || personSchema;
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={pageTitle} />
-    {
-      metaDescription && (
-        <meta name="twitter:description" content={metaDescription} />
-      )
-    }
+    {metaDescription && (
+      <meta name="twitter:description" content={metaDescription} />
+    )}
     <meta name="twitter:image" content={ogImageURL} />
     <meta name="twitter:image:alt" content={ogImageAlt} />
 
@@ -164,7 +154,9 @@ const jsonLd = schema || personSchema;
   </head>
   <body>
     <div class="site-wrapper">
-      <a href="#main-content" class="skip-link">Skip to content</a>
+      <a href="#main-content" class="skip-link">
+        Skip to content
+      </a>
       <Header />
       <main
         id="main-content"

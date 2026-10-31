@@ -18,7 +18,7 @@ const formatter = new Intl.DateTimeFormat('en-US', {
   hour: 'numeric',
   minute: '2-digit',
   second: '2-digit',
-  hour12: true,
+  hour12: true
 });
 
 const parts = formatter.formatToParts(now);
@@ -59,7 +59,9 @@ for (const part of parts) {
     </svg>
   </span>
   <span class="badge-location">{location}</span>
-  <span class="badge-bullet" aria-hidden="true">&bull;</span>
+  <span class="badge-bullet" aria-hidden="true">
+    &bull;
+  </span>
 
   <!-- Digital Green Screen Display -->
   <div class="alarm-screen" title={`Live time in ${location}`}>
@@ -112,7 +114,7 @@ for (const part of parts) {
           hour: 'numeric',
           minute: '2-digit',
           second: '2-digit',
-          hour12: true,
+          hour12: true
         });
 
         const parts = formatter.formatToParts(now);
@@ -138,7 +140,10 @@ for (const part of parts) {
         }
 
         const loc = locationEl?.textContent || 'local';
-        badge.setAttribute('aria-label', `Current time in ${loc}: ${h}:${m}:${s} ${p}`);
+        badge.setAttribute(
+          'aria-label',
+          `Current time in ${loc}: ${h}:${m}:${s} ${p}`
+        );
       } catch {
         // Fallback gracefully
       }
@@ -217,7 +222,8 @@ for (const part of parts) {
   .alarm-screen {
     --screen-bg: #ecfdf5;
     --screen-border: #a7f3d0;
-    --screen-shadow: inset 0 1px 2px rgba(4, 120, 87, 0.12), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --screen-shadow:
+      inset 0 1px 2px rgba(4, 120, 87, 0.12), 0 1px 2px rgba(0, 0, 0, 0.04);
     --screen-text: #047857;
     --screen-text-shadow: none;
     --screen-second: #059669;
@@ -244,12 +250,14 @@ for (const part of parts) {
 
   /* System dark mode preference when no explicit light theme */
   @media (prefers-color-scheme: dark) {
-    :global(:root:not([data-theme="light"])) .alarm-screen {
+    :global(:root:not([data-theme='light'])) .alarm-screen {
       --screen-bg: #0b0f0e;
       --screen-border: #1e2923;
-      --screen-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 1px rgba(16, 185, 129, 0.25);
+      --screen-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 1px rgba(16, 185, 129, 0.25);
       --screen-text: #34d399;
-      --screen-text-shadow: 0 0 8px rgba(52, 211, 153, 0.65), 0 0 2px rgba(52, 211, 153, 0.95);
+      --screen-text-shadow:
+        0 0 8px rgba(52, 211, 153, 0.65), 0 0 2px rgba(52, 211, 153, 0.95);
       --screen-second: #6ee7b7;
       --screen-period: #34d399;
       --screen-period-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
@@ -258,12 +266,14 @@ for (const part of parts) {
   }
 
   /* Explicit dark theme */
-  :global(html[data-theme="dark"]) .alarm-screen {
+  :global(html[data-theme='dark']) .alarm-screen {
     --screen-bg: #0b0f0e;
     --screen-border: #1e2923;
-    --screen-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 1px rgba(16, 185, 129, 0.25);
+    --screen-shadow:
+      inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 1px rgba(16, 185, 129, 0.25);
     --screen-text: #34d399;
-    --screen-text-shadow: 0 0 8px rgba(52, 211, 153, 0.65), 0 0 2px rgba(52, 211, 153, 0.95);
+    --screen-text-shadow:
+      0 0 8px rgba(52, 211, 153, 0.65), 0 0 2px rgba(52, 211, 153, 0.95);
     --screen-second: #6ee7b7;
     --screen-period: #34d399;
     --screen-period-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
@@ -271,10 +281,11 @@ for (const part of parts) {
   }
 
   /* Explicit light theme */
-  :global(html[data-theme="light"]) .alarm-screen {
+  :global(html[data-theme='light']) .alarm-screen {
     --screen-bg: #ecfdf5;
     --screen-border: #a7f3d0;
-    --screen-shadow: inset 0 1px 2px rgba(4, 120, 87, 0.12), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --screen-shadow:
+      inset 0 1px 2px rgba(4, 120, 87, 0.12), 0 1px 2px rgba(0, 0, 0, 0.04);
     --screen-text: #047857;
     --screen-text-shadow: none;
     --screen-second: #059669;
@@ -297,12 +308,16 @@ for (const part of parts) {
     font-size: 0.875rem;
     color: var(--screen-text);
     text-shadow: var(--screen-text-shadow);
-    transition: color 0.2s ease, text-shadow 0.2s ease;
+    transition:
+      color 0.2s ease,
+      text-shadow 0.2s ease;
   }
 
   .lcd-colon {
     display: inline-block;
-    transition: opacity 0.15s ease, color 0.2s ease;
+    transition:
+      opacity 0.15s ease,
+      color 0.2s ease;
     opacity: 1;
     margin: 0 1px;
     color: var(--screen-text);
@@ -333,7 +348,9 @@ for (const part of parts) {
     letter-spacing: 0.05em;
     opacity: 0.9;
     text-shadow: var(--screen-period-shadow);
-    transition: color 0.2s ease, text-shadow 0.2s ease;
+    transition:
+      color 0.2s ease,
+      text-shadow 0.2s ease;
   }
 
   @media (max-width: 480px) {

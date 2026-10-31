@@ -1,7 +1,9 @@
 import type { FilterCategory } from './types';
 
 export function updateDirectoryList(activeFilter: FilterCategory): void {
-  const searchInput = document.getElementById('places-search-input') as HTMLInputElement | null;
+  const searchInput = document.getElementById(
+    'places-search-input'
+  ) as HTMLInputElement | null;
   const clearBtn = document.getElementById('places-search-clear');
   const query = (searchInput?.value || '').trim().toLowerCase();
 
@@ -10,16 +12,20 @@ export function updateDirectoryList(activeFilter: FilterCategory): void {
   }
 
   let totalVisibleCount = 0;
-  const groups = document.querySelectorAll<HTMLElement>('.places-group[data-group-type]');
+  const groups = document.querySelectorAll<HTMLElement>(
+    '.places-group[data-group-type]'
+  );
 
   groups.forEach((group) => {
     const groupType = group.dataset.groupType || '';
-    const categoryMatchesGroup = activeFilter === 'all' || groupType === activeFilter;
+    const categoryMatchesGroup =
+      activeFilter === 'all' || groupType === activeFilter;
     let groupVisibleCount = 0;
 
     const cards = group.querySelectorAll<HTMLElement>('.place-card');
     cards.forEach((card) => {
-      const searchStr = card.dataset.search || (card.dataset.name || '').toLowerCase();
+      const searchStr =
+        card.dataset.search || (card.dataset.name || '').toLowerCase();
       const matchesSearch = !query || searchStr.includes(query);
       const visible = categoryMatchesGroup && matchesSearch;
       card.style.display = visible ? '' : 'none';
@@ -51,14 +57,22 @@ export function setupPlacesDirectory(callbacks: {
   getActiveFilter: () => FilterCategory;
   onSelectPlace: (id: string, lat: number, lng: number, type: string) => void;
 }): () => void {
-  const placesDetails = document.querySelector<HTMLDetailsElement>('.places-details');
+  const placesDetails =
+    document.querySelector<HTMLDetailsElement>('.places-details');
   const searchBar = document.querySelector<HTMLElement>('.places-search-bar');
-  const searchInput = document.getElementById('places-search-input') as HTMLInputElement | null;
+  const searchInput = document.getElementById(
+    'places-search-input'
+  ) as HTMLInputElement | null;
   const searchClear = document.getElementById('places-search-clear');
   const placeCards = document.querySelectorAll<HTMLElement>('.place-card');
 
   const onDetailsToggle = () => {
-    if (placesDetails && !placesDetails.open && searchInput && searchInput.value) {
+    if (
+      placesDetails &&
+      !placesDetails.open &&
+      searchInput &&
+      searchInput.value
+    ) {
       searchInput.value = '';
       updateDirectoryList(callbacks.getActiveFilter());
     }
@@ -149,4 +163,3 @@ export function setupPlacesDirectory(callbacks: {
     cardCleanups.forEach((cleanup) => cleanup());
   };
 }
-

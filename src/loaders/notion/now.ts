@@ -5,13 +5,20 @@ import { blocksToMarkdown, makeExternalLinksOpenInNewTab } from './text';
 export function notionNowLoader(): Loader {
   return {
     name: 'notion-now-loader',
-    load: async ({ store, logger, parseData, renderMarkdown }: LoaderContext) => {
+    load: async ({
+      store,
+      logger,
+      parseData,
+      renderMarkdown
+    }: LoaderContext) => {
       const pageId = process.env.NOTION_NOW_PAGE_ID;
 
       if (NOTION_API_KEY && pageId) {
         try {
           const pageRes = await notionRequest(`pages/${pageId}`);
-          const blocksRes = await notionRequest(`blocks/${pageId}/children?page_size=100`);
+          const blocksRes = await notionRequest(
+            `blocks/${pageId}/children?page_size=100`
+          );
 
           let updatedDate = pageRes.last_edited_time
             ? new Date(pageRes.last_edited_time)
@@ -22,7 +29,10 @@ export function notionNowLoader(): Loader {
           for (const b of blocksRes.results || []) {
             const blockContent = b[b.type];
             const text = Array.isArray(blockContent?.rich_text)
-              ? blockContent.rich_text.map((t: any) => t.plain_text || '').join('').trim()
+              ? blockContent.rich_text
+                  .map((t: any) => t.plain_text || '')
+                  .join('')
+                  .trim()
               : '';
 
             const match = text.match(/^updated:\s*(.+)$/i);
@@ -56,14 +66,14 @@ export function notionNowLoader(): Loader {
           }
           const data = await parseData({
             id: 'index',
-            data: { updated: updatedDate },
+            data: { updated: updatedDate }
           });
 
           store.set({
             id: 'index',
             data,
             body: markdown,
-            rendered,
+            rendered
           });
 
           logger.info(`Loaded Now updates from Notion.`);
@@ -78,8 +88,11 @@ export function notionNowLoader(): Loader {
       );
       const markdown = 'Currently updating...';
       const rendered = await renderMarkdown(markdown);
-      const data = await parseData({ id: 'index', data: { updated: new Date() } });
+      const data = await parseData({
+        id: 'index',
+        data: { updated: new Date() }
+      });
       store.set({ id: 'index', data, body: markdown, rendered });
-    },
+    }
   };
 }

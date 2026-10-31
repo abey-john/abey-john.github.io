@@ -34,67 +34,38 @@ function formatDisplayUrl(url: string) {
     <div class="sections-container">
       <section class="dev-section" aria-labelledby="heading-professional">
         <header class="section-header">
-          <h2 id="heading-professional" class="section-title">Professional</h2>
+          <h2 id="heading-professional" class="section-title">
+            Professional
+          </h2>
           <p class="section-subtitle">
             Some of the things I've built professionally as a software engineer.
           </p>
         </header>
 
         <ul class="items-list">
-          {
-            professionalItems.map((item) =>
-              item.data.image ? (
-                <li class="item-card item-card-featured">
-                  <a
-                    href={item.data.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="featured-media"
-                    tabindex="-1"
-                    aria-hidden="true"
-                  >
-                    <MediaImage
-                      src={item.data.image}
-                      alt={item.data.title}
-                      width={880}
-                      aspectRatio="1021 / 870"
-                      quality={95}
-                      class="featured-media-inner"
-                      imageClass="featured-image"
-                      loading="eager"
-                    />
-                  </a>
-                  <div class="featured-content">
-                    <div class="item-header">
-                      <h3 class="item-title">
-                        <a
-                          href={item.data.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="item-link"
-                        >
-                          <span>{item.data.title}</span>
-                          <span class="external-icon" aria-hidden="true">
-                            &nearr;
-                          </span>
-                        </a>
-                      </h3>
-                    </div>
-                    <p class="item-role">{item.data.role}</p>
-                    <div class="item-url-wrapper">
-                      <a
-                        href={item.data.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="item-url"
-                      >
-                        {formatDisplayUrl(item.data.url)}
-                      </a>
-                    </div>
-                  </div>
-                </li>
-              ) : (
-                <li class="item-card">
+          {professionalItems.map((item) =>
+            item.data.image ? (
+              <li class="item-card item-card-featured">
+                <a
+                  href={item.data.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="featured-media"
+                  tabindex="-1"
+                  aria-hidden="true"
+                >
+                  <MediaImage
+                    src={item.data.image}
+                    alt={item.data.title}
+                    width={880}
+                    aspectRatio="1021 / 870"
+                    quality={95}
+                    class="featured-media-inner"
+                    imageClass="featured-image"
+                    loading="eager"
+                  />
+                </a>
+                <div class="featured-content">
                   <div class="item-header">
                     <h3 class="item-title">
                       <a
@@ -121,83 +92,57 @@ function formatDisplayUrl(url: string) {
                       {formatDisplayUrl(item.data.url)}
                     </a>
                   </div>
-                </li>
-              )
+                </div>
+              </li>
+            ) : (
+              <li class="item-card">
+                <div class="item-header">
+                  <h3 class="item-title">
+                    <a
+                      href={item.data.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="item-link"
+                    >
+                      <span>{item.data.title}</span>
+                      <span class="external-icon" aria-hidden="true">
+                        &nearr;
+                      </span>
+                    </a>
+                  </h3>
+                </div>
+                <p class="item-role">{item.data.role}</p>
+                <div class="item-url-wrapper">
+                  <a
+                    href={item.data.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="item-url"
+                  >
+                    {formatDisplayUrl(item.data.url)}
+                  </a>
+                </div>
+              </li>
             )
-          }
+          )}
         </ul>
       </section>
 
       <section class="dev-section" aria-labelledby="heading-personal">
         <header class="section-header">
-          <h2 id="heading-personal" class="section-title">Personal</h2>
+          <h2 id="heading-personal" class="section-title">
+            Personal
+          </h2>
           <p class="section-subtitle">
             Solo work for a bit of fun and experimentation.
           </p>
         </header>
 
         <ul class="items-list">
-          {
-            personalItems.map((item) =>
-              item.data.image ? (
-                <li class="item-card item-card-featured item-card-featured-reverse">
-                  <div class="featured-content">
-                    <div class="item-header">
-                      <h3 class="item-title">
-                        <a
-                          href={item.data.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="item-link"
-                        >
-                          <span>{item.data.title}</span>
-                          <span class="external-icon" aria-hidden="true">
-                            &nearr;
-                          </span>
-                        </a>
-                      </h3>
-                    </div>
-                    <p class="item-role">{item.data.role}</p>
-                    <div class="item-url-wrapper">
-                      <a
-                        href={item.data.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="item-url"
-                      >
-                        {formatDisplayUrl(item.data.url)}
-                      </a>
-                    </div>
-                  </div>
-                  <a
-                    href={item.data.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="featured-media featured-media-icon"
-                    tabindex="-1"
-                    aria-hidden="true"
-                  >
-                    {(() => {
-                      const isGithubIcon =
-                        item.data.id === 'personal-website' ||
-                        item.data.title.toLowerCase().includes('github');
-                      return (
-                        <MediaImage
-                          src={item.data.image}
-                          alt={item.data.title}
-                          width={280}
-                          height={280}
-                          quality={98}
-                          class="github-logo-wrapper"
-                          imageClass={`featured-image ${isGithubIcon ? 'github-logo' : ''}`}
-                          loading="lazy"
-                        />
-                      );
-                    })()}
-                  </a>
-                </li>
-              ) : (
-                <li class="item-card">
+          {personalItems.map((item) =>
+            item.data.image ? (
+              <li class="item-card item-card-featured item-card-featured-reverse">
+                <div class="featured-content">
                   <div class="item-header">
                     <h3 class="item-title">
                       <a
@@ -224,10 +169,65 @@ function formatDisplayUrl(url: string) {
                       {formatDisplayUrl(item.data.url)}
                     </a>
                   </div>
-                </li>
-              )
+                </div>
+                <a
+                  href={item.data.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="featured-media featured-media-icon"
+                  tabindex="-1"
+                  aria-hidden="true"
+                >
+                  {(() => {
+                    const isGithubIcon =
+                      item.data.id === 'personal-website' ||
+                      item.data.title.toLowerCase().includes('github');
+                    return (
+                      <MediaImage
+                        src={item.data.image}
+                        alt={item.data.title}
+                        width={280}
+                        height={280}
+                        quality={98}
+                        class="github-logo-wrapper"
+                        imageClass={`featured-image ${isGithubIcon ? 'github-logo' : ''}`}
+                        loading="lazy"
+                      />
+                    );
+                  })()}
+                </a>
+              </li>
+            ) : (
+              <li class="item-card">
+                <div class="item-header">
+                  <h3 class="item-title">
+                    <a
+                      href={item.data.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="item-link"
+                    >
+                      <span>{item.data.title}</span>
+                      <span class="external-icon" aria-hidden="true">
+                        &nearr;
+                      </span>
+                    </a>
+                  </h3>
+                </div>
+                <p class="item-role">{item.data.role}</p>
+                <div class="item-url-wrapper">
+                  <a
+                    href={item.data.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="item-url"
+                  >
+                    {formatDisplayUrl(item.data.url)}
+                  </a>
+                </div>
+              </li>
             )
-          }
+          )}
         </ul>
       </section>
     </div>
@@ -454,12 +454,12 @@ function formatDisplayUrl(url: string) {
   }
 
   @media (prefers-color-scheme: dark) {
-    :global(html:not([data-theme="light"])) :global(.github-logo) {
+    :global(html:not([data-theme='light'])) :global(.github-logo) {
       filter: invert(1);
     }
   }
 
-  :global(html[data-theme="dark"]) :global(.github-logo) {
+  :global(html[data-theme='dark']) :global(.github-logo) {
     filter: invert(1);
   }
 

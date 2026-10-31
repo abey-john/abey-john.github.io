@@ -30,12 +30,18 @@ export function updateTripsDropdownUI(
   trip: TripData | undefined,
   totalTripsCount: number
 ): void {
-  const trigger = document.getElementById('trips-dropdown-trigger') as HTMLButtonElement | null;
+  const trigger = document.getElementById(
+    'trips-dropdown-trigger'
+  ) as HTMLButtonElement | null;
   const triggerLabel = document.getElementById('trips-trigger-label');
   const triggerCount = document.getElementById('trips-trigger-count');
   const triggerIcon = document.getElementById('trips-trigger-icon');
-  const clearBtn = document.getElementById('trips-dropdown-clear') as HTMLButtonElement | null;
-  const dropdownItems = document.querySelectorAll<HTMLButtonElement>('.trips-dropdown-item');
+  const clearBtn = document.getElementById(
+    'trips-dropdown-clear'
+  ) as HTMLButtonElement | null;
+  const dropdownItems = document.querySelectorAll<HTMLButtonElement>(
+    '.trips-dropdown-item'
+  );
 
   dropdownItems.forEach((item) => {
     const isSelected = item.dataset.tripId === activeTripId;
@@ -72,7 +78,10 @@ export function updateTripsDropdownUI(
   }
   if (triggerLabel) triggerLabel.textContent = trip.name;
   if (triggerCount) {
-    triggerCount.textContent = trip.distanceMiles > 0 ? `${trip.distanceMiles} mi` : `${trip.stops.length} stops`;
+    triggerCount.textContent =
+      trip.distanceMiles > 0
+        ? `${trip.distanceMiles} mi`
+        : `${trip.stops.length} stops`;
   }
 
   if (triggerIcon) {
@@ -93,7 +102,9 @@ export function setupTripsDropdown(callbacks: {
   const dropdownContainer = document.getElementById('trips-dropdown-container');
   const dropdownTrigger = document.getElementById('trips-dropdown-trigger');
   const dropdownClear = document.getElementById('trips-dropdown-clear');
-  const dropdownTripItems = document.querySelectorAll<HTMLButtonElement>('.trips-dropdown-item');
+  const dropdownTripItems = document.querySelectorAll<HTMLButtonElement>(
+    '.trips-dropdown-item'
+  );
 
   const onTriggerClick = (e: MouseEvent) => {
     e.stopPropagation();

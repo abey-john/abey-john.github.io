@@ -27,7 +27,9 @@ export function notionTripsLoader(): Loader {
             try {
               const pResults = await queryNotionDatabase(placesDbId);
               for (const p of pResults) {
-                const name = (p.properties.Name?.title?.[0]?.plain_text || '').trim();
+                const name = (
+                  p.properties.Name?.title?.[0]?.plain_text || ''
+                ).trim();
                 const lat =
                   typeof p.properties.Latitude?.number === 'number'
                     ? p.properties.Latitude.number
@@ -51,7 +53,9 @@ export function notionTripsLoader(): Loader {
                 }
               }
             } catch (err: any) {
-              logger.warn(`Could not load places for trip stop matching: ${err.message}`);
+              logger.warn(
+                `Could not load places for trip stop matching: ${err.message}`
+              );
             }
           }
 
@@ -65,7 +69,10 @@ export function notionTripsLoader(): Loader {
               .toLowerCase()
               .normalize('NFD')
               .replace(/[\u0300-\u036f]/g, '')
-              .replace(/\b(national park|state park|monument|preserve|np|city)\b/gi, '')
+              .replace(
+                /\b(national park|state park|monument|preserve|np|city)\b/gi,
+                ''
+              )
               .replace(/[^a-z0-9]/g, '')
               .trim();
           };
@@ -75,8 +82,12 @@ export function notionTripsLoader(): Loader {
             const name = p.Name?.title?.[0]?.plain_text || 'Untitled Trip';
             const id = page.id;
             const summary = p.Summary?.rich_text?.[0]?.plain_text || '';
-            const date = p.Date?.rich_text?.[0]?.plain_text || p.Date?.date?.start || '';
-            const color = p.Color?.select?.name || p.Color?.rich_text?.[0]?.plain_text || 'Amber';
+            const date =
+              p.Date?.rich_text?.[0]?.plain_text || p.Date?.date?.start || '';
+            const color =
+              p.Color?.select?.name ||
+              p.Color?.rich_text?.[0]?.plain_text ||
+              'Amber';
             const rawType =
               p.Type?.select?.name ||
               p.Type?.rich_text?.[0]?.plain_text ||
@@ -97,16 +108,24 @@ export function notionTripsLoader(): Loader {
             const nameLower = name.toLowerCase().trim();
 
             if (typeLower) {
-              if (/\b(?:train|rail|railway|railroad|transit|amtrak|eurail)\b/i.test(typeLower)) {
+              if (
+                /\b(?:train|rail|railway|railroad|transit|amtrak|eurail)\b/i.test(
+                  typeLower
+                )
+              ) {
                 mode = 'train';
-              } else if (/\b(?:flight|fly|plane|flying|airline|air)\b/i.test(typeLower)) {
+              } else if (
+                /\b(?:flight|fly|plane|flying|airline|air)\b/i.test(typeLower)
+              ) {
                 mode = 'flight';
               } else {
                 mode = 'drive';
               }
             } else {
               // Fallback inference if Type was left empty in Notion
-              if (/\b(?:train|railway|railroad|amtrak|eurail)\b/i.test(nameLower)) {
+              if (
+                /\b(?:train|railway|railroad|amtrak|eurail)\b/i.test(nameLower)
+              ) {
                 mode = 'train';
               } else if (/\b(?:flight|fly|plane|flying)\b/i.test(nameLower)) {
                 mode = 'flight';
@@ -131,14 +150,17 @@ export function notionTripsLoader(): Loader {
 
             for (const rawToken of stopTokens) {
               const isVia =
-                /^(?:via[:\s]+|\((?:via[:\s]+)?)/i.test(rawToken) || rawToken.startsWith('(');
+                /^(?:via[:\s]+|\((?:via[:\s]+)?)/i.test(rawToken) ||
+                rawToken.startsWith('(');
               const cleanToken = rawToken
                 .replace(/^(?:via[:\s]+|\((?:via[:\s]+)?)/i, '')
                 .replace(/^\(|\)$/g, '')
                 .trim();
               const normToken = normalizePlaceName(cleanToken);
               // 1. Exact normalized match first (e.g. "Grand Canyon West" matches "Grand Canyon West")
-              let matched = placesMap.find((pl) => normalizePlaceName(pl.name) === normToken);
+              let matched = placesMap.find(
+                (pl) => normalizePlaceName(pl.name) === normToken
+              );
 
               // 2. Best containment match (e.g. "Grand Canyon" matches "Grand Canyon National Park", but not vice-versa)
               if (!matched) {
@@ -148,8 +170,12 @@ export function notionTripsLoader(): Loader {
                 });
                 if (candidates.length > 0) {
                   candidates.sort((a, b) => {
-                    const diffA = Math.abs(normalizePlaceName(a.name).length - normToken.length);
-                    const diffB = Math.abs(normalizePlaceName(b.name).length - normToken.length);
+                    const diffA = Math.abs(
+                      normalizePlaceName(a.name).length - normToken.length
+                    );
+                    const diffB = Math.abs(
+                      normalizePlaceName(b.name).length - normToken.length
+                    );
                     return diffA - diffB;
                   });
                   matched = candidates[0];
@@ -178,7 +204,7 @@ export function notionTripsLoader(): Loader {
                     placeId: matched.id,
                     lat: matched.lat,
                     lng: matched.lng,
-                    isWaypoint: isVia,
+                    isWaypoint: isVia
                   });
                 }
               } else {
@@ -189,7 +215,7 @@ export function notionTripsLoader(): Loader {
                     name: cleanToken,
                     lat: geocoded.lat,
                     lng: geocoded.lng,
-                    isWaypoint: isVia,
+                    isWaypoint: isVia
                   });
                 } else {
                   logger.warn(
@@ -204,15 +230,21 @@ export function notionTripsLoader(): Loader {
               .filter((w) => !w.isWaypoint)
               .map(({ isWaypoint, ...rest }) => rest);
 
-            const routingPoints = waypoints.map(({ lat, lng }) => ({ lat, lng }));
+            const routingPoints = waypoints.map(({ lat, lng }) => ({
+              lat,
+              lng
+            }));
 
             // Calculate or load cached route geometry
-            let geometry: { type: 'LineString'; coordinates: [number, number][] } = {
+            let geometry: {
+              type: 'LineString';
+              coordinates: [number, number][];
+            } = {
               type: 'LineString',
-              coordinates: (routingPoints.length > 0 ? routingPoints : stops).map((s) => [
-                s.lng,
-                s.lat,
-              ]),
+              coordinates: (routingPoints.length > 0
+                ? routingPoints
+                : stops
+              ).map((s) => [s.lng, s.lat])
             };
             let distanceMiles = 0;
             let durationHours = 0;
@@ -226,15 +258,23 @@ export function notionTripsLoader(): Loader {
               const coordsKey = routingPoints
                 .map((s) => `${s.lng.toFixed(4)},${s.lat.toFixed(4)}`)
                 .join(';');
-              const hash = crypto.createHash('md5').update(`${mode}:${coordsKey}`).digest('hex');
-              const legacyHash = crypto.createHash('md5').update(coordsKey).digest('hex');
+              const hash = crypto
+                .createHash('md5')
+                .update(`${mode}:${coordsKey}`)
+                .digest('hex');
+              const legacyHash = crypto
+                .createHash('md5')
+                .update(coordsKey)
+                .digest('hex');
 
               let cachedData: any = null;
               if (fs.existsSync(cacheFile)) {
                 try {
                   const c = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
                   if (
-                    (c.hash === hash || (c.hash === legacyHash && (!c.mode || c.mode === mode))) &&
+                    (c.hash === hash ||
+                      (c.hash === legacyHash &&
+                        (!c.mode || c.mode === mode))) &&
                     (!c.mode || c.mode === mode) &&
                     c.geometry?.coordinates?.length
                   ) {
@@ -267,7 +307,7 @@ export function notionTripsLoader(): Loader {
                       try {
                         const brouterUrl = `https://brouter.de/brouter?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=rail&format=geojson`;
                         const bRes = await fetch(brouterUrl, {
-                          headers: { 'User-Agent': 'PersonalWebsite/1.0' },
+                          headers: { 'User-Agent': 'PersonalWebsite/1.0' }
                         });
                         if (bRes.ok) {
                           const bData = await bRes.json();
@@ -275,8 +315,12 @@ export function notionTripsLoader(): Loader {
                           const coords = feat?.geometry?.coordinates;
                           if (coords && coords.length > 0) {
                             legCoords = coords as [number, number][];
-                            legMeters = Number(feat.properties?.['track-length'] || 0);
-                            legSeconds = Number(feat.properties?.['total-time'] || 0);
+                            legMeters = Number(
+                              feat.properties?.['track-length'] || 0
+                            );
+                            legSeconds = Number(
+                              feat.properties?.['total-time'] || 0
+                            );
                           }
                         }
                       } catch {}
@@ -291,7 +335,10 @@ export function notionTripsLoader(): Loader {
                           const oData = await oRes.json();
                           const r = oData.routes?.[0];
                           if (r?.geometry?.coordinates?.length) {
-                            legCoords = r.geometry.coordinates as [number, number][];
+                            legCoords = r.geometry.coordinates as [
+                              number,
+                              number
+                            ][];
                             legMeters = Number(r.distance || 0);
                             legSeconds = Number(r.duration || 0);
                           }
@@ -303,7 +350,7 @@ export function notionTripsLoader(): Loader {
                     if (!legCoords) {
                       legCoords = [
                         [from.lng, from.lat],
-                        [to.lng, to.lat],
+                        [to.lng, to.lat]
                       ];
                     }
 
@@ -311,10 +358,17 @@ export function notionTripsLoader(): Loader {
                     if (legCoords && legCoords.length > 0) {
                       const startPt = legCoords[0];
                       const endPt = legCoords[legCoords.length - 1];
-                      if (Math.hypot(startPt[0] - from.lng, startPt[1] - from.lat) > 0.004) {
+                      if (
+                        Math.hypot(
+                          startPt[0] - from.lng,
+                          startPt[1] - from.lat
+                        ) > 0.004
+                      ) {
                         legCoords.unshift([from.lng, from.lat]);
                       }
-                      if (Math.hypot(endPt[0] - to.lng, endPt[1] - to.lat) > 0.004) {
+                      if (
+                        Math.hypot(endPt[0] - to.lng, endPt[1] - to.lat) > 0.004
+                      ) {
                         legCoords.push([to.lng, to.lat]);
                       }
                     }
@@ -329,23 +383,33 @@ export function notionTripsLoader(): Loader {
                   }
 
                   if (allCoords.length > 1) {
-                    distanceMiles = Math.round((totalMeters / 1609.34) * 10) / 10;
+                    distanceMiles =
+                      Math.round((totalMeters / 1609.34) * 10) / 10;
                     durationHours = Math.round((totalSeconds / 3600) * 10) / 10;
-                    const simplified = simplifyCoordinates(allCoords, 0.0001).map(
+                    const simplified = simplifyCoordinates(
+                      allCoords,
+                      0.0001
+                    ).map(
                       ([lng, lat]) =>
                         [
                           Math.round(lng * 100000) / 100000,
-                          Math.round(lat * 100000) / 100000,
+                          Math.round(lat * 100000) / 100000
                         ] as [number, number]
                     );
                     geometry = {
                       type: 'LineString',
-                      coordinates: simplified,
+                      coordinates: simplified
                     };
                     fs.writeFileSync(
                       cacheFile,
                       JSON.stringify(
-                        { hash, distanceMiles, durationHours, mode: 'train', geometry },
+                        {
+                          hash,
+                          distanceMiles,
+                          durationHours,
+                          mode: 'train',
+                          geometry
+                        },
                         null,
                         2
                       )
@@ -362,14 +426,16 @@ export function notionTripsLoader(): Loader {
               } else if (mode === 'drive') {
                 // Fetch from OSRM driving with retries
                 try {
-                  const coordsParam = routingPoints.map((s) => `${s.lng},${s.lat}`).join(';');
+                  const coordsParam = routingPoints
+                    .map((s) => `${s.lng},${s.lat}`)
+                    .join(';');
                   const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsParam}?overview=full&geometries=geojson`;
 
                   let osrmData: any = null;
                   for (let attempt = 1; attempt <= 3; attempt++) {
                     try {
                       const res = await fetch(osrmUrl, {
-                        headers: { 'User-Agent': 'PersonalWebsite/1.0' },
+                        headers: { 'User-Agent': 'PersonalWebsite/1.0' }
                       });
                       if (res.ok) {
                         const data = await res.json();
@@ -381,26 +447,35 @@ export function notionTripsLoader(): Loader {
                     } catch (e) {
                       if (attempt === 3) throw e;
                     }
-                    await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+                    await new Promise((resolve) =>
+                      setTimeout(resolve, 1000 * attempt)
+                    );
                   }
 
                   if (osrmData?.routes?.[0]) {
                     const r = osrmData.routes[0];
-                    distanceMiles = Math.round((r.distance / 1609.34) * 10) / 10;
+                    distanceMiles =
+                      Math.round((r.distance / 1609.34) * 10) / 10;
                     durationHours = Math.round((r.duration / 3600) * 10) / 10;
 
-                    const rawCoords = r.geometry.coordinates as [number, number][];
-                    const simplified = simplifyCoordinates(rawCoords, 0.0001).map(
+                    const rawCoords = r.geometry.coordinates as [
+                      number,
+                      number
+                    ][];
+                    const simplified = simplifyCoordinates(
+                      rawCoords,
+                      0.0001
+                    ).map(
                       ([lng, lat]) =>
                         [
                           Math.round(lng * 100000) / 100000,
-                          Math.round(lat * 100000) / 100000,
+                          Math.round(lat * 100000) / 100000
                         ] as [number, number]
                     );
 
                     geometry = {
                       type: 'LineString',
-                      coordinates: simplified,
+                      coordinates: simplified
                     };
 
                     fs.writeFileSync(
@@ -411,7 +486,7 @@ export function notionTripsLoader(): Loader {
                           distanceMiles,
                           durationHours,
                           mode: 'drive',
-                          geometry,
+                          geometry
                         },
                         null,
                         2
@@ -423,30 +498,44 @@ export function notionTripsLoader(): Loader {
                   } else {
                     // Fallback to BRouter car-fast if OSRM was unreachable or returned error
                     try {
-                      const brouterPoints = routingPoints.map((s) => `${s.lng},${s.lat}`).join('|');
+                      const brouterPoints = routingPoints
+                        .map((s) => `${s.lng},${s.lat}`)
+                        .join('|');
                       const brouterUrl = `https://brouter.de/brouter?lonlats=${brouterPoints}&profile=car-fast&format=geojson`;
                       const bRes = await fetch(brouterUrl, {
-                        headers: { 'User-Agent': 'PersonalWebsite/1.0' },
+                        headers: { 'User-Agent': 'PersonalWebsite/1.0' }
                       });
                       if (bRes.ok) {
                         const bData = await bRes.json();
                         const feat = bData.features?.[0];
                         if (feat?.geometry?.coordinates?.length) {
-                          const legCoords = feat.geometry.coordinates as [number, number][];
-                          const legMeters = Number(feat.properties?.['track-length'] || 0);
-                          const legSeconds = Number(feat.properties?.['total-time'] || 0);
-                          distanceMiles = Math.round((legMeters / 1609.34) * 10) / 10;
-                          durationHours = Math.round((legSeconds / 3600) * 10) / 10;
-                          const simplified = simplifyCoordinates(legCoords, 0.0001).map(
+                          const legCoords = feat.geometry.coordinates as [
+                            number,
+                            number
+                          ][];
+                          const legMeters = Number(
+                            feat.properties?.['track-length'] || 0
+                          );
+                          const legSeconds = Number(
+                            feat.properties?.['total-time'] || 0
+                          );
+                          distanceMiles =
+                            Math.round((legMeters / 1609.34) * 10) / 10;
+                          durationHours =
+                            Math.round((legSeconds / 3600) * 10) / 10;
+                          const simplified = simplifyCoordinates(
+                            legCoords,
+                            0.0001
+                          ).map(
                             ([lng, lat]) =>
                               [
                                 Math.round(lng * 100000) / 100000,
-                                Math.round(lat * 100000) / 100000,
+                                Math.round(lat * 100000) / 100000
                               ] as [number, number]
                           );
                           geometry = {
                             type: 'LineString',
-                            coordinates: simplified,
+                            coordinates: simplified
                           };
                           fs.writeFileSync(
                             cacheFile,
@@ -456,7 +545,7 @@ export function notionTripsLoader(): Loader {
                                 distanceMiles,
                                 durationHours,
                                 mode: 'drive',
-                                geometry,
+                                geometry
                               },
                               null,
                               2
@@ -468,7 +557,9 @@ export function notionTripsLoader(): Loader {
                         }
                       }
                     } catch (bErr: any) {
-                      logger.warn(`BRouter fallback also failed for "${name}": ${bErr.message}`);
+                      logger.warn(
+                        `BRouter fallback also failed for "${name}": ${bErr.message}`
+                      );
                     }
                   }
                 } catch (err: any) {
@@ -480,12 +571,13 @@ export function notionTripsLoader(): Loader {
 
               // Also ensure cached geometry is simplified if it was saved unsimplified
               if (geometry.coordinates.length > 5000) {
-                geometry.coordinates = simplifyCoordinates(geometry.coordinates, 0.0001).map(
-                  ([lng, lat]) => [
-                    Math.round(lng * 100000) / 100000,
-                    Math.round(lat * 100000) / 100000,
-                  ]
-                );
+                geometry.coordinates = simplifyCoordinates(
+                  geometry.coordinates,
+                  0.0001
+                ).map(([lng, lat]) => [
+                  Math.round(lng * 100000) / 100000,
+                  Math.round(lat * 100000) / 100000
+                ]);
               }
             }
 
@@ -499,7 +591,7 @@ export function notionTripsLoader(): Loader {
               stops,
               distanceMiles,
               durationHours,
-              geometry,
+              geometry
             };
 
             const data = await parseData({ id, data: tripItem });
@@ -517,6 +609,6 @@ export function notionTripsLoader(): Loader {
         'No trips loaded from Notion. Ensure NOTION_API_KEY and NOTION_TRIPS_DB_ID are configured.'
       );
       store.clear();
-    },
+    }
   };
 }

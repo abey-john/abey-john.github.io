@@ -1,7 +1,9 @@
 import type * as maplibregl from 'maplibre-gl';
 import type { RouteSvgOverlayElements, TripData } from './types';
 
-export function createRouteSvgOverlay(mapEl: HTMLElement): RouteSvgOverlayElements {
+export function createRouteSvgOverlay(
+  mapEl: HTMLElement
+): RouteSvgOverlayElements {
   const canvasContainer = mapEl.querySelector('.maplibregl-canvas-container');
   const svgNS = 'http://www.w3.org/2000/svg';
   const existingSvg = mapEl.querySelector('.trip-route-svg');
@@ -15,7 +17,7 @@ export function createRouteSvgOverlay(mapEl: HTMLElement): RouteSvgOverlayElemen
       routeLinePath: null,
       routeLeadGroup: null,
       routeLeadDot: null,
-      routeLeadHalo: null,
+      routeLeadHalo: null
     };
   }
 
@@ -23,26 +25,41 @@ export function createRouteSvgOverlay(mapEl: HTMLElement): RouteSvgOverlayElemen
   routeSvg.setAttribute('class', 'trip-route-svg');
   routeSvg.setAttribute('aria-hidden', 'true');
 
-  const routeGlowPath = document.createElementNS(svgNS, 'path') as SVGPathElement;
+  const routeGlowPath = document.createElementNS(
+    svgNS,
+    'path'
+  ) as SVGPathElement;
   routeGlowPath.setAttribute('class', 'route-svg-glow');
 
-  const routeCasingPath = document.createElementNS(svgNS, 'path') as SVGPathElement;
+  const routeCasingPath = document.createElementNS(
+    svgNS,
+    'path'
+  ) as SVGPathElement;
   routeCasingPath.setAttribute('class', 'route-svg-casing');
 
-  const routeLinePath = document.createElementNS(svgNS, 'path') as SVGPathElement;
+  const routeLinePath = document.createElementNS(
+    svgNS,
+    'path'
+  ) as SVGPathElement;
   routeLinePath.setAttribute('class', 'route-svg-line');
 
   const routeLeadGroup = document.createElementNS(svgNS, 'g') as SVGGElement;
   routeLeadGroup.setAttribute('class', 'route-lead-marker');
   routeLeadGroup.style.display = 'none';
 
-  const routeLeadHalo = document.createElementNS(svgNS, 'circle') as SVGCircleElement;
+  const routeLeadHalo = document.createElementNS(
+    svgNS,
+    'circle'
+  ) as SVGCircleElement;
   routeLeadHalo.setAttribute('class', 'route-lead-halo');
   routeLeadHalo.setAttribute('r', '14');
   routeLeadHalo.setAttribute('cx', '0');
   routeLeadHalo.setAttribute('cy', '0');
 
-  const routeLeadDot = document.createElementNS(svgNS, 'circle') as SVGCircleElement;
+  const routeLeadDot = document.createElementNS(
+    svgNS,
+    'circle'
+  ) as SVGCircleElement;
   routeLeadDot.setAttribute('class', 'route-lead-dot');
   routeLeadDot.setAttribute('r', '5.5');
   routeLeadDot.setAttribute('cx', '0');
@@ -65,7 +82,7 @@ export function createRouteSvgOverlay(mapEl: HTMLElement): RouteSvgOverlayElemen
     routeLinePath,
     routeLeadGroup,
     routeLeadDot,
-    routeLeadHalo,
+    routeLeadHalo
   };
 }
 
@@ -98,7 +115,8 @@ export function updateRouteSvg(
   const zoom = map.getZoom();
   const baseWidth = Math.max(2.2, Math.min(8, 2.8 + (zoom - 4) * (3.2 / 8)));
   if (routeLinePath) routeLinePath.style.strokeWidth = `${baseWidth}px`;
-  if (routeCasingPath) routeCasingPath.style.strokeWidth = `${baseWidth + 2.5}px`;
+  if (routeCasingPath)
+    routeCasingPath.style.strokeWidth = `${baseWidth + 2.5}px`;
   if (routeGlowPath) routeGlowPath.style.strokeWidth = `${baseWidth * 2.5}px`;
 }
 
@@ -122,7 +140,8 @@ export function calculateStopIndices(
 
     for (let i = searchFrom; i < coords.length; i++) {
       const c = coords[i];
-      const dx = (c[0] - stop.lng) * Math.cos(((c[1] + stop.lat) * Math.PI) / 360);
+      const dx =
+        (c[0] - stop.lng) * Math.cos(((c[1] + stop.lat) * Math.PI) / 360);
       const dy = c[1] - stop.lat;
       const d = dx * dx + dy * dy;
       if (d < bestDist) {
@@ -136,7 +155,9 @@ export function calculateStopIndices(
   return result;
 }
 
-export function calculateCumulativeDistances(coords: [number, number][]): number[] {
+export function calculateCumulativeDistances(
+  coords: [number, number][]
+): number[] {
   const len = coords.length;
   const cumulative = new Array(len);
   cumulative[0] = 0;
@@ -171,7 +192,8 @@ export function startRouteDrawAnimation(
     onComplete: () => void;
   }
 ): number | null {
-  const { routeLinePath, routeCasingPath, routeGlowPath, routeLeadGroup } = overlay;
+  const { routeLinePath, routeCasingPath, routeGlowPath, routeLeadGroup } =
+    overlay;
   const len = coords.length;
   if (!coords || len < 2) {
     callbacks.onUpdateCoords(coords);
@@ -240,11 +262,12 @@ export function startRouteDrawAnimation(
     const d1 = tripCumulativeDistances[segIdx];
     const d2 = tripCumulativeDistances[nextIdx];
     const segSpan = d2 - d1;
-    const t = segSpan > 0 ? Math.min(1, Math.max(0, (targetDist - d1) / segSpan)) : 0;
+    const t =
+      segSpan > 0 ? Math.min(1, Math.max(0, (targetDist - d1) / segSpan)) : 0;
 
     const tipPoint: [number, number] = [
       p1[0] + (p2[0] - p1[0]) * t,
-      p1[1] + (p2[1] - p1[1]) * t,
+      p1[1] + (p2[1] - p1[1]) * t
     ];
 
     const currentSlice = coords.slice(0, segIdx + 1);
@@ -254,7 +277,10 @@ export function startRouteDrawAnimation(
 
     if (routeLeadGroup) {
       const pt = map.project(tipPoint);
-      routeLeadGroup.setAttribute('transform', `translate(${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`);
+      routeLeadGroup.setAttribute(
+        'transform',
+        `translate(${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`
+      );
       routeLeadGroup.style.display = 'block';
     }
 
@@ -315,7 +341,10 @@ export function animateRouteSegment(
   const legDist = Math.max(0.001, endDist - startDist);
   const approxLegMiles = legDist * 69;
 
-  const duration = Math.min(2500, Math.max(1200, 1050 + Math.sqrt(approxLegMiles) * 85));
+  const duration = Math.min(
+    2500,
+    Math.max(1200, 1050 + Math.sqrt(approxLegMiles) * 85)
+  );
   const startTime = performance.now();
 
   const startZoom = map.getZoom();
@@ -387,11 +416,12 @@ export function animateRouteSegment(
     const d1 = tripCumulativeDistances[segIdx];
     const d2 = tripCumulativeDistances[nextIdx];
     const segSpan = d2 - d1;
-    const t = segSpan > 0 ? Math.min(1, Math.max(0, (targetDist - d1) / segSpan)) : 0;
+    const t =
+      segSpan > 0 ? Math.min(1, Math.max(0, (targetDist - d1) / segSpan)) : 0;
 
     const tipPoint: [number, number] = [
       p1[0] + (p2[0] - p1[0]) * t,
-      p1[1] + (p2[1] - p1[1]) * t,
+      p1[1] + (p2[1] - p1[1]) * t
     ];
 
     const currentSlice = fullTripCoordinates.slice(0, segIdx + 1);
@@ -419,14 +449,17 @@ export function animateRouteSegment(
 
     map.jumpTo({
       center: [targetCamLng, targetCamLat],
-      zoom: currentZoom,
+      zoom: currentZoom
     });
 
     updateRouteSvg(map, currentSlice, overlay);
 
     if (routeLeadGroup) {
       const pt = map.project(tipPoint);
-      routeLeadGroup.setAttribute('transform', `translate(${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`);
+      routeLeadGroup.setAttribute(
+        'transform',
+        `translate(${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`
+      );
       routeLeadGroup.style.display = 'block';
     }
 

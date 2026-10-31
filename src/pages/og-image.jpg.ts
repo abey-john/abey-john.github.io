@@ -12,8 +12,16 @@ export const GET: APIRoute = async () => {
 
   if (photoPath) {
     // Check public/ first, then src/assets/
-    const publicCandidate = path.join(process.cwd(), 'public', photoPath.replace(/^\//, ''));
-    const srcCandidate = path.join(process.cwd(), 'src', photoPath.replace(/^\//, ''));
+    const publicCandidate = path.join(
+      process.cwd(),
+      'public',
+      photoPath.replace(/^\//, '')
+    );
+    const srcCandidate = path.join(
+      process.cwd(),
+      'src',
+      photoPath.replace(/^\//, '')
+    );
 
     if (fs.existsSync(publicCandidate)) {
       sourceBuffer = fs.readFileSync(publicCandidate);
@@ -29,16 +37,16 @@ export const GET: APIRoute = async () => {
         width: 1200,
         height: 630,
         channels: 3,
-        background: { r: 15, g: 20, b: 28 },
-      },
+        background: { r: 15, g: 20, b: 28 }
+      }
     })
       .jpeg({ quality: 90 })
       .toBuffer();
 
     return new Response(fallback, {
       headers: {
-        'Content-Type': 'image/jpeg',
-      },
+        'Content-Type': 'image/jpeg'
+      }
     });
   }
 
@@ -67,7 +75,7 @@ export const GET: APIRoute = async () => {
   return new Response(outputBuffer, {
     headers: {
       'Content-Type': 'image/jpeg',
-      'Cache-Control': 'public, max-age=31536000, immutable',
-    },
+      'Cache-Control': 'public, max-age=31536000, immutable'
+    }
   });
 };

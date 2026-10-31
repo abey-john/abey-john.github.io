@@ -113,7 +113,10 @@ export async function blocksToMarkdown(blocks: any[]): Promise<string> {
     // Skip instructional callout blocks added during bootstrap
     if (b.type === 'callout') {
       const calloutText = richTextToMarkdown(b.callout?.rich_text || []);
-      if (calloutText.startsWith('Edit your bio') || calloutText.startsWith('👋')) {
+      if (
+        calloutText.startsWith('Edit your bio') ||
+        calloutText.startsWith('👋')
+      ) {
         continue;
       }
       lines.push(`> ${calloutText}\n`);
@@ -161,14 +164,17 @@ export async function blocksToMarkdown(blocks: any[]): Promise<string> {
         break;
       }
       case 'code': {
-        const code = b.code?.rich_text?.map((t: any) => t.plain_text || '').join('') || '';
+        const code =
+          b.code?.rich_text?.map((t: any) => t.plain_text || '').join('') || '';
         const lang = b.code?.language || '';
         lines.push(`\`\`\`${lang}\n${code}\n\`\`\`\n`);
         break;
       }
       case 'to_do': {
         const checked = b.to_do?.checked ? '[x]' : '[ ]';
-        lines.push(`- ${checked} ${richTextToMarkdown(b.to_do?.rich_text || [])}`);
+        lines.push(
+          `- ${checked} ${richTextToMarkdown(b.to_do?.rich_text || [])}`
+        );
         break;
       }
       default:

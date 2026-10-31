@@ -2,7 +2,11 @@ import * as maplibregl from 'maplibre-gl';
 import { getTripTheme } from '../../utils/travelColors';
 import type { PlaceData, MarkerRecord } from './types';
 
-function ensurePopupInView(map: maplibregl.Map, mapEl: HTMLElement, popup: maplibregl.Popup): void {
+function ensurePopupInView(
+  map: maplibregl.Map,
+  mapEl: HTMLElement,
+  popup: maplibregl.Popup
+): void {
   requestAnimationFrame(() => {
     if (!popup.isOpen() || map.isMoving()) return;
     const popupEl = popup.getElement();
@@ -25,7 +29,7 @@ function ensurePopupInView(map: maplibregl.Map, mapEl: HTMLElement, popup: mapli
       top: 54,
       bottom: 36,
       left: 16,
-      right: 16,
+      right: 16
     };
 
     let dx = 0;
@@ -46,7 +50,7 @@ function ensurePopupInView(map: maplibregl.Map, mapEl: HTMLElement, popup: mapli
     if (Math.abs(dx) > 16 || Math.abs(dy) > 16) {
       map.panBy([dx, dy], {
         duration: 260,
-        easing: (t) => t * (2 - t),
+        easing: (t) => t * (2 - t)
       });
     }
   });
@@ -108,7 +112,13 @@ export function createMarkers(
           <path d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/>
         </svg>`;
 
-    const typeTag = isPark ? 'Park' : isLandmark ? 'Landmark' : isVenue ? 'Venue' : 'City';
+    const typeTag = isPark
+      ? 'Park'
+      : isLandmark
+        ? 'Landmark'
+        : isVenue
+          ? 'Venue'
+          : 'City';
     const tagClass = isPark
       ? 'tag-park'
       : isLandmark
@@ -125,7 +135,8 @@ export function createMarkers(
             .map((t) => {
               const theme = getTripTheme(t.color);
               const isStartAndFinish =
-                t.stopIndices.includes(1) && t.stopIndices.includes(t.totalStops);
+                t.stopIndices.includes(1) &&
+                t.stopIndices.includes(t.totalStops);
               const stopIndicesStr = t.stopIndices.join(', ');
               const stopDesc = isStartAndFinish
                 ? 'Start & Finish'
@@ -154,7 +165,11 @@ export function createMarkers(
     const popupClass = hasPhoto
       ? 'custom-maplibre-popup popup-has-photo'
       : 'custom-maplibre-popup popup-no-photo';
-    const popupMaxWidth = hasPhoto ? '240px' : hasTrips || hasBlurb ? '220px' : '170px';
+    const popupMaxWidth = hasPhoto
+      ? '240px'
+      : hasTrips || hasBlurb
+        ? '220px'
+        : '170px';
 
     const popupContent = hasDetails
       ? `<div class="popup-card ${hasPhoto ? 'has-photo' : 'no-photo'}">
@@ -214,7 +229,7 @@ export function createMarkers(
       closeButton: true,
       closeOnClick: true,
       className: popupClass,
-      maxWidth: popupMaxWidth,
+      maxWidth: popupMaxWidth
     })
       .setLngLat([place.lng, place.lat])
       .setHTML(popupContent);
@@ -225,7 +240,8 @@ export function createMarkers(
       const popupEl = popup.getElement();
       if (!popupEl) return;
 
-      const photoBtn = popupEl.querySelector<HTMLButtonElement>('.popup-photo-btn');
+      const photoBtn =
+        popupEl.querySelector<HTMLButtonElement>('.popup-photo-btn');
       if (photoBtn) {
         photoBtn.onclick = (e) => {
           e.stopPropagation();
@@ -236,13 +252,14 @@ export function createMarkers(
               name: photoBtn.dataset.photoName || place.name,
               tag: photoBtn.dataset.photoTag || typeTag,
               tagClass: photoBtn.dataset.photoTagClass || tagClass,
-              blurb: place.blurb,
+              blurb: place.blurb
             });
           }
         };
       }
 
-      const fitBtns = popupEl.querySelectorAll<HTMLButtonElement>('.btn-fit-trip');
+      const fitBtns =
+        popupEl.querySelectorAll<HTMLButtonElement>('.btn-fit-trip');
       fitBtns.forEach((btn) => {
         btn.onclick = (e) => {
           e.stopPropagation();
@@ -348,7 +365,7 @@ export function createMarkers(
           const momentumFactor = Math.min(speed * 280, 420);
           map.panBy([-velX * momentumFactor, -velY * momentumFactor], {
             duration: Math.min(800, Math.max(250, speed * 550)),
-            easing: (t) => t * (2 - t),
+            easing: (t) => t * (2 - t)
           });
         }
       }
@@ -389,7 +406,7 @@ export function createMarkers(
 
     const marker = new maplibregl.Marker({
       element: el,
-      anchor: 'center',
+      anchor: 'center'
     })
       .setLngLat([place.lng, place.lat])
       .setPopup(popup)
@@ -404,7 +421,7 @@ export function createMarkers(
       type: place.type,
       lat: place.lat,
       lng: place.lng,
-      place,
+      place
     });
   }
 

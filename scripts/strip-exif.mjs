@@ -73,7 +73,12 @@ function stripPng(buffer) {
     const type = buffer.toString('ascii', offset + 4, offset + 8);
     const totalChunkLength = 12 + length;
 
-    if (type === 'eXIf' || type === 'tEXt' || type === 'zTXt' || type === 'iTXt') {
+    if (
+      type === 'eXIf' ||
+      type === 'tEXt' ||
+      type === 'zTXt' ||
+      type === 'iTXt'
+    ) {
       modified = true;
     } else {
       chunks.push(buffer.subarray(offset, offset + totalChunkLength));
@@ -87,7 +92,10 @@ function stripPng(buffer) {
 
 function stripWebp(buffer) {
   if (buffer.length < 12) return buffer;
-  if (buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WEBP') {
+  if (
+    buffer.toString('ascii', 0, 4) !== 'RIFF' ||
+    buffer.toString('ascii', 8, 12) !== 'WEBP'
+  ) {
     return buffer;
   }
 
@@ -120,9 +128,10 @@ function stripWebp(buffer) {
   return Buffer.concat([riffHeader, body]);
 }
 
-const targetFiles = process.argv.slice(2).length > 0 
-  ? process.argv.slice(2) 
-  : getFiles(assetsDir);
+const targetFiles =
+  process.argv.slice(2).length > 0
+    ? process.argv.slice(2)
+    : getFiles(assetsDir);
 
 let strippedCount = 0;
 
@@ -142,7 +151,9 @@ for (const file of targetFiles) {
   if (stripped !== buffer) {
     writeFileSync(file, stripped);
     strippedCount++;
-    console.log(`Stripped EXIF: ${relative(rootDir, file).replace(/\\/g, '/')}`);
+    console.log(
+      `Stripped EXIF: ${relative(rootDir, file).replace(/\\/g, '/')}`
+    );
   }
 }
 

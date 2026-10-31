@@ -12,7 +12,7 @@ const {
   artist,
   previewUrl = '',
   previewTrack = '',
-  size = 'md',
+  size = 'md'
 } = Astro.props;
 ---
 
@@ -27,7 +27,11 @@ const {
     type="button"
     class="snippet-pill"
     aria-label={`Play audio snippet of ${title} by ${artist}`}
-    title={previewTrack ? `Preview "${previewTrack}" by ${artist}` : `Preview snippet of ${title}`}
+    title={
+      previewTrack
+        ? `Preview "${previewTrack}" by ${artist}`
+        : `Preview snippet of ${title}`
+    }
   >
     <span class="pill-icon" aria-hidden="true">
       <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
@@ -36,15 +40,25 @@ const {
       <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor">
         <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
       </svg>
-      <svg class="icon-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <svg
+        class="icon-spinner"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+      >
         <circle cx="12" cy="12" r="10" stroke-opacity="0.25" />
         <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round" />
       </svg>
     </span>
 
     <span class="pill-label">
-      <span class="label-idle">{previewTrack ? `Sample "${previewTrack}"` : 'Preview snippet'}</span>
-      <span class="label-playing">{previewTrack ? `"${previewTrack}"` : 'Playing'}</span>
+      <span class="label-idle">
+        {previewTrack ? `Sample "${previewTrack}"` : 'Preview snippet'}
+      </span>
+      <span class="label-playing">
+        {previewTrack ? `"${previewTrack}"` : 'Playing'}
+      </span>
     </span>
 
     <span class="pill-equalizer" aria-hidden="true">
@@ -53,7 +67,9 @@ const {
       <span class="eq-bar bar-3"></span>
     </span>
 
-    <span class="pill-time" aria-hidden="true">0:00</span>
+    <span class="pill-time" aria-hidden="true">
+      0:00
+    </span>
 
     <span class="pill-progress" aria-hidden="true">
       <span class="pill-progress-fill"></span>
@@ -87,7 +103,12 @@ const {
     position: relative;
     overflow: hidden;
     user-select: none;
-    transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
+    transition:
+      color 0.18s ease,
+      background-color 0.18s ease,
+      border-color 0.18s ease,
+      transform 0.15s ease,
+      box-shadow 0.18s ease;
   }
 
   .snippet-pill:hover {
@@ -110,9 +131,13 @@ const {
     box-shadow: 0 2px 10px rgba(37, 99, 235, 0.1);
   }
 
-  :global(html[data-theme="dark"]) .audio-snippet-player.is-active .snippet-pill,
+  :global(html[data-theme='dark'])
+    .audio-snippet-player.is-active
+    .snippet-pill,
   @media (prefers-color-scheme: dark) {
-    :global(html:not([data-theme="light"])) .audio-snippet-player.is-active .snippet-pill {
+    :global(html:not([data-theme='light']))
+      .audio-snippet-player.is-active
+      .snippet-pill {
       box-shadow: 0 2px 10px rgba(96, 165, 250, 0.15);
     }
   }
@@ -161,8 +186,12 @@ const {
   }
 
   @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   /* Label transitions */
@@ -222,9 +251,15 @@ const {
   }
 
   @keyframes eq {
-    0% { height: 2px; }
-    50% { height: 9px; }
-    100% { height: 3px; }
+    0% {
+      height: 2px;
+    }
+    50% {
+      height: 9px;
+    }
+    100% {
+      height: 3px;
+    }
   }
 
   /* Mini Timer */
@@ -318,20 +353,35 @@ const {
     }
     if (activeTarget) {
       if (activeTarget.type === 'pill') {
-        activeTarget.el.classList.remove('is-playing', 'is-active', 'is-loading');
-        const fill = activeTarget.el.querySelector('.pill-progress-fill') as HTMLElement;
+        activeTarget.el.classList.remove(
+          'is-playing',
+          'is-active',
+          'is-loading'
+        );
+        const fill = activeTarget.el.querySelector(
+          '.pill-progress-fill'
+        ) as HTMLElement;
         if (fill) fill.style.width = '0%';
         const timeLabel = activeTarget.el.querySelector('.pill-time');
         if (timeLabel) timeLabel.textContent = '0:00';
       } else if (activeTarget.type === 'vinyl') {
-        activeTarget.el.classList.remove('is-playing', 'is-active', 'is-paused', 'is-loading');
+        activeTarget.el.classList.remove(
+          'is-playing',
+          'is-active',
+          'is-paused',
+          'is-loading'
+        );
         activeTarget.el.setAttribute('aria-pressed', 'false');
       }
       activeTarget = null;
     }
   }
 
-  async function resolvePreviewUrl(title: string, artist: string, preferredTrack?: string): Promise<{ url: string; track: string } | null> {
+  async function resolvePreviewUrl(
+    title: string,
+    artist: string,
+    preferredTrack?: string
+  ): Promise<{ url: string; track: string } | null> {
     const target = (preferredTrack || title).trim();
     const cleanTarget = target.toLowerCase().replace(/[^a-z0-9]/g, '');
     const cleanAlbum = title.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -342,34 +392,54 @@ const {
       const res = await fetch(searchUrl);
       if (res.ok) {
         const html = await res.text();
-        const albumLinks = [...html.matchAll(/\/us\/album\/([a-z0-9-]+)\/(\d+)/g)].map((m) => ({
+        const albumLinks = [
+          ...html.matchAll(/\/us\/album\/([a-z0-9-]+)\/(\d+)/g)
+        ].map((m) => ({
           slug: m[1],
-          path: m[0],
+          path: m[0]
         }));
         if (albumLinks.length > 0) {
           const candidate =
-            albumLinks.find((a) => a.slug.replace(/[^a-z0-9]/g, '').includes(cleanAlbum) || cleanAlbum.includes(a.slug.replace(/[^a-z0-9]/g, ''))) ||
-            albumLinks[0];
-          const albRes = await fetch(`https://music.apple.com${candidate.path}`);
+            albumLinks.find(
+              (a) =>
+                a.slug.replace(/[^a-z0-9]/g, '').includes(cleanAlbum) ||
+                cleanAlbum.includes(a.slug.replace(/[^a-z0-9]/g, ''))
+            ) || albumLinks[0];
+          const albRes = await fetch(
+            `https://music.apple.com${candidate.path}`
+          );
           if (albRes.ok) {
             const albHtml = await albRes.text();
-            const m = albHtml.match(/<script[^>]+id="serialized-server-data"[^>]*>([\s\S]*?)<\/script>/);
+            const m = albHtml.match(
+              /<script[^>]+id="serialized-server-data"[^>]*>([\s\S]*?)<\/script>/
+            );
             if (m) {
               const json = JSON.parse(m[1]);
               const sections = json.data?.[0]?.data?.sections || [];
-              const trackSec = sections.find((s: any) => s.itemKind === 'trackLockup');
-              const tracks = (trackSec?.items || []).filter((t: any) => t.previewUrl);
+              const trackSec = sections.find(
+                (s: any) => s.itemKind === 'trackLockup'
+              );
+              const tracks = (trackSec?.items || []).filter(
+                (t: any) => t.previewUrl
+              );
               if (tracks.length > 0) {
-                const exact = tracks.find((t: any) => (t.title || '').toLowerCase().replace(/[^a-z0-9]/g, '') === cleanTarget);
+                const exact = tracks.find(
+                  (t: any) =>
+                    (t.title || '').toLowerCase().replace(/[^a-z0-9]/g, '') ===
+                    cleanTarget
+                );
                 const baseMatch = tracks.find((t: any) => {
-                  const base = (t.title || '').split(/[\(\[\-–—:]/)[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+                  const base = (t.title || '')
+                    .split(/[\(\[\-–—:]/)[0]
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]/g, '');
                   return base === cleanTarget;
                 });
                 const chosen = exact || baseMatch || tracks[0];
                 if (chosen?.previewUrl) {
                   return {
                     url: chosen.previewUrl,
-                    track: chosen.title,
+                    track: chosen.title
                   };
                 }
               }
@@ -381,18 +451,30 @@ const {
 
     // 2. Try iTunes Search API
     try {
-      const q = preferredTrack ? `${preferredTrack} ${artist}` : `${title} ${artist}`;
-      const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=10`);
+      const q = preferredTrack
+        ? `${preferredTrack} ${artist}`
+        : `${title} ${artist}`;
+      const res = await fetch(
+        `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=10`
+      );
       if (res.ok) {
         const data = await res.json();
         const songs = (data.results || []).filter((t: any) => t.previewUrl);
-        const exact = songs.find((t: any) => (t.trackName || '').toLowerCase().replace(/[^a-z0-9]/g, '') === cleanTarget);
-        const nonRemix = songs.find((t: any) => !t.trackName.toLowerCase().includes('remix') && !(t.collectionName || '').toLowerCase().includes('remix'));
+        const exact = songs.find(
+          (t: any) =>
+            (t.trackName || '').toLowerCase().replace(/[^a-z0-9]/g, '') ===
+            cleanTarget
+        );
+        const nonRemix = songs.find(
+          (t: any) =>
+            !t.trackName.toLowerCase().includes('remix') &&
+            !(t.collectionName || '').toLowerCase().includes('remix')
+        );
         const chosen = exact || nonRemix || songs[0];
         if (chosen?.previewUrl) {
           return {
             url: chosen.previewUrl,
-            track: chosen.trackName || target,
+            track: chosen.trackName || target
           };
         }
       }
@@ -493,7 +575,10 @@ const {
         // Smooth subtle fadeout in the last 1.5s
         if (current >= MAX_PREVIEW_DURATION - 1.5) {
           try {
-            audio.volume = Math.max(0, Math.min(1, (MAX_PREVIEW_DURATION - current) / 1.5));
+            audio.volume = Math.max(
+              0,
+              Math.min(1, (MAX_PREVIEW_DURATION - current) / 1.5)
+            );
           } catch {}
         } else if (audio.volume < 1) {
           try {
@@ -502,9 +587,14 @@ const {
         }
 
         if (target.type === 'pill') {
-          const pct = Math.min(100, Math.max(0, (current / MAX_PREVIEW_DURATION) * 100));
+          const pct = Math.min(
+            100,
+            Math.max(0, (current / MAX_PREVIEW_DURATION) * 100)
+          );
 
-          const fill = target.el.querySelector('.pill-progress-fill') as HTMLElement;
+          const fill = target.el.querySelector(
+            '.pill-progress-fill'
+          ) as HTMLElement;
           if (fill) fill.style.width = `${pct}%`;
 
           const timeLabel = target.el.querySelector('.pill-time');
@@ -548,7 +638,11 @@ const {
       audio.addEventListener('error', async () => {
         if (activeTarget?.el !== target.el) return;
         if (!isRetry) {
-          console.warn('Playback error on', title, '- refreshing preview URL...');
+          console.warn(
+            'Playback error on',
+            title,
+            '- refreshing preview URL...'
+          );
           target.el.dataset.previewUrl = '';
           target.el.classList.add('is-loading');
           const fresh = await resolvePreviewUrl(title, artist, track);

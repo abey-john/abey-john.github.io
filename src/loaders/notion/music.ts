@@ -45,7 +45,9 @@ export function notionMusicLoader(): Loader {
 
           for (const page of results) {
             if ((page as any).last_edited_time) {
-              const editedMs = new Date((page as any).last_edited_time).getTime();
+              const editedMs = new Date(
+                (page as any).last_edited_time
+              ).getTime();
               if (!isNaN(editedMs) && editedMs > latestEditedMs) {
                 latestEditedMs = editedMs;
               }
@@ -53,7 +55,8 @@ export function notionMusicLoader(): Loader {
 
             const p = page.properties;
             const title = p.Title?.title?.[0]?.plain_text || 'Untitled';
-            const artist = p.Artist?.rich_text?.[0]?.plain_text || 'Unknown Artist';
+            const artist =
+              p.Artist?.rich_text?.[0]?.plain_text || 'Unknown Artist';
             const category = p.Category?.select?.name;
             const cover =
               (await extractImageSource(p.Cover, p.CoverPath)) ||
@@ -74,15 +77,21 @@ export function notionMusicLoader(): Loader {
 
             const spotifyUrl = p.Spotify?.url || p.spotify?.url || undefined;
             const appleMusicUrl =
-              p['Apple Music']?.url || p.Apple?.url || p.appleMusic?.url || undefined;
+              p['Apple Music']?.url ||
+              p.Apple?.url ||
+              p.appleMusic?.url ||
+              undefined;
             const bandcampUrl = p.Bandcamp?.url || p.bandcamp?.url || undefined;
 
             // Support vinyl checkbox property or Category = 'Vinyl'
             const vinylProp =
               p.Vinyl ||
               p.vinyl ||
-              Object.entries(p).find(([k]) => k.toLowerCase().includes('vinyl'))?.[1];
-            const isVinyl = (vinylProp as any)?.checkbox === true || category === 'Vinyl';
+              Object.entries(p).find(([k]) =>
+                k.toLowerCase().includes('vinyl')
+              )?.[1];
+            const isVinyl =
+              (vinylProp as any)?.checkbox === true || category === 'Vinyl';
 
             if (category === 'Top 10') {
               favoritesList.push({
@@ -94,7 +103,7 @@ export function notionMusicLoader(): Loader {
                 preferredTrack,
                 spotifyUrl,
                 appleMusicUrl,
-                bandcampUrl,
+                bandcampUrl
               });
             } else if (category === 'Recommendation') {
               recommendation = {
@@ -108,7 +117,7 @@ export function notionMusicLoader(): Loader {
                 preferredTrack,
                 spotifyUrl,
                 appleMusicUrl,
-                bandcampUrl,
+                bandcampUrl
               };
             } else if (category === 'Recent Listen') {
               recentListen = {
@@ -122,7 +131,7 @@ export function notionMusicLoader(): Loader {
                 preferredTrack,
                 spotifyUrl,
                 appleMusicUrl,
-                bandcampUrl,
+                bandcampUrl
               };
             }
 
@@ -133,11 +142,18 @@ export function notionMusicLoader(): Loader {
 
           // Sort favorites 1 to 10
           favoritesList.sort((a, b) => a.rank - b.rank);
-          const topTen = favoritesList.slice(0, 10).map(({ rank, ...rest }) => rest);
+          const topTen = favoritesList
+            .slice(0, 10)
+            .map(({ rank, ...rest }) => rest);
 
           // Persistent build cache in node_modules/.cache/ (git-ignored)
-          const cachePath = path.resolve('node_modules/.cache/audio-cache.json');
-          let diskCache: Record<string, { previewUrl?: string; previewTrack?: string }> = {};
+          const cachePath = path.resolve(
+            'node_modules/.cache/audio-cache.json'
+          );
+          let diskCache: Record<
+            string,
+            { previewUrl?: string; previewTrack?: string }
+          > = {};
           try {
             if (fs.existsSync(cachePath)) {
               diskCache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
@@ -162,13 +178,21 @@ export function notionMusicLoader(): Loader {
             }
             if (!previewCache.has(key)) {
               const promise = (async () => {
-                const result = await fetchAudioPreview(albumTitle, artistName, trackTarget);
+                const result = await fetchAudioPreview(
+                  albumTitle,
+                  artistName,
+                  trackTarget
+                );
                 if (result.previewUrl) {
                   diskCache[key] = result;
                   try {
                     const dir = path.dirname(cachePath);
-                    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                    fs.writeFileSync(cachePath, JSON.stringify(diskCache, null, 2));
+                    if (!fs.existsSync(dir))
+                      fs.mkdirSync(dir, { recursive: true });
+                    fs.writeFileSync(
+                      cachePath,
+                      JSON.stringify(diskCache, null, 2)
+                    );
                   } catch {}
                 }
                 return result;
@@ -183,11 +207,15 @@ export function notionMusicLoader(): Loader {
               ...topTen,
               ...(recommendation ? [recommendation] : []),
               ...(recentListen ? [recentListen] : []),
-              ...vinylList,
+              ...vinylList
             ];
 
             await processInBatches(allItems, 4, async (item: any) => {
-              const preview = await getPreviewCached(item.title, item.artist, item.preferredTrack);
+              const preview = await getPreviewCached(
+                item.title,
+                item.artist,
+                item.preferredTrack
+              );
               item.previewUrl = preview.previewUrl;
               item.previewTrack = preview.previewTrack;
             });
@@ -196,13 +224,23 @@ export function notionMusicLoader(): Loader {
           }
 
           // Sort vinyl collection: alphabetical by artist (ignoring leading "The "), then by title
-          const getArtistSortKey = (name: string) => (name || '').replace(/^the\s+/i, '').trim().toLowerCase();
+          const getArtistSortKey = (name: string) =>
+            (name || '')
+              .replace(/^the\s+/i, '')
+              .trim()
+              .toLowerCase();
           vinylList.sort((a, b) => {
-            const artistComp = getArtistSortKey(a.artist).localeCompare(getArtistSortKey(b.artist), undefined, {
-              sensitivity: 'base',
-            });
+            const artistComp = getArtistSortKey(a.artist).localeCompare(
+              getArtistSortKey(b.artist),
+              undefined,
+              {
+                sensitivity: 'base'
+              }
+            );
             if (artistComp !== 0) return artistComp;
-            return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' });
+            return (a.title || '').localeCompare(b.title || '', undefined, {
+              sensitivity: 'base'
+            });
           });
 
           const fullMusicContent = {
@@ -213,20 +251,25 @@ export function notionMusicLoader(): Loader {
               title: 'Unknown',
               artist: 'Unknown',
               cover: '/assets/covers/placeholder-album.svg',
-              rating: 8.0,
+              rating: 8.0
             },
             recentListen: recentListen || {
               title: 'Unknown',
               artist: 'Unknown',
               cover: '/assets/covers/placeholder-album.svg',
-              rating: 8.0,
-            },
+              rating: 8.0
+            }
           };
 
-          const data = await parseData({ id: 'content', data: fullMusicContent });
+          const data = await parseData({
+            id: 'content',
+            data: fullMusicContent
+          });
           store.set({ id: 'content', data });
 
-          logger.info(`Loaded music collection (${vinylList.length} on vinyl) from Notion.`);
+          logger.info(
+            `Loaded music collection (${vinylList.length} on vinyl) from Notion.`
+          );
           return;
         } catch (err: any) {
           logger.warn(`Failed loading music from Notion: ${err.message}.`);
@@ -240,7 +283,7 @@ export function notionMusicLoader(): Loader {
         title: `Favorite ${i + 1}`,
         artist: 'Artist',
         cover: '/assets/covers/placeholder-album.svg',
-        blurb: '',
+        blurb: ''
       }));
       const fallbackMusic = {
         updated: new Date(),
@@ -250,17 +293,17 @@ export function notionMusicLoader(): Loader {
           title: 'Recommendation',
           artist: 'Artist',
           cover: '/assets/covers/placeholder-album.svg',
-          rating: 8.0,
+          rating: 8.0
         },
         recentListen: {
           title: 'Recent Listen',
           artist: 'Artist',
           cover: '/assets/covers/placeholder-album.svg',
-          rating: 8.0,
-        },
+          rating: 8.0
+        }
       };
       const data = await parseData({ id: 'content', data: fallbackMusic });
       store.set({ id: 'content', data });
-    },
+    }
   };
 }

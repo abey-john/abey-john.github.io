@@ -12,8 +12,12 @@ export function updateStepperUI(
   const stepperName = document.getElementById('stepper-name');
   const stepperSummary = document.getElementById('stepper-summary');
   const stepperContent = document.getElementById('stepper-content');
-  const stepperPrev = document.getElementById('stepper-prev') as HTMLButtonElement | null;
-  const stepperNext = document.getElementById('stepper-next') as HTMLButtonElement | null;
+  const stepperPrev = document.getElementById(
+    'stepper-prev'
+  ) as HTMLButtonElement | null;
+  const stepperNext = document.getElementById(
+    'stepper-next'
+  ) as HTMLButtonElement | null;
   const stepperEl = document.getElementById('itinerary-stepper');
 
   if (!currentTripStops.length) return;
@@ -73,11 +77,13 @@ export function updateStepperUI(
   if (stepperContent) stepperContent.title = `Re-center on ${stop.name}`;
   if (stepperPrev) {
     stepperPrev.disabled = false;
-    stepperPrev.title = currentStopIndex === 0 ? 'Trip Overview (←)' : 'Previous stop (←)';
+    stepperPrev.title =
+      currentStopIndex === 0 ? 'Trip Overview (←)' : 'Previous stop (←)';
   }
   if (stepperNext) {
     stepperNext.disabled = currentStopIndex >= total - 1;
-    stepperNext.title = currentStopIndex >= total - 1 ? 'Trip completed' : 'Next stop (→)';
+    stepperNext.title =
+      currentStopIndex >= total - 1 ? 'Trip completed' : 'Next stop (→)';
   }
 }
 
@@ -133,7 +139,7 @@ export function navigateToCurrentStop(
     zoom: 9.5,
     speed: 1.25,
     curve: 1.42,
-    essential: true,
+    essential: true
   });
 
   let done = false;
@@ -198,12 +204,12 @@ export function fitCurrentTripBounds(
     map.fitBounds(
       [
         [minLng, minLat],
-        [maxLng, maxLat],
+        [maxLng, maxLat]
       ],
       {
         padding: window.innerWidth < 640 ? 40 : 80,
         duration,
-        essential: true,
+        essential: true
       }
     );
   }

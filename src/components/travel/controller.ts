@@ -8,7 +8,7 @@ import type {
   TripStop,
   MarkerRecord,
   FilterCategory,
-  RouteSvgOverlayElements,
+  RouteSvgOverlayElements
 } from './types';
 import {
   createRouteSvgOverlay,
@@ -16,7 +16,7 @@ import {
   calculateStopIndices,
   calculateCumulativeDistances,
   startRouteDrawAnimation,
-  animateRouteSegment,
+  animateRouteSegment
 } from './route-overlay';
 import { createMarkers } from './markers';
 import { setupTripsDropdown, updateTripsDropdownUI } from './dropdown';
@@ -27,7 +27,7 @@ import {
   activateStopMarker,
   navigateToCurrentStop,
   fitCurrentTripBounds,
-  setupKeyboardNav,
+  setupKeyboardNav
 } from './stepper';
 
 maplibregl.setWorkerUrl(workerUrl);
@@ -35,7 +35,7 @@ maplibregl.setWorkerUrl(workerUrl);
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 const DEFAULT_BOUNDS: [[number, number], [number, number]] = [
   [-125.0, 24.39],
-  [-66.93, 49.38],
+  [-66.93, 49.38]
 ];
 const VENUE_MIN_ZOOM = 9;
 
@@ -55,7 +55,7 @@ let overlayElements: RouteSvgOverlayElements = {
   routeLinePath: null,
   routeLeadGroup: null,
   routeLeadDot: null,
-  routeLeadHalo: null,
+  routeLeadHalo: null
 };
 let routeAnimationId: number | null = null;
 let currentStopIndex = -1;
@@ -89,9 +89,9 @@ function getOverviewResetDuration(map: maplibregl.Map): number {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(currentCenter.lat)) *
-    Math.cos(toRad(defaultCenterLat)) *
-    Math.sin(dLng / 2) *
-    Math.sin(dLng / 2);
+      Math.cos(toRad(defaultCenterLat)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const approxMiles = 3959 * c;
 
@@ -107,7 +107,9 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
   }
   activeTripId = tripId;
 
-  const currentTrip = tripId ? rawTrips.find((t) => t.id === tripId) : undefined;
+  const currentTrip = tripId
+    ? rawTrips.find((t) => t.id === tripId)
+    : undefined;
   updateTripsDropdownUI(activeTripId, currentTrip, rawTrips.length);
 
   if (!tripId || !currentTrip) {
@@ -119,9 +121,12 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
     currentStopIndex = -1;
     currentTripStopIndices = [];
     tripCumulativeDistances = [];
-    if (overlayElements.routeGlowPath) overlayElements.routeGlowPath.removeAttribute('d');
-    if (overlayElements.routeCasingPath) overlayElements.routeCasingPath.removeAttribute('d');
-    if (overlayElements.routeLinePath) overlayElements.routeLinePath.removeAttribute('d');
+    if (overlayElements.routeGlowPath)
+      overlayElements.routeGlowPath.removeAttribute('d');
+    if (overlayElements.routeCasingPath)
+      overlayElements.routeCasingPath.removeAttribute('d');
+    if (overlayElements.routeLinePath)
+      overlayElements.routeLinePath.removeAttribute('d');
 
     const stepperEl = document.getElementById('itinerary-stepper');
     if (stepperEl) {
@@ -150,7 +155,7 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
         bearing: 0,
         pitch: 0,
         duration: getOverviewResetDuration(mapInstance),
-        essential: true,
+        essential: true
       });
     }
 
@@ -172,12 +177,19 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
   activeTripMode = currentTrip.mode || 'drive';
   currentTripStops = currentTrip.stops || [];
   currentStopIndex = -1;
-  currentTripStopIndices = calculateStopIndices(currentTrip.geometry.coordinates, currentTripStops);
-  tripCumulativeDistances = calculateCumulativeDistances(currentTrip.geometry.coordinates);
+  currentTripStopIndices = calculateStopIndices(
+    currentTrip.geometry.coordinates,
+    currentTripStops
+  );
+  tripCumulativeDistances = calculateCumulativeDistances(
+    currentTrip.geometry.coordinates
+  );
   fullTripCoordinates = currentTrip.geometry.coordinates;
 
-  if (overlayElements.routeLeadDot) overlayElements.routeLeadDot.style.fill = theme.line;
-  if (overlayElements.routeLeadHalo) overlayElements.routeLeadHalo.style.fill = theme.line;
+  if (overlayElements.routeLeadDot)
+    overlayElements.routeLeadDot.style.fill = theme.line;
+  if (overlayElements.routeLeadHalo)
+    overlayElements.routeLeadHalo.style.fill = theme.line;
 
   if (overlayElements.routeLinePath) {
     overlayElements.routeLinePath.style.stroke = theme.line;
@@ -200,7 +212,7 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
       },
       onComplete: () => {
         routeAnimationId = null;
-      },
+      }
     }
   );
 
@@ -266,9 +278,11 @@ function syncMarkerVisibility(): void {
   markerRecords.forEach(({ element, popup, type }) => {
     let isVisible = false;
     if (type === 'venue') {
-      const categoryAllowsVenue = activeFilter === 'all' || activeFilter === 'city';
+      const categoryAllowsVenue =
+        activeFilter === 'all' || activeFilter === 'city';
       const zoomAllowsVenue =
-        currentZoom >= VENUE_MIN_ZOOM || element.classList.contains('in-active-trip');
+        currentZoom >= VENUE_MIN_ZOOM ||
+        element.classList.contains('in-active-trip');
       isVisible = categoryAllowsVenue && zoomAllowsVenue;
     } else {
       isVisible = activeFilter === 'all' || type === activeFilter;
@@ -288,7 +302,9 @@ export function applyCategoryFilter(category: FilterCategory): void {
   syncMarkerVisibility();
 
   // 2. Update pill UI button states
-  const pills = document.querySelectorAll<HTMLButtonElement>('.filter-pill[data-category]');
+  const pills = document.querySelectorAll<HTMLButtonElement>(
+    '.filter-pill[data-category]'
+  );
   pills.forEach((pill) => {
     const isSelected = pill.dataset.category === category;
     pill.classList.toggle('active', isSelected);
@@ -316,11 +332,16 @@ export function recenterMap(): void {
     bearing: 0,
     pitch: 0,
     duration: getOverviewResetDuration(mapInstance),
-    essential: true,
+    essential: true
   });
 }
 
-export function flyToPlace(id: string, lat: number, lng: number, type: string): void {
+export function flyToPlace(
+  id: string,
+  lat: number,
+  lng: number,
+  type: string
+): void {
   if (!mapInstance) return;
   const currentFlight = ++activeFlightId;
 
@@ -341,7 +362,7 @@ export function flyToPlace(id: string, lat: number, lng: number, type: string): 
     const targetScroll = window.scrollY + rect.top - headerOffset;
     window.scrollTo({
       top: Math.max(0, targetScroll),
-      behavior: 'smooth',
+      behavior: 'smooth'
     });
   }
 
@@ -350,12 +371,13 @@ export function flyToPlace(id: string, lat: number, lng: number, type: string): 
     zoom: 8.5,
     speed: 1.35,
     curve: 1.42,
-    essential: true,
+    essential: true
   });
 
   const record = markerRecords.find(
     (r) =>
-      r.id === id || (Math.abs(r.lat - lat) < 0.0001 && Math.abs(r.lng - lng) < 0.0001)
+      r.id === id ||
+      (Math.abs(r.lat - lat) < 0.0001 && Math.abs(r.lng - lng) < 0.0001)
   );
 
   if (record) {
@@ -393,7 +415,9 @@ export function initTravelMap(): void {
   cleanupTravelMap();
 
   const rawPlaces: PlaceData[] = JSON.parse(mapEl.dataset.places);
-  rawTrips = JSON.parse(document.getElementById('trips-json')?.textContent || '[]');
+  rawTrips = JSON.parse(
+    document.getElementById('trips-json')?.textContent || '[]'
+  );
 
   const map = new maplibregl.Map({
     container: mapEl,
@@ -410,14 +434,16 @@ export function initTravelMap(): void {
     maxTileCacheSize: 50,
     renderWorldCopies: true,
     crossSourceCollisions: false,
-    collectResourceTiming: false,
+    collectResourceTiming: false
   });
   mapInstance = map;
 
   const navControl = new maplibregl.NavigationControl({ showCompass: false });
   map.addControl(navControl, 'top-left');
 
-  const ctrlGroup = mapEl.querySelector('.maplibregl-ctrl-top-left .maplibregl-ctrl-group');
+  const ctrlGroup = mapEl.querySelector(
+    '.maplibregl-ctrl-top-left .maplibregl-ctrl-group'
+  );
   if (ctrlGroup) {
     const recenterBtn = document.createElement('button');
     recenterBtn.type = 'button';
@@ -444,7 +470,7 @@ export function initTravelMap(): void {
   map.dragPan.enable({
     linearity: 0.25,
     maxSpeed: 2200,
-    deceleration: 2200,
+    deceleration: 2200
   });
 
   // Keep scroll zoom smoothly enabled at all times
@@ -462,7 +488,8 @@ export function initTravelMap(): void {
     if (routeAnimationId) {
       cancelAnimationFrame(routeAnimationId);
       routeAnimationId = null;
-      if (overlayElements.routeLeadGroup) overlayElements.routeLeadGroup.style.display = 'none';
+      if (overlayElements.routeLeadGroup)
+        overlayElements.routeLeadGroup.style.display = 'none';
       if (
         currentStopIndex > 0 &&
         currentTripStopIndices[currentStopIndex] !== undefined &&
@@ -483,7 +510,7 @@ export function initTravelMap(): void {
   map.on('load', () => {
     map.fitBounds(DEFAULT_BOUNDS, {
       padding: window.innerWidth < 640 ? 20 : 40,
-      duration: 0,
+      duration: 0
     });
     syncMarkerVisibility();
   });
@@ -502,7 +529,8 @@ export function initTravelMap(): void {
         const stopIdx = currentTripStops.findIndex(
           (s) =>
             (s.placeId && s.placeId === place.id) ||
-            (Math.abs(s.lat - place.lat) < 0.001 && Math.abs(s.lng - place.lng) < 0.001) ||
+            (Math.abs(s.lat - place.lat) < 0.001 &&
+              Math.abs(s.lng - place.lng) < 0.001) ||
             s.name.toLowerCase().trim() === place.name.toLowerCase().trim()
         );
         if (stopIdx !== -1) {
@@ -511,7 +539,10 @@ export function initTravelMap(): void {
           updateStepperUI(currentStopIndex, currentTripStops, currentTrip);
           cancelCurrentAnimation();
           if (stopIdx === 0) {
-            activeTripCoordinates = [fullTripCoordinates[0], fullTripCoordinates[0]];
+            activeTripCoordinates = [
+              fullTripCoordinates[0],
+              fullTripCoordinates[0]
+            ];
           } else if (currentTripStopIndices[stopIdx] !== undefined) {
             activeTripCoordinates = fullTripCoordinates.slice(
               0,
@@ -524,7 +555,7 @@ export function initTravelMap(): void {
     },
     onOpenImageModal: (modalData) => {
       openImageModal(modalData);
-    },
+    }
   });
 
   // Attach listeners to category filter pills
@@ -543,10 +574,16 @@ export function initTravelMap(): void {
   });
 
   // Attach listeners to itinerary stepper buttons
-  const stepperPrev = document.getElementById('stepper-prev') as HTMLButtonElement | null;
-  const stepperNext = document.getElementById('stepper-next') as HTMLButtonElement | null;
+  const stepperPrev = document.getElementById(
+    'stepper-prev'
+  ) as HTMLButtonElement | null;
+  const stepperNext = document.getElementById(
+    'stepper-next'
+  ) as HTMLButtonElement | null;
   const stepperContent = document.getElementById('stepper-content');
-  const stepperFit = document.getElementById('stepper-fit') as HTMLButtonElement | null;
+  const stepperFit = document.getElementById(
+    'stepper-fit'
+  ) as HTMLButtonElement | null;
 
   if (stepperPrev) {
     stepperPrev.onclick = () => {
@@ -556,8 +593,14 @@ export function initTravelMap(): void {
         cancelCurrentAnimation();
         if (toIdx === 0) {
           activeTripCoordinates = null;
-        } else if (fullTripCoordinates && currentTripStopIndices[toIdx] !== undefined) {
-          activeTripCoordinates = fullTripCoordinates.slice(0, currentTripStopIndices[toIdx] + 1);
+        } else if (
+          fullTripCoordinates &&
+          currentTripStopIndices[toIdx] !== undefined
+        ) {
+          activeTripCoordinates = fullTripCoordinates.slice(
+            0,
+            currentTripStopIndices[toIdx] + 1
+          );
         }
         updateRouteSvg(map, activeTripCoordinates, overlayElements);
         const stop = currentTripStops[currentStopIndex];
@@ -618,7 +661,7 @@ export function initTravelMap(): void {
               },
               onComplete: () => {
                 routeAnimationId = null;
-              },
+              }
             }
           );
         }
@@ -683,7 +726,7 @@ export function initTravelMap(): void {
       } else if (currentStopIndex !== -1 && stepperFit) {
         stepperFit.click();
       }
-    },
+    }
   });
 
   // Setup trips dropdown
@@ -695,7 +738,7 @@ export function initTravelMap(): void {
         setActiveTrip(tripId, true);
       }
     },
-    getActiveTripId: () => activeTripId,
+    getActiveTripId: () => activeTripId
   });
 
   // Setup places directory search & card selection
@@ -703,7 +746,7 @@ export function initTravelMap(): void {
     getActiveFilter: () => activeFilter,
     onSelectPlace: (id, lat, lng, type) => {
       flyToPlace(id, lat, lng, type);
-    },
+    }
   });
 
   // Apply active category filter state
@@ -723,7 +766,7 @@ export function cleanupTravelMap(): void {
   if (mapInstance) {
     try {
       mapInstance.remove();
-    } catch (e) { }
+    } catch (e) {}
     mapInstance = null;
   }
   markerRecords = [];
@@ -760,6 +803,6 @@ export function cleanupTravelMap(): void {
     routeLinePath: null,
     routeLeadGroup: null,
     routeLeadDot: null,
-    routeLeadHalo: null,
+    routeLeadHalo: null
   };
 }

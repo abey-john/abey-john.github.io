@@ -39,12 +39,16 @@ export async function geocodeLocation(
           stateLower.includes(r.admin1?.toLowerCase());
 
         if (stateLower && countryLower) {
-          const exactBoth = data.results.find((r: any) => matchesCountry(r) && matchesState(r));
+          const exactBoth = data.results.find(
+            (r: any) => matchesCountry(r) && matchesState(r)
+          );
           if (exactBoth) {
             match = exactBoth;
           } else {
             const stateOnly = data.results.find((r: any) => matchesState(r));
-            const countryOnly = data.results.find((r: any) => matchesCountry(r));
+            const countryOnly = data.results.find((r: any) =>
+              matchesCountry(r)
+            );
             if (stateOnly) match = stateOnly;
             else if (countryOnly) match = countryOnly;
           }
@@ -56,7 +60,10 @@ export async function geocodeLocation(
           if (foundCountry) match = foundCountry;
         }
 
-        const coords = { lat: Number(match.latitude), lng: Number(match.longitude) };
+        const coords = {
+          lat: Number(match.latitude),
+          lng: Number(match.longitude)
+        };
         geocodeCache.set(cacheKey, coords);
         return coords;
       }
@@ -70,12 +77,15 @@ export async function geocodeLocation(
     const query = [name, state, country].filter(Boolean).join(', ');
     const searchUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
     const res = await fetch(searchUrl, {
-      headers: { 'User-Agent': 'PersonalWebsiteGeocoding/1.0' },
+      headers: { 'User-Agent': 'PersonalWebsiteGeocoding/1.0' }
     });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        const coords = {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon)
+        };
         geocodeCache.set(cacheKey, coords);
         return coords;
       }

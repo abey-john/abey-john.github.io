@@ -1,22 +1,27 @@
-export { notionRequest, queryNotionDatabase, NOTION_API_KEY, NOTION_VERSION } from './client';
+export {
+  notionRequest,
+  queryNotionDatabase,
+  NOTION_API_KEY,
+  NOTION_VERSION
+} from './client';
 export {
   downloadRemoteImage,
   stripExifMetadata,
-  extractImageSource,
+  extractImageSource
 } from './images';
 export {
   escapeHtml,
   richTextToMarkdown,
   richTextToHtml,
   makeExternalLinksOpenInNewTab,
-  blocksToMarkdown,
+  blocksToMarkdown
 } from './text';
 export { geocodeLocation, simplifyCoordinates } from './geo';
 export {
   fetchAudioPreview,
   fetchAppleMusicWeb,
   safeItunesFetch,
-  processInBatches,
+  processInBatches
 } from './music-previews';
 
 export { notionLaunchesLoader } from './launches';

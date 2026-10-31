@@ -24,7 +24,7 @@ export const COLOR_MAP: Record<string, string> = {
   lime: '#84cc16',
   brown: '#b45309',
   gray: '#94a3b8',
-  grey: '#94a3b8',
+  grey: '#94a3b8'
 };
 
 export function resolveTripColorHex(colorName?: string): string {
@@ -32,7 +32,15 @@ export function resolveTripColorHex(colorName?: string): string {
   const trimmed = colorName.trim();
   if (trimmed.startsWith('#')) {
     const raw = trimmed.slice(1);
-    return '#' + (raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw);
+    return (
+      '#' +
+      (raw.length === 3
+        ? raw
+            .split('')
+            .map((c) => c + c)
+            .join('')
+        : raw)
+    );
   }
   return COLOR_MAP[trimmed.toLowerCase()] || '#f59e0b';
 }
@@ -55,6 +63,6 @@ export function getTripTheme(colorName?: string): TripTheme {
     glow: `rgba(${r}, ${g}, ${b}, 0.45)`,
     text: hex,
     bg: `rgba(${r}, ${g}, ${b}, 0.14)`,
-    border: `rgba(${r}, ${g}, ${b}, 0.35)`,
+    border: `rgba(${r}, ${g}, ${b}, 0.35)`
   };
 }

@@ -15,7 +15,7 @@ const formattedDate = nowEntry?.data.updated
       month: 'long',
       day: 'numeric',
       year: 'numeric',
-      timeZone: timezone,
+      timeZone: timezone
     }).format(nowEntry.data.updated)
   : null;
 ---
@@ -26,36 +26,42 @@ const formattedDate = nowEntry?.data.updated
       <div class="now-header-row">
         <div class="now-header-title-group">
           <h1 class="now-title">Now</h1>
-          {
-            formattedDate && nowEntry && (
-              <p class="now-updated">
-                <span class="updated-label">Updated:</span>
-                <time datetime={nowEntry.data.updated.toISOString().split('T')[0]}>
-                  {formattedDate}
-                </time>
-              </p>
-            )
-          }
+          {formattedDate && nowEntry && (
+            <p class="now-updated">
+              <span class="updated-label">Updated:</span>
+              <time
+                datetime={nowEntry.data.updated.toISOString().split('T')[0]}
+              >
+                {formattedDate}
+              </time>
+            </p>
+          )}
         </div>
         <LocalTimeBadge />
       </div>
     </header>
 
-    <div class="prose now-body">
-      {Content && <Content />}
-    </div>
+    <div class="prose now-body">{Content && <Content />}</div>
 
     <footer class="now-colophon">
       <p>
-        Inspired by <a
+        Inspired by{' '}
+        <a
           href="https://sive.rs/now2"
           target="_blank"
-          rel="noopener noreferrer">Derek Sivers</a
-        > and the <a
+          rel="noopener noreferrer"
+        >
+          Derek Sivers
+        </a>{' '}
+        and the{' '}
+        <a
           href="https://nownownow.com/about"
           target="_blank"
-          rel="noopener noreferrer">nownownow</a
-        > movement.
+          rel="noopener noreferrer"
+        >
+          nownownow
+        </a>{' '}
+        movement.
       </p>
     </footer>
   </article>

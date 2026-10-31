@@ -30,7 +30,7 @@ const {
   widths,
   sizes,
   densities,
-  quality = 92,
+  quality = 92
 } = Astro.props;
 
 const imageMetadata = await getNotionImageMetadata(src);
@@ -43,29 +43,32 @@ const imageProps = widths
   class:list={['image-wrapper', className]}
   style={aspectRatio ? `aspect-ratio: ${aspectRatio};` : undefined}
 >
-  {
-    imageMetadata ? (
-      <Image
-        src={imageMetadata}
-        alt={alt}
-        width={width ?? imageMetadata.width}
-        height={height ?? (width ? Math.round(width / (imageMetadata.width / imageMetadata.height)) : imageMetadata.height)}
-        quality={quality}
-        loading={loading}
-        {...imageProps}
-        class:list={['media-image', imageClass]}
-      />
-    ) : (
-      <img
-        src={src as string}
-        alt={alt}
-        width={width}
-        height={height}
-        loading={loading}
-        class:list={['media-image', imageClass]}
-      />
-    )
-  }
+  {imageMetadata ? (
+    <Image
+      src={imageMetadata}
+      alt={alt}
+      width={width ?? imageMetadata.width}
+      height={
+        height ??
+        (width
+          ? Math.round(width / (imageMetadata.width / imageMetadata.height))
+          : imageMetadata.height)
+      }
+      quality={quality}
+      loading={loading}
+      {...imageProps}
+      class:list={['media-image', imageClass]}
+    />
+  ) : (
+    <img
+      src={src as string}
+      alt={alt}
+      width={width}
+      height={height}
+      loading={loading}
+      class:list={['media-image', imageClass]}
+    />
+  )}
 </div>
 
 <style>

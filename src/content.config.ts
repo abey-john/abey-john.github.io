@@ -8,7 +8,7 @@ import {
   notionPlacesLoader,
   notionMusicLoader,
   notionSettingsLoader,
-  notionTripsLoader,
+  notionTripsLoader
 } from './loaders/notion';
 
 const about = defineCollection({
@@ -18,15 +18,15 @@ const about = defineCollection({
     photo: z.string().optional(),
     photoCaption: z.string().optional(),
     photoAlt: z.string().optional(),
-    avatar: z.string().optional(),
-  }),
+    avatar: z.string().optional()
+  })
 });
 
 const now = defineCollection({
   loader: notionNowLoader(),
   schema: z.object({
-    updated: z.coerce.date(),
-  }),
+    updated: z.coerce.date()
+  })
 });
 
 const launches = defineCollection({
@@ -39,8 +39,8 @@ const launches = defineCollection({
     role: z.string(),
     date: z.string().optional(),
     image: z.string().optional(),
-    order: z.number().default(0),
-  }),
+    order: z.number().default(0)
+  })
 });
 
 const places = defineCollection({
@@ -55,8 +55,8 @@ const places = defineCollection({
     state: z.string().optional(),
     blurb: z.string().optional(),
     photo: z.string().optional(),
-    link: z.string().optional(),
-  }),
+    link: z.string().optional()
+  })
 });
 
 const music = defineCollection({
@@ -74,7 +74,7 @@ const music = defineCollection({
           previewTrack: z.string().optional(),
           spotifyUrl: z.string().optional(),
           appleMusicUrl: z.string().optional(),
-          bandcampUrl: z.string().optional(),
+          bandcampUrl: z.string().optional()
         })
       )
       .length(10),
@@ -90,7 +90,7 @@ const music = defineCollection({
       previewTrack: z.string().optional(),
       spotifyUrl: z.string().optional(),
       appleMusicUrl: z.string().optional(),
-      bandcampUrl: z.string().optional(),
+      bandcampUrl: z.string().optional()
     }),
     recentListen: z.object({
       title: z.string(),
@@ -104,7 +104,7 @@ const music = defineCollection({
       previewTrack: z.string().optional(),
       spotifyUrl: z.string().optional(),
       appleMusicUrl: z.string().optional(),
-      bandcampUrl: z.string().optional(),
+      bandcampUrl: z.string().optional()
     }),
     vinyl: z
       .array(
@@ -113,11 +113,11 @@ const music = defineCollection({
           artist: z.string(),
           cover: z.string(),
           previewUrl: z.string().optional(),
-          previewTrack: z.string().optional(),
+          previewTrack: z.string().optional()
         })
       )
-      .default([]),
-  }),
+      .default([])
+  })
 });
 
 const settings = defineCollection({
@@ -131,8 +131,8 @@ const settings = defineCollection({
     github: z.string(),
     linkedin: z.string(),
     ratingMax: z.number().default(10),
-    description: z.string().optional(),
-  }),
+    description: z.string().optional()
+  })
 });
 
 const trips = defineCollection({
@@ -149,16 +149,16 @@ const trips = defineCollection({
         name: z.string(),
         placeId: z.string().optional(),
         lat: z.number(),
-        lng: z.number(),
+        lng: z.number()
       })
     ),
     distanceMiles: z.number().default(0),
     durationHours: z.number().default(0),
     geometry: z.object({
       type: z.literal('LineString'),
-      coordinates: z.array(z.tuple([z.number(), z.number()])),
-    }),
-  }),
+      coordinates: z.array(z.tuple([z.number(), z.number()]))
+    })
+  })
 });
 
 export const collections = {
@@ -168,5 +168,5 @@ export const collections = {
   places,
   music,
   settings,
-  trips,
+  trips
 };

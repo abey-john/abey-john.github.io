@@ -10,7 +10,7 @@ export function notionSettingsLoader(): Loader {
       if (NOTION_API_KEY && dbId) {
         try {
           const res = await notionRequest(`databases/${dbId}/query`, 'POST', {
-            page_size: 100,
+            page_size: 100
           });
 
           store.clear();
@@ -18,7 +18,8 @@ export function notionSettingsLoader(): Loader {
           const kv: Record<string, string> = {};
           for (const page of res.results) {
             const key = page.properties.Key?.title?.[0]?.plain_text?.trim();
-            const value = page.properties.Value?.rich_text?.[0]?.plain_text?.trim() || '';
+            const value =
+              page.properties.Value?.rich_text?.[0]?.plain_text?.trim() || '';
             if (key) {
               kv[key.toLowerCase()] = value;
             }
@@ -33,7 +34,7 @@ export function notionSettingsLoader(): Loader {
             github: kv['github'] || '',
             linkedin: kv['linkedin'] || '',
             description: kv['description'] || undefined,
-            ratingMax: kv['ratingmax'] ? Number(kv['ratingmax']) : 10,
+            ratingMax: kv['ratingmax'] ? Number(kv['ratingmax']) : 10
           };
 
           const data = await parseData({ id: 'config', data: settingsItem });
@@ -55,10 +56,10 @@ export function notionSettingsLoader(): Loader {
         email: '',
         github: '',
         linkedin: '',
-        ratingMax: 10,
+        ratingMax: 10
       };
       const data = await parseData({ id: 'config', data: fallbackItem });
       store.set({ id: 'config', data });
-    },
+    }
   };
 }

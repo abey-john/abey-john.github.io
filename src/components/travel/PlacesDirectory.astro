@@ -44,18 +44,18 @@ const directoryGroups = [
   {
     type: 'park',
     label: 'National Parks',
-    items: sortedPlaces.filter((p) => p.data.type === 'park'),
+    items: sortedPlaces.filter((p) => p.data.type === 'park')
   },
   {
     type: 'city',
     label: 'Cities',
-    items: sortedPlaces.filter((p) => p.data.type === 'city'),
+    items: sortedPlaces.filter((p) => p.data.type === 'city')
   },
   {
     type: 'landmark',
     label: 'Landmarks',
-    items: sortedPlaces.filter((p) => p.data.type === 'landmark'),
-  },
+    items: sortedPlaces.filter((p) => p.data.type === 'landmark')
+  }
 ].filter((g) => g.items.length > 0);
 ---
 
@@ -65,9 +65,10 @@ const directoryGroups = [
 >
   <details class="places-details">
     <summary class="places-summary">
-      <span class="summary-title"
-        >View full list of places <span id="summary-count">({sortedPlaces.length})</span></span
-      >
+      <span class="summary-title">
+        View full list of places{' '}
+        <span id="summary-count">({sortedPlaces.length})</span>
+      </span>
       <span class="summary-right">
         <div class="places-search-bar">
           <svg
@@ -135,74 +136,110 @@ const directoryGroups = [
 
     <div class="places-directory-body">
       <div class="places-groups-container">
-        {
-          directoryGroups.map((group) => (
-            <div class="places-group" data-group-type={group.type}>
-              <div class="places-group-header">
-                <span
-                  class={`group-badge group-badge-${group.type}`}
-                  aria-hidden="true"
-                >
-                  {group.type === 'park' ? (
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-                      <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z" />
-                    </svg>
-                  ) : group.type === 'landmark' ? (
-                    <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
-                      <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
-                    </svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-                      <path d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z" />
-                    </svg>
-                  )}
-                </span>
-                <h2 class="places-group-title">{group.label}</h2>
-                <span class="places-group-count" data-group-count={group.type}>
-                  {group.items.length}
-                </span>
-              </div>
-
-              <div class="places-grid">
-                {group.items.map((place) => {
-                  const regionLabel = getRegionLabel(place.data.country, place.data.state);
-                  const usAlias = isUnitedStates(place.data.country) ? 'usa us' : '';
-                  const searchStr = `${place.data.name} ${place.data.state || ''} ${place.data.country || ''} ${usAlias} ${group.label}`.toLowerCase();
-                  return (
-                    <div
-                      class="place-card"
-                      role="button"
-                      tabindex="0"
-                      data-id={place.data.id}
-                      data-name={place.data.name}
-                      data-type={place.data.type}
-                      data-search={searchStr}
-                      data-lat={place.data.lat}
-                      data-lng={place.data.lng}
-                      aria-label={`View ${place.data.name}${regionLabel ? `, ${regionLabel}` : ''} on map`}
-                    >
-                      <div class="place-header">
-                        <span class="place-name">{place.data.name}</span>
-                        {regionLabel && (
-                          <span class="place-region">{regionLabel}</span>
-                        )}
-                        <span class="fly-indicator" aria-hidden="true" title="View on map">
-                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"></path>
-                            <circle cx="12" cy="10" r="2.5"></circle>
-                          </svg>
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        {directoryGroups.map((group) => (
+          <div class="places-group" data-group-type={group.type}>
+            <div class="places-group-header">
+              <span
+                class={`group-badge group-badge-${group.type}`}
+                aria-hidden="true"
+              >
+                {group.type === 'park' ? (
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="12"
+                    height="12"
+                    fill="currentColor"
+                  >
+                    <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z" />
+                  </svg>
+                ) : group.type === 'landmark' ? (
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="10"
+                    height="10"
+                    fill="currentColor"
+                  >
+                    <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
+                  </svg>
+                ) : (
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="12"
+                    height="12"
+                    fill="currentColor"
+                  >
+                    <path d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z" />
+                  </svg>
+                )}
+              </span>
+              <h2 class="places-group-title">{group.label}</h2>
+              <span class="places-group-count" data-group-count={group.type}>
+                {group.items.length}
+              </span>
             </div>
-          ))
-        }
+
+            <div class="places-grid">
+              {group.items.map((place) => {
+                const regionLabel = getRegionLabel(
+                  place.data.country,
+                  place.data.state
+                );
+                const usAlias = isUnitedStates(place.data.country)
+                  ? 'usa us'
+                  : '';
+                const searchStr =
+                  `${place.data.name} ${place.data.state || ''} ${place.data.country || ''} ${usAlias} ${group.label}`.toLowerCase();
+                return (
+                  <div
+                    class="place-card"
+                    role="button"
+                    tabindex="0"
+                    data-id={place.data.id}
+                    data-name={place.data.name}
+                    data-type={place.data.type}
+                    data-search={searchStr}
+                    data-lat={place.data.lat}
+                    data-lng={place.data.lng}
+                    aria-label={`View ${place.data.name}${regionLabel ? `, ${regionLabel}` : ''} on map`}
+                  >
+                    <div class="place-header">
+                      <span class="place-name">{place.data.name}</span>
+                      {regionLabel && (
+                        <span class="place-region">{regionLabel}</span>
+                      )}
+                      <span
+                        class="fly-indicator"
+                        aria-hidden="true"
+                        title="View on map"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="13"
+                          height="13"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"></path>
+                          <circle cx="12" cy="10" r="2.5"></circle>
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
-      <p id="places-empty-state" class="places-empty-state" style="display: none;">
+      <p
+        id="places-empty-state"
+        class="places-empty-state"
+        style="display: none;"
+      >
         No matching places found.
       </p>
     </div>
@@ -340,7 +377,9 @@ const directoryGroups = [
     justify-content: center;
     cursor: pointer;
     padding: 0;
-    transition: color 0.15s ease, background-color 0.15s ease;
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
   }
 
   .places-search-clear:hover {
@@ -543,4 +582,3 @@ const directoryGroups = [
     }
   }
 </style>
-

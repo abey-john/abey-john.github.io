@@ -14,7 +14,7 @@ const textExtensions = new Set([
   '.md',
   '.json',
   '.yaml',
-  '.yml',
+  '.yml'
 ]);
 
 function getFiles(dir) {
@@ -49,7 +49,7 @@ for (const file of files) {
       matches.push({
         file: relPath,
         line: index + 1,
-        content: line.trim(),
+        content: line.trim()
       });
     }
   });
@@ -67,7 +67,9 @@ for (const match of matches) {
 console.log('');
 
 if (isStrict) {
-  console.error(`Error: ${matches.length} unresolved placeholder(s) remaining in strict mode.`);
+  console.error(
+    `Error: ${matches.length} unresolved placeholder(s) remaining in strict mode.`
+  );
   process.exit(1);
 } else {
   process.exit(0);
