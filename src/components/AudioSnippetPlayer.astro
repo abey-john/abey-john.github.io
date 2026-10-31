@@ -375,6 +375,12 @@ const {
           'is-loading'
         );
         activeTarget.el.setAttribute('aria-pressed', 'false');
+        const ring = activeTarget.el.querySelector(
+          '.ring-fill'
+        ) as SVGGeometryElement | null;
+        if (ring) {
+          ring.style.strokeDashoffset = '87.96';
+        }
       }
       activeTarget = null;
     }
@@ -589,12 +595,12 @@ const {
           } catch {}
         }
 
-        if (target.type === 'pill') {
-          const pct = Math.min(
-            100,
-            Math.max(0, (current / MAX_PREVIEW_DURATION) * 100)
-          );
+        const pct = Math.min(
+          100,
+          Math.max(0, (current / MAX_PREVIEW_DURATION) * 100)
+        );
 
+        if (target.type === 'pill') {
           const fill = target.el.querySelector(
             '.pill-progress-fill'
           ) as HTMLElement;
@@ -604,6 +610,14 @@ const {
           if (timeLabel) {
             const curSec = Math.min(MAX_PREVIEW_DURATION, Math.floor(current));
             timeLabel.textContent = `0:${curSec < 10 ? '0' : ''}${curSec}`;
+          }
+        } else if (target.type === 'vinyl') {
+          const ring = target.el.querySelector(
+            '.ring-fill'
+          ) as SVGGeometryElement | null;
+          if (ring) {
+            const total = 87.96;
+            ring.style.strokeDashoffset = `${total * (1 - pct / 100)}`;
           }
         }
       });

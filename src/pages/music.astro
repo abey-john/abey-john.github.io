@@ -339,42 +339,51 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
                   class="vinyl-cover-image"
                 />
 
-                <!-- Dimming overlay with top-right Play/Pause icon and album info -->
+                <!-- Dimming overlay with album info -->
                 <div class="vinyl-overlay" aria-hidden="true">
-                  <div class="vinyl-action-icon">
-                    <svg
-                      class="icon-play"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                    <svg
-                      class="icon-pause"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                    </svg>
-                    <svg
-                      class="icon-loading"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                    >
-                      <circle cx="12" cy="12" r="10" stroke-opacity="0.25" />
-                      <path
-                        d="M12 2a10 10 0 0 1 10 10"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                  </div>
-
                   <div class="vinyl-info">
                     <p class="vinyl-title">{record.title}</p>
                     <p class="vinyl-artist">{record.artist}</p>
                   </div>
+                </div>
+
+                <!-- Play/Pause Action Icon (instant frosted glass, separate from opacity fade) -->
+                <div class="vinyl-action-icon" aria-hidden="true">
+                  <svg
+                    class="vinyl-progress-ring"
+                    viewBox="0 0 30 30"
+                    aria-hidden="true"
+                  >
+                    <circle class="ring-bg" cx="15" cy="15" r="14" />
+                    <circle class="ring-fill" cx="15" cy="15" r="14" />
+                  </svg>
+                  <svg
+                    class="icon-play"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  <svg
+                    class="icon-pause"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                  </svg>
+                  <svg
+                    class="icon-loading"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                  >
+                    <circle cx="12" cy="12" r="10" stroke-opacity="0.25" />
+                    <path
+                      d="M12 2a10 10 0 0 1 10 10"
+                      stroke-linecap="round"
+                    />
+                  </svg>
                 </div>
               </button>
             </div>
@@ -818,12 +827,11 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     border-radius: var(--radius-sm);
     overflow: hidden;
     background-color: var(--color-border-subtle);
-    border: 1px solid var(--color-border);
+    border: none;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
     transition:
       transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-      border-color 0.2s ease;
+      box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
     padding: 0;
     margin: 0;
     font: inherit;
@@ -838,7 +846,6 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
   button.vinyl-jacket:focus-visible {
     transform: translateY(-4px) scale(1.02);
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
-    border-color: var(--color-text-muted);
   }
 
   button.vinyl-jacket:focus-visible {
@@ -858,23 +865,23 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     display: block;
   }
 
-  /* Dimming overlay over album art */
+  /* Dimming overlay over album art (bottom text only) */
   .vinyl-overlay {
     position: absolute;
     inset: 0;
     background: linear-gradient(
       to bottom,
-      rgba(0, 0, 0, 0.45) 0%,
-      rgba(0, 0, 0, 0.08) 35%,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(0, 0, 0, 0.04) 40%,
       rgba(0, 0, 0, 0.88) 100%
     );
     opacity: 0;
-    transition: opacity 0.22s ease;
+    transition: opacity 0.2s ease;
     pointer-events: none;
     z-index: 2;
   }
 
-  /* Dim the album art and show play/pause when hovered OR playing OR paused */
+  /* Dim the album art when hovered OR playing OR paused */
   button.vinyl-jacket:hover .vinyl-overlay,
   button.vinyl-jacket:focus-visible .vinyl-overlay,
   button.vinyl-jacket.is-playing .vinyl-overlay,
@@ -882,7 +889,7 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     opacity: 1;
   }
 
-  /* Top-Right Play / Pause Icon button */
+  /* Top-Right Play / Pause Icon button (Instant Frosted Glass) */
   .vinyl-action-icon {
     position: absolute;
     top: 0.45rem;
@@ -890,42 +897,79 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    display: flex;
+    background: rgba(0, 0, 0, 0.32);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    border: none;
+    display: none;
     align-items: center;
     justify-content: center;
     color: #ffffff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    z-index: 4;
     transition:
-      transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-      background-color 0.2s ease,
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
+      transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.16s ease;
+  }
+
+  /* Appear instantly on hover, focus, or while active (no opacity delay) */
+  button.vinyl-jacket:hover .vinyl-action-icon,
+  button.vinyl-jacket:focus-visible .vinyl-action-icon,
+  button.vinyl-jacket.is-playing .vinyl-action-icon,
+  button.vinyl-jacket.is-paused .vinyl-action-icon {
+    display: flex;
   }
 
   button.vinyl-jacket:hover .vinyl-action-icon {
     transform: scale(1.12);
-    background: rgba(0, 0, 0, 0.8);
-    border-color: rgba(255, 255, 255, 0.6);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   }
 
   /* Active styling while playing */
   button.vinyl-jacket.is-playing .vinyl-action-icon {
-    border-color: rgba(255, 255, 255, 0.6);
-    box-shadow: 0 0 12px rgba(99, 102, 241, 0.65);
+    box-shadow:
+      0 0 14px rgba(99, 102, 241, 0.65),
+      0 2px 10px rgba(0, 0, 0, 0.35);
   }
 
-  .vinyl-action-icon svg {
+  .vinyl-action-icon svg:not(.vinyl-progress-ring) {
     width: 13px;
     height: 13px;
   }
 
+  .vinyl-action-icon .vinyl-progress-ring {
+    position: absolute;
+    inset: -1px;
+    width: calc(100% + 2px);
+    height: calc(100% + 2px);
+    transform: rotate(-90deg);
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .vinyl-progress-ring .ring-bg {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 2;
+    transition: stroke 0.2s ease;
+  }
+
+  button.vinyl-jacket.is-playing .vinyl-progress-ring .ring-bg,
+  button.vinyl-jacket.is-paused .vinyl-progress-ring .ring-bg {
+    stroke: rgba(255, 255, 255, 0.16);
+  }
+
+  .vinyl-progress-ring .ring-fill {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 2;
+    stroke-dasharray: 87.96;
+    stroke-dashoffset: 87.96;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.15s linear;
+  }
+
   .vinyl-action-icon .icon-play {
-    margin-left: 1.5px; /* optical balance for play triangle */
     display: block;
   }
 
