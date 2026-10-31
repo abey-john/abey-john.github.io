@@ -719,6 +719,20 @@ const {
         togglePlay({ type: 'vinyl', el: jacket });
       });
     });
+
+    // 3. Stop audio if its parent accordion is collapsed
+    const accordions = document.querySelectorAll('details');
+    accordions.forEach((accordionEl) => {
+      const details = accordionEl as HTMLDetailsElement;
+      if (details.hasAttribute('data-audio-bound')) return;
+      details.setAttribute('data-audio-bound', 'true');
+
+      details.addEventListener('toggle', () => {
+        if (!details.open && activeTarget && details.contains(activeTarget.el)) {
+          stopCurrent();
+        }
+      });
+    });
   }
 
   // Cleanup audio when user navigates away
