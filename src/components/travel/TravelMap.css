@@ -430,66 +430,6 @@ html[data-theme='dark'] .trips-dropdown-item:hover {
   outline-offset: -2px;
 }
 
-.map-controls-overlay {
-  position: absolute;
-  bottom: var(--space-md);
-  right: var(--space-md);
-  z-index: 500;
-  pointer-events: none;
-}
-
-.map-legend {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-xs) var(--space-sm);
-  font-size: var(--font-size-sm);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  pointer-events: auto;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-  user-select: none;
-  transition:
-    opacity 0.15s ease,
-    background-color 0.15s ease;
-}
-
-.legend-item:hover {
-  background-color: var(--color-border-subtle);
-}
-
-.legend-item:focus-visible {
-  outline: 2px solid var(--color-focus);
-}
-
-.legend-item.legend-dimmed {
-  opacity: 0.35;
-}
-
-.legend-item.legend-active {
-  font-weight: 700;
-}
-
-.legend-icon {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-}
-
 .park-icon {
   background-color: #059669;
   color: #ffffff;
@@ -527,11 +467,6 @@ html[data-theme='dark'] .trips-dropdown-item:hover {
   position: relative;
   z-index: 2;
   display: block;
-}
-
-.legend-text {
-  font-size: 0.75rem;
-  font-weight: 500;
 }
 
 .map-subtext {
@@ -642,11 +577,6 @@ html[data-theme='dark'] .maplibregl-ctrl-icon {
 @media (max-width: 640px) {
   .travel-map {
     height: 440px;
-  }
-
-  .map-controls-overlay {
-    bottom: var(--space-sm);
-    right: var(--space-sm);
   }
 }
 

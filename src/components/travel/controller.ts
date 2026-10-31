@@ -295,20 +295,7 @@ export function applyCategoryFilter(category: FilterCategory): void {
     pill.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
   });
 
-  // 3. Update legend items visual cue
-  const legendPark = document.querySelector<HTMLElement>('.legend-item-park');
-  const legendCity = document.querySelector<HTMLElement>('.legend-item-city');
-  const legendLandmark = document.querySelector<HTMLElement>('.legend-item-landmark');
-  if (legendPark && legendCity && legendLandmark) {
-    legendPark.classList.toggle('legend-active', category === 'park');
-    legendPark.classList.toggle('legend-dimmed', category !== 'all' && category !== 'park');
-    legendCity.classList.toggle('legend-active', category === 'city');
-    legendCity.classList.toggle('legend-dimmed', category !== 'all' && category !== 'city');
-    legendLandmark.classList.toggle('legend-active', category === 'landmark');
-    legendLandmark.classList.toggle('legend-dimmed', category !== 'all' && category !== 'landmark');
-  }
-
-  // 4. Filter grouped text directory and update counts
+  // 3. Filter grouped text directory and update counts
   updateDirectoryList(activeFilter);
 }
 
@@ -710,44 +697,6 @@ export function initTravelMap(): void {
     },
     getActiveTripId: () => activeTripId,
   });
-
-  // Legend listeners
-  const legendPark = document.querySelector<HTMLElement>('.legend-item-park');
-  if (legendPark) {
-    const handlePark = () => applyCategoryFilter(activeFilter === 'park' ? 'all' : 'park');
-    legendPark.onclick = handlePark;
-    legendPark.onkeydown = (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        handlePark();
-      }
-    };
-  }
-
-  const legendCity = document.querySelector<HTMLElement>('.legend-item-city');
-  if (legendCity) {
-    const handleCity = () => applyCategoryFilter(activeFilter === 'city' ? 'all' : 'city');
-    legendCity.onclick = handleCity;
-    legendCity.onkeydown = (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        handleCity();
-      }
-    };
-  }
-
-  const legendLandmark = document.querySelector<HTMLElement>('.legend-item-landmark');
-  if (legendLandmark) {
-    const handleLandmark = () =>
-      applyCategoryFilter(activeFilter === 'landmark' ? 'all' : 'landmark');
-    legendLandmark.onclick = handleLandmark;
-    legendLandmark.onkeydown = (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        handleLandmark();
-      }
-    };
-  }
 
   // Setup places directory search & card selection
   cleanupDirectoryListeners = setupPlacesDirectory({
