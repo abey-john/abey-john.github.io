@@ -224,8 +224,8 @@ html[data-theme='light'] .trips-dropdown-trigger:hover {
   display: none;
   flex-direction: column;
   gap: 2px;
-  backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   animation: dropdownFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -595,8 +595,8 @@ html[data-theme='dark'] .maplibregl-ctrl-icon {
   gap: 4px;
   padding: 4px 6px;
   background: rgba(26, 29, 33, 0.88);
-  backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   border: 1px solid var(--color-border);
   border-radius: 9999px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
@@ -1339,8 +1339,8 @@ html[data-theme='light'] .route-svg-casing {
   height: 28px;
   border-radius: 6px;
   background: rgba(18, 18, 20, 0.72);
-  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.24);
   color: #ffffff;
   display: flex;
@@ -1493,8 +1493,8 @@ body.travel-modal-open {
   position: fixed;
   inset: 0;
   background: rgba(10, 12, 18, 0.78);
-  backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   animation: travelModalFadeIn 220ms ease-out forwards;
 }
 
@@ -1539,8 +1539,8 @@ body.travel-modal-open {
   height: 36px;
   border-radius: 50%;
   background: rgba(18, 18, 20, 0.65);
-  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: #ffffff;
   display: flex;
