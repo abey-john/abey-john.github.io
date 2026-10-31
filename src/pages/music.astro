@@ -849,10 +849,7 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
   /* Playing / Paused state on jacket */
   button.vinyl-jacket.is-playing,
   button.vinyl-jacket.is-paused {
-    border-color: var(--color-accent);
-    box-shadow:
-      0 0 0 2px var(--color-accent),
-      0 12px 28px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
   }
 
   .vinyl-cover-image {
@@ -918,9 +915,8 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
 
   /* Active styling while playing */
   button.vinyl-jacket.is-playing .vinyl-action-icon {
-    background: var(--color-accent);
     border-color: rgba(255, 255, 255, 0.6);
-    box-shadow: 0 0 12px rgba(37, 99, 235, 0.65);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.65);
   }
 
   .vinyl-action-icon svg {
