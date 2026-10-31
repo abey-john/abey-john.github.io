@@ -240,14 +240,11 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     <section class="favorites-section" aria-labelledby="favorites-heading">
       <details class="favorites-accordion">
         <summary class="favorites-summary">
-          <div class="summary-left">
-            <h2 id="favorites-heading" class="favorites-summary-title">
-              Personal All-Time Favorites
-            </h2>
+          <h2 id="favorites-heading" class="favorites-summary-title">
+            Personal All-Time Favorites
+          </h2>
+          <div class="summary-right">
             <span class="count-badge">{favorites.length} albums</span>
-          </div>
-          <span class="accordion-hint">
-            <span class="hint-action">list</span>
             <svg
               class="chevron-icon"
               width="20"
@@ -262,7 +259,7 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
             >
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
-          </span>
+          </div>
         </summary>
         <div class="favorites-expanded">
           <ol class="favorites-list">
@@ -606,13 +603,6 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     border-radius: var(--radius-md);
     background-color: var(--color-bg);
     overflow: hidden;
-    transition:
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
-  }
-
-  .favorites-accordion:hover {
-    border-color: var(--color-text-muted);
   }
 
   .favorites-summary {
@@ -630,11 +620,9 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     display: none;
   }
 
-  .summary-left {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-    flex-wrap: wrap;
+  .favorites-summary:hover .favorites-summary-title,
+  .favorites-summary:hover .chevron-icon {
+    color: var(--color-accent);
   }
 
   .favorites-summary-title {
@@ -642,6 +630,13 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     font-weight: 600;
     margin: 0;
     color: var(--color-text);
+    transition: color 0.15s ease;
+  }
+
+  .summary-right {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
   }
 
   .count-badge {
@@ -653,24 +648,10 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     border-radius: var(--radius-sm);
   }
 
-  .accordion-hint {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
-  }
-
-  .favorites-accordion[open] .hint-action::before {
-    content: 'Hide ';
-  }
-
-  .favorites-accordion:not([open]) .hint-action::before {
-    content: 'View ';
-  }
-
   .chevron-icon {
-    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transition:
+      transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+      color 0.15s ease;
     color: var(--color-text-muted);
     flex-shrink: 0;
   }
