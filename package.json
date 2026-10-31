@@ -11,6 +11,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "check": "astro check",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "check:placeholders": "node scripts/check-placeholders.mjs",
     "check:exif": "node scripts/check-exif.mjs",
     "strip:exif": "node scripts/strip-exif.mjs",
@@ -30,6 +32,8 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
     "@types/node": "^26.6.4",
+    "prettier": "^3.9.10",
+    "prettier-plugin-astro": "^1.1.2",
     "typescript": "^6.0.3"
   }
 }
