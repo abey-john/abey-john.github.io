@@ -1,0 +1,546 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  places: CollectionEntry<'places'>[];
+}
+
+const { places } = Astro.props;
+
+function isUnitedStates(country?: string): boolean {
+  return /^(united states|usa|us)$/i.test((country || '').trim());
+}
+
+function getRegionLabel(country?: string, state?: string): string {
+  const c = (country || '').trim();
+  const s = (state || '').trim();
+  if (isUnitedStates(c)) {
+    return s;
+  }
+  if (s && c) {
+    return `${s}, ${c}`;
+  }
+  return c;
+}
+
+const sortedPlaces = places
+  .filter((p) => p.data.type !== 'venue')
+  .sort((a, b) => {
+    const aIsUS = isUnitedStates(a.data.country);
+    const bIsUS = isUnitedStates(b.data.country);
+    if (aIsUS !== bIsUS) {
+      return aIsUS ? -1 : 1;
+    }
+    const aRegion = getRegionLabel(a.data.country, a.data.state);
+    const bRegion = getRegionLabel(b.data.country, b.data.state);
+    const regionCmp = aRegion.localeCompare(bRegion);
+    if (regionCmp !== 0) {
+      return regionCmp;
+    }
+    return a.data.name.localeCompare(b.data.name);
+  });
+
+const directoryGroups = [
+  {
+    type: 'park',
+    label: 'National Parks',
+    items: sortedPlaces.filter((p) => p.data.type === 'park'),
+  },
+  {
+    type: 'city',
+    label: 'Cities',
+    items: sortedPlaces.filter((p) => p.data.type === 'city'),
+  },
+  {
+    type: 'landmark',
+    label: 'Landmarks',
+    items: sortedPlaces.filter((p) => p.data.type === 'landmark'),
+  },
+].filter((g) => g.items.length > 0);
+---
+
+<section
+  class="places-fallback-section"
+  aria-label="Directory of visited places"
+>
+  <details class="places-details">
+    <summary class="places-summary">
+      <span class="summary-title"
+        >View full list of places <span id="summary-count">({sortedPlaces.length})</span></span
+      >
+      <span class="summary-right">
+        <div class="places-search-bar">
+          <svg
+            class="places-search-icon"
+            viewBox="0 0 24 24"
+            width="13"
+            height="13"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input
+            type="search"
+            id="places-search-input"
+            class="places-search-input"
+            placeholder="Search places..."
+            aria-label="Search visited places by name, state, or country"
+            autocomplete="off"
+          />
+          <button
+            type="button"
+            id="places-search-clear"
+            class="places-search-clear"
+            aria-label="Clear search"
+            title="Clear search"
+            style="display: none;"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="12"
+              height="12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <span class="summary-chevron" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </span>
+      </span>
+    </summary>
+
+    <div class="places-directory-body">
+      <div class="places-groups-container">
+        {
+          directoryGroups.map((group) => (
+            <div class="places-group" data-group-type={group.type}>
+              <div class="places-group-header">
+                <span
+                  class={`group-badge group-badge-${group.type}`}
+                  aria-hidden="true"
+                >
+                  {group.type === 'park' ? (
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                      <path d="M12 2L4 12h3.5L5 17h4.5v5h5v-5H19l-2.5-5H20L12 2z" />
+                    </svg>
+                  ) : group.type === 'landmark' ? (
+                    <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
+                      <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                      <path d="M15 2H9c-1.1 0-2 .9-2 2v16h10V4c0-1.1-.9-2-2-2zm-4 4h2v2h-2V6zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z" />
+                    </svg>
+                  )}
+                </span>
+                <h2 class="places-group-title">{group.label}</h2>
+                <span class="places-group-count" data-group-count={group.type}>
+                  {group.items.length}
+                </span>
+              </div>
+
+              <div class="places-grid">
+                {group.items.map((place) => {
+                  const regionLabel = getRegionLabel(place.data.country, place.data.state);
+                  const usAlias = isUnitedStates(place.data.country) ? 'usa us' : '';
+                  const searchStr = `${place.data.name} ${place.data.state || ''} ${place.data.country || ''} ${usAlias} ${group.label}`.toLowerCase();
+                  return (
+                    <div
+                      class="place-card"
+                      role="button"
+                      tabindex="0"
+                      data-id={place.data.id}
+                      data-name={place.data.name}
+                      data-type={place.data.type}
+                      data-search={searchStr}
+                      data-lat={place.data.lat}
+                      data-lng={place.data.lng}
+                      aria-label={`View ${place.data.name}${regionLabel ? `, ${regionLabel}` : ''} on map`}
+                    >
+                      <div class="place-header">
+                        <span class="place-name">{place.data.name}</span>
+                        {regionLabel && (
+                          <span class="place-region">{regionLabel}</span>
+                        )}
+                        <span class="fly-indicator" aria-hidden="true" title="View on map">
+                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"></path>
+                            <circle cx="12" cy="10" r="2.5"></circle>
+                          </svg>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))
+        }
+      </div>
+
+      <p id="places-empty-state" class="places-empty-state" style="display: none;">
+        No matching places found.
+      </p>
+    </div>
+  </details>
+</section>
+
+<style>
+  .places-fallback-section {
+    margin-top: var(--space-xs);
+  }
+
+  .places-details {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    background-color: var(--color-bg);
+  }
+
+  .places-summary {
+    cursor: pointer;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 30px;
+    user-select: none;
+    color: var(--color-text);
+    list-style: none;
+  }
+
+  .places-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .places-summary:hover .summary-title,
+  .places-summary:hover .summary-chevron {
+    color: var(--color-accent);
+  }
+
+  .summary-title {
+    transition: color 0.15s ease;
+  }
+
+  .summary-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .summary-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    transition:
+      transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      color 0.15s ease;
+  }
+
+  .places-details[open] .summary-chevron {
+    transform: rotate(180deg);
+  }
+
+  .places-directory-body {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+
+  .places-search-bar {
+    position: relative;
+    display: none;
+    align-items: center;
+    width: 240px;
+  }
+
+  .places-details[open] .places-search-bar {
+    display: flex;
+  }
+
+  .places-search-icon {
+    position: absolute;
+    left: 10px;
+    color: var(--color-text-muted);
+    pointer-events: none;
+  }
+
+  .places-search-input {
+    width: 100%;
+    padding: 5px 28px 5px 28px;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    font-family: var(--font-sans);
+    color: var(--color-text);
+    background-color: var(--color-border-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    outline: none;
+    cursor: text;
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .places-search-input::placeholder {
+    color: var(--color-text-muted);
+    opacity: 0.75;
+  }
+
+  .places-search-input:focus {
+    background-color: var(--color-bg);
+    border-color: var(--color-text-muted);
+  }
+
+  .places-search-input::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  .places-search-clear {
+    position: absolute;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .places-search-clear:hover {
+    color: var(--color-text);
+    background-color: var(--color-border);
+  }
+
+  .places-groups-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+
+  .places-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .places-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .group-badge {
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    flex-shrink: 0;
+  }
+
+  .group-badge-park {
+    background-color: #059669;
+    border-radius: 50%;
+  }
+
+  .group-badge-city {
+    background-color: #2563eb;
+    border-radius: 4px;
+  }
+
+  .group-badge-landmark {
+    position: relative;
+    background: transparent;
+  }
+
+  .group-badge-landmark::before {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    background-color: #d97706;
+    border-radius: 3px;
+    transform: rotate(45deg);
+    z-index: 1;
+  }
+
+  .group-badge-landmark > svg {
+    position: relative;
+    z-index: 2;
+  }
+
+  .places-group-title {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
+  }
+
+  .places-group-count {
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    background-color: var(--color-border-subtle);
+    padding: 1px 6px;
+    border-radius: 9999px;
+  }
+
+  .places-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 8px;
+  }
+
+  .place-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    min-height: 42px;
+    background-color: var(--color-border-subtle);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    cursor: pointer;
+    text-align: left;
+    transition:
+      transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.18s ease,
+      background-color 0.18s ease,
+      box-shadow 0.18s ease;
+    user-select: none;
+  }
+
+  .place-card:hover {
+    border-color: var(--color-accent);
+    background-color: var(--color-bg);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+  }
+
+  .place-card:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .place-card:active {
+    transform: translateY(0);
+  }
+
+  .place-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .place-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin: 0;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .place-region {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .fly-indicator {
+    margin-left: auto;
+    color: var(--color-text-muted);
+    opacity: 0.35;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    transition:
+      opacity 0.18s ease,
+      transform 0.18s ease,
+      color 0.18s ease;
+  }
+
+  .place-region + .fly-indicator {
+    margin-left: 2px;
+  }
+
+  .place-card:hover .fly-indicator {
+    opacity: 1;
+    color: var(--color-accent);
+    transform: scale(1.15);
+  }
+
+  .places-empty-state {
+    margin: 0;
+    padding: var(--space-md) 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    text-align: center;
+  }
+
+  @media (max-width: 640px) {
+    .places-search-bar {
+      width: 150px;
+    }
+
+    .places-grid {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+
+    .place-card {
+      padding: 8px 11px;
+      min-height: 40px;
+    }
+  }
+</style>
+

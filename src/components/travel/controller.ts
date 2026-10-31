@@ -21,6 +21,7 @@ import {
 import { createMarkers } from './markers';
 import { setupTripsDropdown, updateTripsDropdownUI } from './dropdown';
 import { initImageModal, openImageModal } from './image-modal';
+import { setupPlacesDirectory, updateDirectoryList } from './directory';
 import {
   updateStepperUI,
   activateStopMarker,
@@ -63,6 +64,7 @@ let currentTripStopIndices: number[] = [];
 let tripCumulativeDistances: number[] = [];
 
 let cleanupDropdownListeners: (() => void) | null = null;
+let cleanupDirectoryListeners: (() => void) | null = null;
 let cleanupKeyNavListener: (() => void) | null = null;
 let cleanupImageModalListener: (() => void) | null = null;
 let activeFlightId = 0;
@@ -279,53 +281,6 @@ function syncMarkerVisibility(): void {
   });
 }
 
-function updateDirectoryList(): void {
-  const searchInput = document.getElementById('places-search-input') as HTMLInputElement | null;
-  const clearBtn = document.getElementById('places-search-clear');
-  const query = (searchInput?.value || '').trim().toLowerCase();
-
-  if (clearBtn) {
-    clearBtn.style.display = query.length > 0 ? 'inline-flex' : 'none';
-  }
-
-  let totalVisibleCount = 0;
-  const groups = document.querySelectorAll<HTMLElement>('.places-group[data-group-type]');
-
-  groups.forEach((group) => {
-    const groupType = group.dataset.groupType || '';
-    const categoryMatchesGroup = activeFilter === 'all' || groupType === activeFilter;
-    let groupVisibleCount = 0;
-
-    const cards = group.querySelectorAll<HTMLElement>('.place-card');
-    cards.forEach((card) => {
-      const searchStr = card.dataset.search || (card.dataset.name || '').toLowerCase();
-      const matchesSearch = !query || searchStr.includes(query);
-      const visible = categoryMatchesGroup && matchesSearch;
-      card.style.display = visible ? '' : 'none';
-      if (visible) {
-        groupVisibleCount++;
-        totalVisibleCount++;
-      }
-    });
-
-    group.style.display = groupVisibleCount > 0 ? '' : 'none';
-    const countBadge = group.querySelector<HTMLElement>('[data-group-count]');
-    if (countBadge) {
-      countBadge.textContent = String(groupVisibleCount);
-    }
-  });
-
-  const summaryCountEl = document.getElementById('summary-count');
-  if (summaryCountEl) {
-    summaryCountEl.textContent = `(${totalVisibleCount})`;
-  }
-
-  const emptyStateEl = document.getElementById('places-empty-state');
-  if (emptyStateEl) {
-    emptyStateEl.style.display = totalVisibleCount === 0 ? 'block' : 'none';
-  }
-}
-
 export function applyCategoryFilter(category: FilterCategory): void {
   activeFilter = category;
 
@@ -354,7 +309,7 @@ export function applyCategoryFilter(category: FilterCategory): void {
   }
 
   // 4. Filter grouped text directory and update counts
-  updateDirectoryList();
+  updateDirectoryList(activeFilter);
 }
 
 export function recenterMap(): void {
@@ -794,75 +749,16 @@ export function initTravelMap(): void {
     };
   }
 
-  // Attach search bar listeners for the places directory
-  const placesDetails = document.querySelector<HTMLDetailsElement>('.places-details');
-  const searchBar = document.querySelector<HTMLElement>('.places-search-bar');
-  const searchInput = document.getElementById('places-search-input') as HTMLInputElement | null;
-  const searchClear = document.getElementById('places-search-clear');
-  if (placesDetails && searchInput) {
-    placesDetails.ontoggle = () => {
-      if (!placesDetails.open && searchInput.value) {
-        searchInput.value = '';
-        updateDirectoryList();
-      }
-    };
-  }
-  if (searchBar) {
-    searchBar.onclick = (e) => {
-      e.stopPropagation();
-    };
-  }
-  if (searchInput) {
-    searchInput.onclick = (e) => {
-      e.stopPropagation();
-    };
-    searchInput.onkeydown = (e) => {
-      if (e.key === ' ' || e.key === 'Enter') {
-        e.stopPropagation();
-      }
-    };
-    searchInput.onkeyup = (e) => {
-      if (e.key === ' ' || e.key === 'Enter') {
-        e.stopPropagation();
-      }
-    };
-    searchInput.oninput = () => {
-      updateDirectoryList();
-    };
-  }
-  if (searchClear && searchInput) {
-    searchClear.onclick = (e) => {
-      e.stopPropagation();
-      searchInput.value = '';
-      updateDirectoryList();
-      searchInput.focus();
-    };
-  }
+  // Setup places directory search & card selection
+  cleanupDirectoryListeners = setupPlacesDirectory({
+    getActiveFilter: () => activeFilter,
+    onSelectPlace: (id, lat, lng, type) => {
+      flyToPlace(id, lat, lng, type);
+    },
+  });
 
   // Apply active category filter state
   applyCategoryFilter(activeFilter);
-
-  // Attach click and keyboard listeners to all place cards in directory
-  const placeCards = document.querySelectorAll<HTMLElement>('.place-card');
-  placeCards.forEach((card) => {
-    const handleSelect = () => {
-      const id = card.dataset.id || '';
-      const lat = parseFloat(card.dataset.lat || '0');
-      const lng = parseFloat(card.dataset.lng || '0');
-      const type = card.dataset.type || 'city';
-      if (lat && lng && (lat !== 0 || lng !== 0)) {
-        flyToPlace(id, lat, lng, type);
-      }
-    };
-
-    card.onclick = handleSelect;
-    card.onkeydown = (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        handleSelect();
-      }
-    };
-  });
 
   cleanupImageModalListener = initImageModal();
 
@@ -894,6 +790,10 @@ export function cleanupTravelMap(): void {
   if (cleanupDropdownListeners) {
     cleanupDropdownListeners();
     cleanupDropdownListeners = null;
+  }
+  if (cleanupDirectoryListeners) {
+    cleanupDirectoryListeners();
+    cleanupDirectoryListeners = null;
   }
   if (cleanupKeyNavListener) {
     cleanupKeyNavListener();
