@@ -391,72 +391,121 @@ const {
     artist: string,
     preferredTrack?: string
   ): Promise<{ url: string; track: string } | null> {
+    const cleanStr = (s: string) =>
+      (s || '')
+        .toLowerCase()
+        .replace(/\$/g, 's')
+        .replace(/@/g, 'a')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '');
+
     const target = (preferredTrack || title).trim();
-    const cleanTarget = target.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const cleanAlbum = title.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanTarget = cleanStr(target);
+    const cleanAlbum = cleanStr(title);
+    const cleanArtist = cleanStr(artist);
 
     // 1. Try Apple Music Web directly (guarantees studio album cuts)
-    try {
-      const searchUrl = `https://music.apple.com/us/search?term=${encodeURIComponent(`${title} ${artist}`)}`;
-      const res = await fetch(searchUrl);
-      if (res.ok) {
+    const queries = [
+      `${title} ${artist}`,
+      title,
+      ...(preferredTrack ? [`${preferredTrack} ${artist}`] : [])
+    ];
+
+    for (const q of queries) {
+      try {
+        const searchUrl = `https://music.apple.com/us/search?term=${encodeURIComponent(q)}`;
+        const res = await fetch(searchUrl);
+        if (!res.ok) continue;
         const html = await res.text();
-        const albumLinks = [
-          ...html.matchAll(/\/us\/album\/([a-z0-9-]+)\/(\d+)/g)
+
+        const albumLinks: Array<{ slug: string; path: string }> = [];
+
+        // Check serialized JSON
+        const serverDataMatch = html.match(
+          /<script[^>]+id="serialized-server-data"[^>]*>([\s\S]*?)<\/script>/
+        );
+        if (serverDataMatch) {
+          try {
+            const json = JSON.parse(serverDataMatch[1]);
+            const sections = json.data?.[0]?.data?.sections || [];
+            for (const sec of sections) {
+              for (const item of sec.items || []) {
+                const itemUrl = item.contentDescriptor?.url || '';
+                const match = itemUrl.match(/\/us\/album\/([^"'/]+)\/(\d+)/);
+                if (match) {
+                  albumLinks.push({
+                    slug: match[1],
+                    path: `/us/album/${match[1]}/${match[2]}`
+                  });
+                }
+              }
+            }
+          } catch {}
+        }
+
+        // Regex fallback
+        const regexLinks = [
+          ...html.matchAll(/\/us\/album\/([^"'/]+)\/(\d+)/g)
         ].map((m) => ({
           slug: m[1],
           path: m[0]
         }));
-        if (albumLinks.length > 0) {
-          const candidate =
-            albumLinks.find(
-              (a) =>
-                a.slug.replace(/[^a-z0-9]/g, '').includes(cleanAlbum) ||
-                cleanAlbum.includes(a.slug.replace(/[^a-z0-9]/g, ''))
-            ) || albumLinks[0];
-          const albRes = await fetch(
-            `https://music.apple.com${candidate.path}`
+        albumLinks.push(...regexLinks);
+
+        if (albumLinks.length === 0) continue;
+
+        const candidate = albumLinks.find((a) => {
+          let decoded = a.slug;
+          try {
+            decoded = decodeURIComponent(a.slug);
+          } catch {}
+          const cs = cleanStr(decoded);
+          return (
+            cs.includes(cleanAlbum) ||
+            cleanAlbum.includes(cs) ||
+            (cleanArtist && cs.includes(cleanArtist))
           );
-          if (albRes.ok) {
-            const albHtml = await albRes.text();
-            const m = albHtml.match(
-              /<script[^>]+id="serialized-server-data"[^>]*>([\s\S]*?)<\/script>/
-            );
-            if (m) {
-              const json = JSON.parse(m[1]);
-              const sections = json.data?.[0]?.data?.sections || [];
-              const trackSec = sections.find(
-                (s: any) => s.itemKind === 'trackLockup'
-              );
-              const tracks = (trackSec?.items || []).filter(
-                (t: any) => t.previewUrl
-              );
-              if (tracks.length > 0) {
-                const exact = tracks.find(
-                  (t: any) =>
-                    (t.title || '').toLowerCase().replace(/[^a-z0-9]/g, '') ===
-                    cleanTarget
-                );
-                const baseMatch = tracks.find((t: any) => {
-                  const base = (t.title || '')
-                    .split(/[\(\[\-–—:]/)[0]
-                    .toLowerCase()
-                    .replace(/[^a-z0-9]/g, '');
-                  return base === cleanTarget;
-                });
-                const chosen = exact || baseMatch || tracks[0];
-                if (chosen?.previewUrl) {
-                  return {
-                    url: chosen.previewUrl,
-                    track: chosen.title
-                  };
-                }
-              }
-            }
-          }
+        });
+
+        if (!candidate) continue;
+
+        const albRes = await fetch(`https://music.apple.com${candidate.path}`);
+        if (!albRes.ok) continue;
+        const albHtml = await albRes.text();
+        const m = albHtml.match(
+          /<script[^>]+id="serialized-server-data"[^>]*>([\s\S]*?)<\/script>/
+        );
+        if (!m) continue;
+
+        const json = JSON.parse(m[1]);
+        const sections = json.data?.[0]?.data?.sections || [];
+        const trackSec = sections.find(
+          (s: any) => s.itemKind === 'trackLockup'
+        );
+        const tracks = (trackSec?.items || []).filter((t: any) => t.previewUrl);
+        if (tracks.length === 0) continue;
+
+        const exact = tracks.find(
+          (t: any) => cleanStr(t.title) === cleanTarget
+        );
+        const baseMatch = tracks.find((t: any) => {
+          const base = (t.title || '').split(/[\(\[\-–—:]/)[0];
+          return cleanStr(base) === cleanTarget;
+        });
+        const chosen =
+          exact ||
+          baseMatch ||
+          tracks.find((t: any) => cleanStr(t.title).includes(cleanTarget)) ||
+          tracks[0];
+        if (chosen?.previewUrl) {
+          return {
+            url: chosen.previewUrl,
+            track: chosen.title
+          };
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
     // 2. Try iTunes Search API
     try {
@@ -464,27 +513,32 @@ const {
         ? `${preferredTrack} ${artist}`
         : `${title} ${artist}`;
       const res = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=10`
+        `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=15`
       );
       if (res.ok) {
         const data = await res.json();
-        const songs = (data.results || []).filter((t: any) => t.previewUrl);
-        const exact = songs.find(
+        const songs = (data.results || []).filter(
           (t: any) =>
-            (t.trackName || '').toLowerCase().replace(/[^a-z0-9]/g, '') ===
-            cleanTarget
+            t.previewUrl &&
+            (cleanStr(t.artistName).includes(cleanArtist) ||
+              cleanArtist.includes(cleanStr(t.artistName)))
         );
-        const nonRemix = songs.find(
-          (t: any) =>
-            !t.trackName.toLowerCase().includes('remix') &&
-            !(t.collectionName || '').toLowerCase().includes('remix')
-        );
-        const chosen = exact || nonRemix || songs[0];
-        if (chosen?.previewUrl) {
-          return {
-            url: chosen.previewUrl,
-            track: chosen.trackName || target
-          };
+        if (songs.length > 0) {
+          const exact = songs.find(
+            (t: any) => cleanStr(t.trackName) === cleanTarget
+          );
+          const nonRemix = songs.find(
+            (t: any) =>
+              !t.trackName.toLowerCase().includes('remix') &&
+              !(t.collectionName || '').toLowerCase().includes('remix')
+          );
+          const chosen = exact || nonRemix || songs[0];
+          if (chosen?.previewUrl) {
+            return {
+              url: chosen.previewUrl,
+              track: chosen.trackName || target
+            };
+          }
         }
       }
     } catch {}
@@ -742,7 +796,11 @@ const {
       details.setAttribute('data-audio-bound', 'true');
 
       details.addEventListener('toggle', () => {
-        if (!details.open && activeTarget && details.contains(activeTarget.el)) {
+        if (
+          !details.open &&
+          activeTarget &&
+          details.contains(activeTarget.el)
+        ) {
           stopCurrent();
         }
       });

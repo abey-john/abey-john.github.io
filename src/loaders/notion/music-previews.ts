@@ -8,6 +8,8 @@ export const defaultTrackOverrides: Record<string, string> = {
 export function cleanText(str: string): string {
   return (str || '')
     .toLowerCase()
+    .replace(/\$/g, 's')
+    .replace(/@/g, 'a')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]/g, '');
@@ -37,7 +39,11 @@ export function slugMatchesAlbum(
   albumTitle: string,
   artist: string
 ): boolean {
-  const cleanSlug = cleanText(slug);
+  let decoded = slug;
+  try {
+    decoded = decodeURIComponent(slug);
+  } catch {}
+  const cleanSlug = cleanText(decoded);
   const cleanAlbum = cleanText(albumTitle);
   const cleanSimplified = cleanText(albumTitle.split(/[:(]/)[0]);
   const cleanArt = cleanText(artist);
@@ -143,80 +149,120 @@ export async function fetchAppleMusicWeb(
   artist: string,
   trackTarget?: string
 ): Promise<{ previewUrl?: string; previewTrack?: string } | null> {
-  try {
-    const searchUrl = `https://music.apple.com/us/search?term=${encodeURIComponent(`${albumTitle} ${artist}`)}`;
-    const res = await fetch(searchUrl, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      }
-    });
-    if (!res.ok) return null;
-    const text = await res.text();
-    const albumLinks = [
-      ...text.matchAll(/\/us\/album\/([a-z0-9-]+)\/(\d+)/g)
-    ].map((m) => ({
-      slug: m[1],
-      id: m[2],
-      path: m[0]
-    }));
-    if (albumLinks.length === 0) return null;
+  const queries = [
+    `${albumTitle} ${artist}`,
+    albumTitle,
+    ...(trackTarget ? [`${trackTarget} ${artist}`] : [])
+  ];
 
-    const cleanAlbum = cleanText(albumTitle);
-    const candidate = albumLinks.find((a) =>
-      slugMatchesAlbum(a.slug, albumTitle, artist)
-    );
-    if (!candidate) return null;
+  for (const q of queries) {
+    try {
+      const searchUrl = `https://music.apple.com/us/search?term=${encodeURIComponent(q)}`;
+      const res = await fetch(searchUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        }
+      });
+      if (!res.ok) continue;
+      const text = await res.text();
 
-    const albRes = await fetch(`https://music.apple.com${candidate.path}`, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
-    });
-    if (!albRes.ok) return null;
-    const albText = await albRes.text();
-    const m = albText.match(
-      /<script[^>]+id="serialized-server-data"[^>]*>([\s\S]*?)<\/script>/
-    );
-    if (!m) return null;
+      const albumLinks: Array<{ slug: string; id: string; path: string }> = [];
 
-    const json = JSON.parse(m[1]);
-    const sections = json.data?.[0]?.data?.sections || [];
-    const trackSecs = sections.filter((s: any) => s.itemKind === 'trackLockup');
-    const tracks = trackSecs
-      .flatMap((s: any) => s.items || [])
-      .filter((t: any) => t.previewUrl);
-    if (tracks.length === 0) return null;
-
-    if (trackTarget) {
-      const best = findBestTrackInList(
-        tracks,
-        trackTarget,
-        (t: any) => t.title
+      // Extract from serialized JSON if present
+      const serverDataMatch = text.match(
+        /<script[^>]+id="serialized-server-data"[^>]*>([\s\S]*?)<\/script>/
       );
-      if (best) {
+      if (serverDataMatch) {
+        try {
+          const json = JSON.parse(serverDataMatch[1]);
+          const sections = json.data?.[0]?.data?.sections || [];
+          for (const sec of sections) {
+            for (const item of sec.items || []) {
+              const itemUrl = item.contentDescriptor?.url || '';
+              const match = itemUrl.match(/\/us\/album\/([^"'/]+)\/(\d+)/);
+              if (match) {
+                albumLinks.push({
+                  slug: match[1],
+                  id: match[2],
+                  path: `/us/album/${match[1]}/${match[2]}`
+                });
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // Regex fallback across raw text (allowing % and special characters in slug)
+      const rawMatches = [
+        ...text.matchAll(/\/us\/album\/([^"'/]+)\/(\d+)/g)
+      ].map((m) => ({
+        slug: m[1],
+        id: m[2],
+        path: m[0]
+      }));
+      albumLinks.push(...rawMatches);
+
+      if (albumLinks.length === 0) continue;
+
+      const cleanAlbum = cleanText(albumTitle);
+      const candidate = albumLinks.find((a) =>
+        slugMatchesAlbum(a.slug, albumTitle, artist)
+      );
+      if (!candidate) continue;
+
+      const albRes = await fetch(`https://music.apple.com${candidate.path}`, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+      if (!albRes.ok) continue;
+      const albText = await albRes.text();
+      const m = albText.match(
+        /<script[^>]+id="serialized-server-data"[^>]*>([\s\S]*?)<\/script>/
+      );
+      if (!m) continue;
+
+      const json = JSON.parse(m[1]);
+      const sections = json.data?.[0]?.data?.sections || [];
+      const trackSecs = sections.filter(
+        (s: any) => s.itemKind === 'trackLockup'
+      );
+      const tracks = trackSecs
+        .flatMap((s: any) => s.items || [])
+        .filter((t: any) => t.previewUrl);
+      if (tracks.length === 0) continue;
+
+      if (trackTarget) {
+        const best = findBestTrackInList(
+          tracks,
+          trackTarget,
+          (t: any) => t.title
+        );
+        if (best) {
+          return {
+            previewUrl: best.previewUrl,
+            previewTrack: best.title
+          };
+        }
+      } else {
+        const titleMatch = tracks.find((t: any) =>
+          cleanText(t.title).includes(cleanAlbum)
+        );
+        const chosen =
+          titleMatch ||
+          tracks.find((t: any) => !t.title.toLowerCase().includes('intro')) ||
+          tracks[0];
         return {
-          previewUrl: best.previewUrl,
-          previewTrack: best.title
+          previewUrl: chosen.previewUrl,
+          previewTrack: chosen.title
         };
       }
-    } else {
-      const titleMatch = tracks.find((t: any) =>
-        cleanText(t.title).includes(cleanAlbum)
-      );
-      const chosen =
-        titleMatch ||
-        tracks.find((t: any) => !t.title.toLowerCase().includes('intro')) ||
-        tracks[0];
-      return {
-        previewUrl: chosen.previewUrl,
-        previewTrack: chosen.title
-      };
-    }
-  } catch {}
+    } catch {}
+  }
   return null;
 }
 
