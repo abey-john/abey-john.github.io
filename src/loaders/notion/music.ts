@@ -1,10 +1,11 @@
 import type { Loader, LoaderContext } from 'astro/loaders';
 import fs from 'node:fs';
 import path from 'node:path';
-import { NOTION_API_KEY, queryNotionDatabase } from './client';
-import { extractImageSource } from './images';
+import { NOTION_API_KEY, notionRequest, queryNotionDatabase } from './client';
+import { downloadRemoteImage, extractImageSource } from './images';
 import { richTextToHtml } from './text';
 import { fetchAudioPreview, processInBatches } from './music-previews';
+import { buildAlbumMosaic } from './mosaic';
 
 export function notionMusicLoader(): Loader {
   return {
@@ -14,7 +15,25 @@ export function notionMusicLoader(): Loader {
 
       if (NOTION_API_KEY && dbId) {
         try {
-          const results = await queryNotionDatabase(dbId);
+          const [results, dbMeta] = await Promise.all([
+            queryNotionDatabase(dbId),
+            notionRequest(`databases/${dbId}`, 'GET', null, '2025-09-03').catch(
+              () => null
+            )
+          ]);
+
+          let mosaicPortraitUrl: string | undefined;
+          const rawDbCoverUrl =
+            dbMeta?.cover?.file?.url ||
+            dbMeta?.cover?.external?.url ||
+            dbMeta?.icon?.file?.url ||
+            dbMeta?.icon?.external?.url;
+          if (rawDbCoverUrl) {
+            mosaicPortraitUrl = await downloadRemoteImage(rawDbCoverUrl, {
+              maxWidth: 1200,
+              quality: 92
+            });
+          }
 
           store.clear();
 
@@ -243,6 +262,12 @@ export function notionMusicLoader(): Loader {
             });
           });
 
+          const mosaicData = await buildAlbumMosaic(
+            mosaicPortraitUrl,
+            'itseebo',
+            logger
+          );
+
           const fullMusicContent = {
             updated: latestEditedMs > 0 ? new Date(latestEditedMs) : new Date(),
             favorites: topTen,
@@ -258,7 +283,8 @@ export function notionMusicLoader(): Loader {
               artist: 'Unknown',
               cover: '/assets/covers/placeholder-album.svg',
               rating: 8.0
-            }
+            },
+            mosaic: mosaicData
           };
 
           const data = await parseData({

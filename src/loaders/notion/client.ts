@@ -9,7 +9,8 @@ export const NOTION_VERSION = '2022-06-28';
 export async function notionRequest(
   endpoint: string,
   method: string = 'GET',
-  body: any = null
+  body: any = null,
+  notionVersion: string = NOTION_VERSION
 ): Promise<any> {
   if (!NOTION_API_KEY) {
     throw new Error('NOTION_API_KEY is not configured');
@@ -19,7 +20,7 @@ export async function notionRequest(
     method,
     headers: {
       Authorization: `Bearer ${NOTION_API_KEY}`,
-      'Notion-Version': NOTION_VERSION,
+      'Notion-Version': notionVersion,
       'Content-Type': 'application/json'
     },
     body: body ? JSON.stringify(body) : undefined

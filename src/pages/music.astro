@@ -4,6 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import MediaImage from '../components/MediaImage.astro';
 import AudioSnippetPlayer from '../components/AudioSnippetPlayer.astro';
 import MusicTicker from '../components/MusicTicker.astro';
+import MusicMosaic from '../components/MusicMosaic.astro';
 import { getSiteConfig } from '../config';
 
 const siteConfig = await getSiteConfig();
@@ -18,7 +19,8 @@ const {
   recommendation,
   recentListen,
   vinyl = [],
-  updated
+  updated,
+  mosaic
 } = musicEntry.data;
 
 // Sort vinyl records alphabetically by artist (ignoring leading "The "), then by title
@@ -153,249 +155,313 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
               <path d="M476.702 291.035H430.794C413.306 291.035 399.133 305.24 399.133 322.761V477.168C399.133 494.691 413.306 508.896 430.794 508.896H476.702C494.19 508.896 508.363 494.691 508.363 477.168V322.761C508.363 305.24 494.19 291.035 476.702 291.035Z" />
             </svg>
           </a>
+          {mosaic && (
+            <button
+              type="button"
+              class="profile-logo-link mosaic-toggle"
+              data-mosaic-toggle
+              aria-label="Toggle album artwork portrait mosaic"
+              aria-pressed="false"
+              title="Album Mosaic"
+            >
+              <svg
+                class="profile-logo-svg"
+                viewBox="0 0 24 24"
+                width="17"
+                height="17"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <rect x="2.5" y="2.5" width="5" height="5" rx="1" />
+                <rect
+                  x="9.5"
+                  y="2.5"
+                  width="5"
+                  height="5"
+                  rx="1"
+                  opacity="0.72"
+                />
+                <rect x="16.5" y="2.5" width="5" height="5" rx="1" />
+                <rect
+                  x="2.5"
+                  y="9.5"
+                  width="5"
+                  height="5"
+                  rx="1"
+                  opacity="0.72"
+                />
+                <rect x="9.5" y="9.5" width="5" height="5" rx="1" />
+                <rect
+                  x="16.5"
+                  y="9.5"
+                  width="5"
+                  height="5"
+                  rx="1"
+                  opacity="0.72"
+                />
+                <rect x="2.5" y="16.5" width="5" height="5" rx="1" />
+                <rect
+                  x="9.5"
+                  y="16.5"
+                  width="5"
+                  height="5"
+                  rx="1"
+                  opacity="0.72"
+                />
+                <rect x="16.5" y="16.5" width="5" height="5" rx="1" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </header>
 
-    <MusicTicker username="itseebo" limit={5} />
+    <div class="music-normal-view" data-music-normal-view>
+      <MusicTicker username="itseebo" limit={5} />
 
-    <section class="slots-section" aria-labelledby="slots-heading">
-      <h2 id="slots-heading" class="section-heading">
-        Spotlight & Recent
-      </h2>
-      <div class="slots-grid">
-        <div class="slot-card">
-          <span class="slot-badge">Recommendation</span>
-          <div class="slot-cover">
-            <MediaImage
-              src={recommendation.cover}
-              alt={`${recommendation.title} by ${recommendation.artist}`}
-              aspectRatio="1 / 1"
-              width={400}
-              height={400}
-              quality={95}
-            />
-          </div>
-          <div class="slot-content">
-            <h3 class="album-title">{recommendation.title}</h3>
-            <p class="album-artist">{recommendation.artist}</p>
-            <p
-              class="slot-rating"
-              style={`--rating-color: ${recRatingColors.light}; --rating-color-dark: ${recRatingColors.dark};`}
-            >
-              <span class="rating-value">{recommendation.rating}</span>
-              <span class="rating-max">/ {siteConfig.ratingMax}</span>
-            </p>
-            <AudioSnippetPlayer
-              title={recommendation.title}
-              artist={recommendation.artist}
-              previewUrl={recommendation.previewUrl}
-              previewTrack={recommendation.previewTrack}
-            />
-            {(recommendation.blurb || recommendation.note) && (
-              <p
-                class="slot-blurb"
-                set:html={recommendation.blurb || recommendation.note}
-              />
-            )}
-          </div>
-        </div>
-
-        <div class="slot-card">
-          <span class="slot-badge">Recent Listen</span>
-          <div class="slot-cover">
-            <MediaImage
-              src={recentListen.cover}
-              alt={`${recentListen.title} by ${recentListen.artist}`}
-              aspectRatio="1 / 1"
-              width={400}
-              height={400}
-              quality={95}
-            />
-          </div>
-          <div class="slot-content">
-            <h3 class="album-title">{recentListen.title}</h3>
-            <p class="album-artist">{recentListen.artist}</p>
-            <p
-              class="slot-rating"
-              style={`--rating-color: ${recentRatingColors.light}; --rating-color-dark: ${recentRatingColors.dark};`}
-            >
-              <span class="rating-value">{recentListen.rating}</span>
-              <span class="rating-max">/ {siteConfig.ratingMax}</span>
-            </p>
-            <AudioSnippetPlayer
-              title={recentListen.title}
-              artist={recentListen.artist}
-              previewUrl={recentListen.previewUrl}
-              previewTrack={recentListen.previewTrack}
-            />
-            {(recentListen.blurb || recentListen.note) && (
-              <p
-                class="slot-blurb"
-                set:html={recentListen.blurb || recentListen.note}
-              />
-            )}
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="favorites-section" aria-labelledby="favorites-heading">
-      <details class="favorites-accordion">
-        <summary class="favorites-summary">
-          <h2 id="favorites-heading" class="favorites-summary-title">
-            Personal All-Time Favorites
-          </h2>
-          <div class="summary-right">
-            <span class="count-badge">{favorites.length} albums</span>
-            <svg
-              class="chevron-icon"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </div>
-        </summary>
-        <div class="favorites-expanded">
-          <ol class="favorites-list">
-            {favorites.map((album, index) => (
-              <li class="favorite-item">
-                <div class="rank-badge" aria-label={`Rank ${index + 1}`}>
-                  #{index + 1}
-                </div>
-                <div class="favorite-cover">
-                  <MediaImage
-                    src={album.cover}
-                    alt={`${album.title} by ${album.artist}`}
-                    aspectRatio="1 / 1"
-                    width={140}
-                    height={140}
-                  />
-                </div>
-                <div class="favorite-details">
-                  <h3 class="album-title">{album.title}</h3>
-                  <p class="album-artist">{album.artist}</p>
-                  {album.blurb && (
-                    <p class="album-blurb" set:html={album.blurb} />
-                  )}
-                  <AudioSnippetPlayer
-                    title={album.title}
-                    artist={album.artist}
-                    previewUrl={album.previewUrl}
-                    previewTrack={album.previewTrack}
-                    size="sm"
-                  />
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </details>
-    </section>
-
-    <section class="vinyl-section" aria-labelledby="vinyl-heading">
-      <div class="vinyl-header">
-        <h2 id="vinyl-heading" class="section-heading">
-          Vinyl Collection
+      <section class="slots-section" aria-labelledby="slots-heading">
+        <h2 id="slots-heading" class="section-heading">
+          Spotlight & Recent
         </h2>
-        {sortedVinyl.length > 0 && (
-          <span class="vinyl-count">{sortedVinyl.length} records</span>
-        )}
-      </div>
-
-      {sortedVinyl.length > 0 ? (
-        <div class="vinyl-grid">
-          {sortedVinyl.map((record) => (
-            <div class="vinyl-card">
-              <button
-                type="button"
-                class="vinyl-jacket"
-                data-title={record.title}
-                data-artist={record.artist}
-                data-preview-url={record.previewUrl}
-                data-preview-track={record.previewTrack}
-                aria-label={`Preview snippet of ${record.title} by ${record.artist}`}
-                aria-pressed="false"
-                title={
-                  record.previewTrack
-                    ? `Preview "${record.previewTrack}" by ${record.artist}`
-                    : `Preview snippet of ${record.title} by ${record.artist}`
-                }
-              >
-                <MediaImage
-                  src={record.cover}
-                  alt={`${record.title} by ${record.artist}`}
-                  aspectRatio="1 / 1"
-                  width={240}
-                  height={240}
-                  class="vinyl-cover-image"
-                />
-
-                <!-- Dimming overlay with album info -->
-                <div class="vinyl-overlay" aria-hidden="true">
-                  <div class="vinyl-info">
-                    <p class="vinyl-title">{record.title}</p>
-                    <p class="vinyl-artist">{record.artist}</p>
-                  </div>
-                </div>
-
-                <!-- Play/Pause Action Icon (instant frosted glass, separate from opacity fade) -->
-                <div class="vinyl-action-icon" aria-hidden="true">
-                  <svg
-                    class="vinyl-progress-ring"
-                    viewBox="0 0 30 30"
-                    aria-hidden="true"
-                  >
-                    <circle class="ring-bg" cx="15" cy="15" r="14" />
-                    <circle class="ring-fill" cx="15" cy="15" r="14" />
-                  </svg>
-                  <svg
-                    class="icon-play"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                  <svg
-                    class="icon-pause"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                  </svg>
-                  <svg
-                    class="icon-loading"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                  >
-                    <circle cx="12" cy="12" r="10" stroke-opacity="0.25" />
-                    <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round" />
-                  </svg>
-                </div>
-              </button>
+        <div class="slots-grid">
+          <div class="slot-card">
+            <span class="slot-badge">Recommendation</span>
+            <div class="slot-cover">
+              <MediaImage
+                src={recommendation.cover}
+                alt={`${recommendation.title} by ${recommendation.artist}`}
+                aspectRatio="1 / 1"
+                width={400}
+                height={400}
+                quality={95}
+              />
             </div>
-          ))}
+            <div class="slot-content">
+              <h3 class="album-title">{recommendation.title}</h3>
+              <p class="album-artist">{recommendation.artist}</p>
+              <p
+                class="slot-rating"
+                style={`--rating-color: ${recRatingColors.light}; --rating-color-dark: ${recRatingColors.dark};`}
+              >
+                <span class="rating-value">{recommendation.rating}</span>
+                <span class="rating-max">/ {siteConfig.ratingMax}</span>
+              </p>
+              <AudioSnippetPlayer
+                title={recommendation.title}
+                artist={recommendation.artist}
+                previewUrl={recommendation.previewUrl}
+                previewTrack={recommendation.previewTrack}
+              />
+              {(recommendation.blurb || recommendation.note) && (
+                <p
+                  class="slot-blurb"
+                  set:html={recommendation.blurb || recommendation.note}
+                />
+              )}
+            </div>
+          </div>
+
+          <div class="slot-card">
+            <span class="slot-badge">Recent Listen</span>
+            <div class="slot-cover">
+              <MediaImage
+                src={recentListen.cover}
+                alt={`${recentListen.title} by ${recentListen.artist}`}
+                aspectRatio="1 / 1"
+                width={400}
+                height={400}
+                quality={95}
+              />
+            </div>
+            <div class="slot-content">
+              <h3 class="album-title">{recentListen.title}</h3>
+              <p class="album-artist">{recentListen.artist}</p>
+              <p
+                class="slot-rating"
+                style={`--rating-color: ${recentRatingColors.light}; --rating-color-dark: ${recentRatingColors.dark};`}
+              >
+                <span class="rating-value">{recentListen.rating}</span>
+                <span class="rating-max">/ {siteConfig.ratingMax}</span>
+              </p>
+              <AudioSnippetPlayer
+                title={recentListen.title}
+                artist={recentListen.artist}
+                previewUrl={recentListen.previewUrl}
+                previewTrack={recentListen.previewTrack}
+              />
+              {(recentListen.blurb || recentListen.note) && (
+                <p
+                  class="slot-blurb"
+                  set:html={recentListen.blurb || recentListen.note}
+                />
+              )}
+            </div>
+          </div>
         </div>
-      ) : (
-        <div class="vinyl-empty-card">
-          <p class="vinyl-empty-title">Your Vinyl Shelf</p>
-          <p class="vinyl-empty-desc">
-            Check the <code>Vinyl</code> box next to any album in your database
-            to showcase it here.
-          </p>
+      </section>
+
+      <section class="favorites-section" aria-labelledby="favorites-heading">
+        <details class="favorites-accordion">
+          <summary class="favorites-summary">
+            <h2 id="favorites-heading" class="favorites-summary-title">
+              Personal All-Time Favorites
+            </h2>
+            <div class="summary-right">
+              <span class="count-badge">{favorites.length} albums</span>
+              <svg
+                class="chevron-icon"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </summary>
+          <div class="favorites-expanded">
+            <ol class="favorites-list">
+              {favorites.map((album, index) => (
+                <li class="favorite-item">
+                  <div class="rank-badge" aria-label={`Rank ${index + 1}`}>
+                    #{index + 1}
+                  </div>
+                  <div class="favorite-cover">
+                    <MediaImage
+                      src={album.cover}
+                      alt={`${album.title} by ${album.artist}`}
+                      aspectRatio="1 / 1"
+                      width={140}
+                      height={140}
+                    />
+                  </div>
+                  <div class="favorite-details">
+                    <h3 class="album-title">{album.title}</h3>
+                    <p class="album-artist">{album.artist}</p>
+                    {album.blurb && (
+                      <p class="album-blurb" set:html={album.blurb} />
+                    )}
+                    <AudioSnippetPlayer
+                      title={album.title}
+                      artist={album.artist}
+                      previewUrl={album.previewUrl}
+                      previewTrack={album.previewTrack}
+                      size="sm"
+                    />
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </details>
+      </section>
+
+      <section class="vinyl-section" aria-labelledby="vinyl-heading">
+        <div class="vinyl-header">
+          <h2 id="vinyl-heading" class="section-heading">
+            Vinyl Collection
+          </h2>
+          {sortedVinyl.length > 0 && (
+            <span class="vinyl-count">{sortedVinyl.length} records</span>
+          )}
         </div>
-      )}
-    </section>
+
+        {sortedVinyl.length > 0 ? (
+          <div class="vinyl-grid">
+            {sortedVinyl.map((record) => (
+              <div class="vinyl-card">
+                <button
+                  type="button"
+                  class="vinyl-jacket"
+                  data-title={record.title}
+                  data-artist={record.artist}
+                  data-preview-url={record.previewUrl}
+                  data-preview-track={record.previewTrack}
+                  aria-label={`Preview snippet of ${record.title} by ${record.artist}`}
+                  aria-pressed="false"
+                  title={
+                    record.previewTrack
+                      ? `Preview "${record.previewTrack}" by ${record.artist}`
+                      : `Preview snippet of ${record.title} by ${record.artist}`
+                  }
+                >
+                  <MediaImage
+                    src={record.cover}
+                    alt={`${record.title} by ${record.artist}`}
+                    aspectRatio="1 / 1"
+                    width={240}
+                    height={240}
+                    class="vinyl-cover-image"
+                  />
+
+                  <!-- Dimming overlay with album info -->
+                  <div class="vinyl-overlay" aria-hidden="true">
+                    <div class="vinyl-info">
+                      <p class="vinyl-title">{record.title}</p>
+                      <p class="vinyl-artist">{record.artist}</p>
+                    </div>
+                  </div>
+
+                  <!-- Play/Pause Action Icon (instant frosted glass, separate from opacity fade) -->
+                  <div class="vinyl-action-icon" aria-hidden="true">
+                    <svg
+                      class="vinyl-progress-ring"
+                      viewBox="0 0 30 30"
+                      aria-hidden="true"
+                    >
+                      <circle class="ring-bg" cx="15" cy="15" r="14" />
+                      <circle class="ring-fill" cx="15" cy="15" r="14" />
+                    </svg>
+                    <svg
+                      class="icon-play"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                    <svg
+                      class="icon-pause"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                    <svg
+                      class="icon-loading"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                    >
+                      <circle cx="12" cy="12" r="10" stroke-opacity="0.25" />
+                      <path
+                        d="M12 2a10 10 0 0 1 10 10"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </div>
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div class="vinyl-empty-card">
+            <p class="vinyl-empty-title">Your Vinyl Shelf</p>
+            <p class="vinyl-empty-desc">
+              Check the <code>Vinyl</code> box next to any album in your
+              database to showcase it here.
+            </p>
+          </div>
+        )}
+      </section>
+    </div>
+
+    <MusicMosaic mosaic={mosaic} />
   </article>
 </Layout>
 
@@ -404,6 +470,16 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     display: flex;
     flex-direction: column;
     gap: var(--space-2xl);
+  }
+
+  .music-normal-view {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xl);
+  }
+
+  .music-normal-view[hidden] {
+    display: none !important;
   }
 
   .music-header {
@@ -487,6 +563,18 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     color: #1ed760;
     border-color: rgba(30, 215, 96, 0.45);
     background-color: rgba(30, 215, 96, 0.08);
+  }
+
+  .profile-logo-link.mosaic-toggle {
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .profile-logo-link.mosaic-toggle:hover,
+  .profile-logo-link.mosaic-toggle.is-active {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+    background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
   }
 
   .profile-logo-link:focus-visible {

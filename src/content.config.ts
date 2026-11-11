@@ -122,7 +122,25 @@ const music = defineCollection({
           previewTrack: z.string().optional()
         })
       )
-      .default([])
+      .default([]),
+    mosaic: z
+      .object({
+        atlasUrl: z.string(),
+        gridSize: z.number(),
+        tilePixelSize: z.number(),
+        albums: z.array(
+          z.object({
+            id: z.number().optional(),
+            title: z.string(),
+            artist: z.string(),
+            image: z.string(),
+            rank: z.number(),
+            streams: z.number()
+          })
+        ),
+        grid: z.array(z.number())
+      })
+      .optional()
   })
 });
 
