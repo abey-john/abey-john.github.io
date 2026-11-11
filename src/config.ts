@@ -21,7 +21,8 @@ export const defaultSiteConfig: SiteConfig = {
   github: '',
   linkedin: '',
   ratingMax: 10,
-  description: ''
+  description:
+    'Personal portfolio, engineering projects, travels, and thoughts of Abey John.'
 };
 
 export const siteConfig = defaultSiteConfig;
