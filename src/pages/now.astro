@@ -1,23 +1,53 @@
 ---
-import { getEntry, render } from 'astro:content';
+import { getCollection, render } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
 import LocalTimeBadge from '../components/LocalTimeBadge.astro';
+import MediaImage from '../components/MediaImage.astro';
 import { getSiteConfig } from '../config';
 
 const siteConfig = await getSiteConfig();
 const timezone = siteConfig.timezone || 'America/Los_Angeles';
 
-const nowEntry = await getEntry('now', 'index');
-const { Content } = nowEntry ? await render(nowEntry) : { Content: null };
+const allEntries = await getCollection('now');
+const sortedEntries = allEntries.sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime()
+);
 
-const formattedDate = nowEntry?.data.updated
+// Identify current snapshot: entry flagged isCurrent, or the latest entry
+const currentEntry =
+  sortedEntries.find((e) => e.data.isCurrent) || sortedEntries[0];
+const archivedEntries = sortedEntries.filter((e) => e.id !== currentEntry?.id);
+
+const { Content: CurrentContent } = currentEntry
+  ? await render(currentEntry)
+  : { Content: null };
+
+const formattedCurrentDate = currentEntry?.data.date
   ? new Intl.DateTimeFormat('en-US', {
       month: 'long',
       day: 'numeric',
       year: 'numeric',
       timeZone: timezone
-    }).format(nowEntry.data.updated)
+    }).format(currentEntry.data.date)
   : null;
+
+// Pre-render archived snapshots
+const renderedArchives = await Promise.all(
+  archivedEntries.map(async (entry) => {
+    const { Content } = await render(entry);
+    const dateLabel = new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: timezone
+    }).format(entry.data.date);
+    return {
+      entry,
+      Content,
+      dateLabel
+    };
+  })
+);
 ---
 
 <Layout title="Now" description="What I am currently focused on.">
@@ -26,13 +56,13 @@ const formattedDate = nowEntry?.data.updated
       <div class="now-header-row">
         <div class="now-header-title-group">
           <h1 class="now-title">Now</h1>
-          {formattedDate && nowEntry && (
+          {formattedCurrentDate && currentEntry && (
             <p class="now-updated">
               <span class="updated-label">Updated:</span>
               <time
-                datetime={nowEntry.data.updated.toISOString().split('T')[0]}
+                datetime={currentEntry.data.date.toISOString().split('T')[0]}
               >
-                {formattedDate}
+                {formattedCurrentDate}
               </time>
             </p>
           )}
@@ -41,7 +71,105 @@ const formattedDate = nowEntry?.data.updated
       </div>
     </header>
 
-    <div class="prose now-body">{Content && <Content />}</div>
+    <div class="prose now-body">{CurrentContent && <CurrentContent />}</div>
+
+    {currentEntry?.data.photo && (
+      <figure class="snapshot-photo-card">
+        <MediaImage
+          src={currentEntry.data.photo}
+          alt={
+            currentEntry.data.caption ||
+            currentEntry.data.title ||
+            'Current snapshot photo'
+          }
+          width={902}
+          quality={95}
+          loading="lazy"
+          fit="contain"
+          class="snapshot-photo-wrapper"
+          imageClass="snapshot-photo"
+        />
+        {currentEntry.data.caption && (
+          <figcaption class="snapshot-photo-caption">
+            {currentEntry.data.caption}
+          </figcaption>
+        )}
+      </figure>
+    )}
+
+    {renderedArchives.length > 0 && (
+      <section class="then-section" aria-labelledby="heading-then">
+        <header class="then-header">
+          <h2 id="heading-then" class="then-title">
+            Then
+          </h2>
+        </header>
+
+        <div class="archive-list">
+          {renderedArchives.map(({ entry, Content, dateLabel }) => (
+            <details class="archive-accordion">
+              <summary class="archive-summary">
+                <span class="archive-entry-title">
+                  {entry.data.title || dateLabel}
+                </span>
+                <div class="archive-summary-meta">
+                  {entry.data.title && (
+                    <time
+                      class="archive-date"
+                      datetime={entry.data.date.toISOString().split('T')[0]}
+                    >
+                      {dateLabel}
+                    </time>
+                  )}
+                  <svg
+                    class="archive-chevron"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <polyline points="4 6 8 10 12 6" />
+                  </svg>
+                </div>
+              </summary>
+              <div class="archive-content">
+                <div class="prose archive-body">
+                  <Content />
+                </div>
+                {entry.data.photo && (
+                  <figure class="snapshot-photo-card archive-photo-card">
+                    <MediaImage
+                      src={entry.data.photo}
+                      alt={
+                        entry.data.caption ||
+                        entry.data.title ||
+                        `${entry.data.title || dateLabel} snapshot photo`
+                      }
+                      width={902}
+                      quality={92}
+                      loading="lazy"
+                      fit="contain"
+                      class="snapshot-photo-wrapper"
+                      imageClass="snapshot-photo"
+                    />
+                    {entry.data.caption && (
+                      <figcaption class="snapshot-photo-caption">
+                        {entry.data.caption}
+                      </figcaption>
+                    )}
+                  </figure>
+                )}
+              </div>
+            </details>
+          ))}
+        </div>
+      </section>
+    )}
 
     <footer class="now-colophon">
       <p>
@@ -116,10 +244,52 @@ const formattedDate = nowEntry?.data.updated
     display: flex;
     align-items: baseline;
     gap: var(--space-xs);
+    flex-wrap: wrap;
   }
 
   .updated-label {
     color: var(--color-text-muted);
+  }
+
+  .snapshot-photo-card {
+    margin: var(--space-sm) 0 0 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+  }
+
+  :global(.snapshot-photo-wrapper) {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: transparent;
+  }
+
+  :global(.snapshot-photo) {
+    max-width: 100%;
+    width: auto !important;
+    height: auto !important;
+    max-height: 520px;
+    object-fit: contain !important;
+    display: block;
+    margin: 0 auto;
+    border-radius: var(--radius-md);
+  }
+
+  .snapshot-photo-caption {
+    width: 100%;
+    padding: var(--space-xs) 0 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    background-color: transparent;
+    border-top: none;
+    font-style: italic;
+    text-align: center;
   }
 
   .now-body {
@@ -134,11 +304,12 @@ const formattedDate = nowEntry?.data.updated
     max-width: 100%;
     height: auto;
     border-radius: var(--radius-md);
-    margin: var(--space-sm) 0;
+    display: block;
+    margin: var(--space-sm) auto;
   }
 
   .now-body :global(p > img) {
-    margin: 0;
+    margin: 0 auto;
   }
 
   .now-body :global(img + em) {
@@ -148,6 +319,151 @@ const formattedDate = nowEntry?.data.updated
     font-style: normal;
     text-align: center;
     margin-top: calc(-1 * var(--space-xs));
+  }
+
+  /* Then / Archive Section */
+  .then-section {
+    margin-top: var(--space-xl);
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+
+  .then-title {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .archive-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .archive-accordion {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg);
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+
+  .archive-accordion:hover {
+    border-color: var(--color-text-muted);
+  }
+
+  .archive-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-lg);
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    gap: var(--space-md);
+    transition: background-color 0.15s ease;
+  }
+
+  .archive-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .archive-summary:hover {
+    background-color: var(--color-border-subtle);
+  }
+
+  .archive-summary:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+
+  .archive-entry-title {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--color-text);
+    line-height: 1.4;
+  }
+
+  .archive-summary-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    flex-shrink: 0;
+  }
+
+  .archive-date {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  .archive-chevron {
+    color: var(--color-text-muted);
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    flex-shrink: 0;
+  }
+
+  .archive-accordion[open] .archive-chevron {
+    transform: rotate(180deg);
+  }
+
+  .archive-content {
+    padding: var(--space-md) var(--space-lg);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .archive-body {
+    font-size: var(--font-size-base);
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    color: var(--color-text);
+  }
+
+  .archive-body :global(p) {
+    margin: 0;
+  }
+
+  .archive-body :global(h2),
+  .archive-body :global(h3),
+  .archive-body :global(h4) {
+    margin-top: var(--space-sm);
+    margin-bottom: var(--space-xs);
+    font-size: var(--font-size-base);
+    font-weight: 600;
+  }
+
+  .archive-body :global(img) {
+    max-width: 100%;
+    height: auto;
+    max-height: 440px;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+    display: block;
+    margin: var(--space-xs) auto;
+  }
+
+  .archive-body :global(p > img) {
+    margin: 0 auto;
+  }
+
+  .archive-photo-card {
+    width: 100%;
+    margin-top: var(--space-sm);
+    margin-bottom: 0;
+  }
+
+  .archive-photo-card :global(.snapshot-photo) {
+    max-height: 440px;
   }
 
   .now-colophon {

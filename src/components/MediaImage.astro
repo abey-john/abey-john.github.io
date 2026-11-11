@@ -16,6 +16,8 @@ interface Props {
   sizes?: string;
   densities?: (number | `${number}x`)[];
   quality?: number | 'low' | 'mid' | 'high' | 'max';
+  fit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
+  style?: string;
 }
 
 const {
@@ -30,17 +32,29 @@ const {
   widths,
   sizes,
   densities,
-  quality = 92
+  quality = 92,
+  fit,
+  style: inlineStyle
 } = Astro.props;
 
 const imageMetadata = await getNotionImageMetadata(src);
 const imageProps = widths
   ? { widths, sizes }
   : { densities: densities ?? [1, 2] };
+
+const isContain = fit === 'contain';
+
+const imageStyle = [
+  fit ? `object-fit: ${fit};` : undefined,
+  isContain ? 'width: auto; height: auto; max-width: 100%;' : undefined,
+  inlineStyle
+]
+  .filter(Boolean)
+  .join(' ');
 ---
 
 <div
-  class:list={['image-wrapper', className]}
+  class:list={['image-wrapper', { 'fit-contain': isContain }, className]}
   style={aspectRatio ? `aspect-ratio: ${aspectRatio};` : undefined}
 >
   {imageMetadata ? (
@@ -57,7 +71,8 @@ const imageProps = widths
       quality={quality}
       loading={loading}
       {...imageProps}
-      class:list={['media-image', imageClass]}
+      class:list={['media-image', { 'fit-contain': isContain }, imageClass]}
+      style={imageStyle || undefined}
     />
   ) : (
     <img
@@ -66,7 +81,8 @@ const imageProps = widths
       width={width}
       height={height}
       loading={loading}
-      class:list={['media-image', imageClass]}
+      class:list={['media-image', { 'fit-contain': isContain }, imageClass]}
+      style={imageStyle || undefined}
     />
   )}
 </div>
@@ -79,10 +95,25 @@ const imageProps = widths
     background-color: var(--color-border-subtle);
   }
 
+  .image-wrapper.fit-contain {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: transparent;
+  }
+
   .media-image {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .media-image.fit-contain {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    object-fit: contain;
+    margin: 0 auto;
   }
 </style>

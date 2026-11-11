@@ -25,7 +25,13 @@ const about = defineCollection({
 const now = defineCollection({
   loader: notionNowLoader(),
   schema: z.object({
-    updated: z.coerce.date()
+    id: z.string(),
+    title: z.string().optional(),
+    date: z.coerce.date(),
+    photo: z.string().optional(),
+    caption: z.string().optional(),
+    status: z.string().optional(),
+    isCurrent: z.boolean().default(false)
   })
 });
 
