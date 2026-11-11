@@ -296,7 +296,10 @@ const { username = 'itseebo', limit = 5, class: className = '' } = Astro.props;
       });
   }
 
-  function renderTrackNodes(items: StatsFmTrackItem[]): string {
+  function renderTrackNodes(
+    items: StatsFmTrackItem[],
+    isAriaClone = false
+  ): string {
     if (!items || items.length === 0) return '';
 
     return items
@@ -312,14 +315,19 @@ const { username = 'itseebo', limit = 5, class: className = '' } = Astro.props;
         const previewUrl =
           item.track?.appleMusicPreview || item.track?.spotifyPreview || '';
 
+        const cloneAttrs = isAriaClone
+          ? 'tabindex="-1" aria-hidden="true"'
+          : '';
+
         return `
           <button
             type="button"
-            class="ticker-pill"
+            class="ticker-pill${isAriaClone ? ' is-clone' : ''}"
             data-track-id="${escapeHtml(trackId)}"
             data-title="${escapeHtml(title)}"
             data-artist="${escapeHtml(artist)}"
             data-preview-url="${escapeHtml(previewUrl)}"
+            ${cloneAttrs}
             aria-label="Preview snippet of ${escapeHtml(title)} by ${escapeHtml(artist)}"
             aria-pressed="false"
             title="Preview snippet of &quot;${escapeHtml(title)}&quot; by ${escapeHtml(artist)}"
@@ -458,11 +466,8 @@ const { username = 'itseebo', limit = 5, class: className = '' } = Astro.props;
         return;
       }
 
-      const repeatedItems = items.length <= 5 ? [...items, ...items] : items;
-      const htmlContent = renderTrackNodes(repeatedItems);
-
-      primaryTrack.innerHTML = htmlContent;
-      secondaryTrack.innerHTML = htmlContent;
+      primaryTrack.innerHTML = renderTrackNodes(items, false);
+      secondaryTrack.innerHTML = renderTrackNodes(items, true);
 
       // Attach click listeners to all buttons
       marquee.querySelectorAll<HTMLElement>('.ticker-pill').forEach((pill) => {
@@ -643,7 +648,7 @@ const { username = 'itseebo', limit = 5, class: className = '' } = Astro.props;
     gap: 0.85rem;
     padding-right: 0.85rem;
     flex-shrink: 0;
-    animation: ticker-slide 38s linear infinite;
+    animation: ticker-slide 24s linear infinite;
     will-change: transform;
   }
 
