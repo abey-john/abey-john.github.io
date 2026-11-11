@@ -229,7 +229,8 @@ export function createMarkers(
       closeButton: true,
       closeOnClick: true,
       className: popupClass,
-      maxWidth: popupMaxWidth
+      maxWidth: popupMaxWidth,
+      focusAfterOpen: false
     })
       .setLngLat([place.lng, place.lat])
       .setHTML(popupContent);
