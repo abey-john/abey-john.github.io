@@ -183,6 +183,30 @@ export async function downloadRemoteImage(
         if (!fs.existsSync(srcTargetPath)) {
           fs.writeFileSync(srcTargetPath, cleanBuffer);
         }
+
+        // Also generate lightweight 432px thumbnail for popup cards
+        if (!isVectorOrAnim) {
+          const thumbFilename = `${hash}-432.webp`;
+          const publicThumbPath = path.join(publicNotionDir, thumbFilename);
+          const srcThumbPath = path.join(srcNotionDir, thumbFilename);
+          if (!fs.existsSync(publicThumbPath) || !fs.existsSync(srcThumbPath)) {
+            try {
+              const thumbBuffer = await sharp(cleanBuffer)
+                .rotate()
+                .resize({ width: 432, withoutEnlargement: true })
+                .webp({ quality: 80 })
+                .toBuffer();
+              if (!fs.existsSync(publicThumbPath)) {
+                fs.writeFileSync(publicThumbPath, thumbBuffer);
+              }
+              if (!fs.existsSync(srcThumbPath)) {
+                fs.writeFileSync(srcThumbPath, thumbBuffer);
+              }
+            } catch {
+              // Ignore thumbnail generation errors
+            }
+          }
+        }
       } else {
         return url;
       }

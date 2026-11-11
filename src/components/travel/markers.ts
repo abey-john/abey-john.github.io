@@ -72,18 +72,6 @@ export function createMarkers(
     }) => void;
   }
 ): MarkerRecord[] {
-  // Pre-cache place photos in background so marker popups render instantaneously
-  if (typeof window !== 'undefined') {
-    places.forEach((p) => {
-      if (p.photo) {
-        const webpUrl = p.photo.replace(/\.(png|jpe?g)$/i, '.webp');
-        const img = new Image();
-        img.decoding = 'async';
-        img.src = webpUrl;
-      }
-    });
-  }
-
   const records: MarkerRecord[] = [];
 
   for (const place of places) {
@@ -161,6 +149,10 @@ export function createMarkers(
     }
 
     const hasPhoto = Boolean(place.photo);
+    const photoUrl = place.photo || '';
+    const thumbUrl = photoUrl
+      ? photoUrl.replace(/\.(webp|png|jpe?g)$/i, '-432.webp')
+      : '';
     const hasTrips = Boolean(place.trips && place.trips.length > 0);
     const popupClass = hasPhoto
       ? 'custom-maplibre-popup popup-has-photo'
@@ -193,8 +185,16 @@ export function createMarkers(
                     data-photo-tag-class="${tagClass}"
                   >
                     <picture>
-                      <source srcset="${place.photo.replace(/\.(png|jpe?g)$/i, '.webp')}" type="image/webp" />
-                      <img src="${place.photo}" alt="${place.name}" class="popup-img" width="216" height="216" loading="eager" decoding="async" />
+                      <source data-srcset="${thumbUrl}" type="image/webp" />
+                      <img
+                        data-src="${thumbUrl}"
+                        alt="${place.name}"
+                        class="popup-img"
+                        width="216"
+                        height="216"
+                        loading="lazy"
+                        decoding="async"
+                      />
                     </picture>
                     <span class="popup-photo-expand-badge" aria-hidden="true" title="Expand photo">
                       <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -239,6 +239,16 @@ export function createMarkers(
 
       const popupEl = popup.getElement();
       if (!popupEl) return;
+
+      const img = popupEl.querySelector<HTMLImageElement>('.popup-img');
+      if (img && img.dataset.src && !img.src) {
+        const source =
+          popupEl.querySelector<HTMLSourceElement>('picture source');
+        if (source && source.dataset.srcset) {
+          source.srcset = source.dataset.srcset;
+        }
+        img.src = img.dataset.src;
+      }
 
       const photoBtn =
         popupEl.querySelector<HTMLButtonElement>('.popup-photo-btn');
