@@ -2,14 +2,16 @@
 import { getSiteConfig } from '../config';
 
 const siteConfig = await getSiteConfig();
-const pathname = Astro.url.pathname.replace(/\/$/, '') || '/';
+const pathname = Astro.url.pathname.endsWith('/')
+  ? Astro.url.pathname
+  : Astro.url.pathname + '/';
 
 const navItems = [
   { href: '/', label: 'About', key: 'about' },
-  { href: '/development', label: 'Development', key: 'development' },
-  { href: '/travel', label: 'Travel', key: 'travel' },
-  { href: '/music', label: 'Music', key: 'music' },
-  { href: '/now', label: 'Now', key: 'now' }
+  { href: '/development/', label: 'Development', key: 'development' },
+  { href: '/travel/', label: 'Travel', key: 'travel' },
+  { href: '/music/', label: 'Music', key: 'music' },
+  { href: '/now/', label: 'Now', key: 'now' }
 ];
 ---
 
@@ -25,8 +27,7 @@ const navItems = [
             const isCurrent =
               item.href === '/'
                 ? pathname === '/'
-                : pathname === item.href ||
-                  pathname.startsWith(item.href + '/');
+                : pathname === item.href || pathname.startsWith(item.href);
             return (
               <li>
                 <a

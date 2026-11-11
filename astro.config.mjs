@@ -4,6 +4,7 @@ import { defineConfig, sharpImageService } from 'astro/config';
 // https://astro.build/config
 export default defineConfig({
   site: 'https://abey-john.github.io',
+  trailingSlash: 'always',
   image: {
     service: sharpImageService({
       webp: { quality: 85 },
