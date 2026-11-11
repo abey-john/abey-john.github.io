@@ -421,9 +421,12 @@ export function initTravelMap(): void {
 
   const map = new maplibregl.Map({
     container: mapEl,
-    style: MAP_STYLE,
-    center: [-98.35, 39.5],
-    zoom: 3.5,
+    bounds: DEFAULT_BOUNDS,
+    fitBoundsOptions: {
+      padding:
+        typeof window !== 'undefined' && window.innerWidth < 640 ? 20 : 40,
+      duration: 0
+    },
     minZoom: 1.5,
     maxZoom: 19,
     attributionControl: false,
@@ -435,6 +438,22 @@ export function initTravelMap(): void {
     renderWorldCopies: true,
     crossSourceCollisions: false,
     collectResourceTiming: false
+  });
+  map.setStyle(MAP_STYLE, {
+    transformStyle: (
+      _prev: maplibregl.StyleSpecification | undefined,
+      next: maplibregl.StyleSpecification
+    ) => {
+      if (next.sources && (next.sources as any).ne2_shaded) {
+        delete (next.sources as any).ne2_shaded;
+      }
+      if (next.layers) {
+        next.layers = next.layers.filter(
+          (layer) => layer.id !== 'natural_earth'
+        );
+      }
+      return next;
+    }
   });
   mapInstance = map;
 
@@ -508,10 +527,6 @@ export function initTravelMap(): void {
   });
 
   map.on('load', () => {
-    map.fitBounds(DEFAULT_BOUNDS, {
-      padding: window.innerWidth < 640 ? 20 : 40,
-      duration: 0
-    });
     syncMarkerVisibility();
   });
 
