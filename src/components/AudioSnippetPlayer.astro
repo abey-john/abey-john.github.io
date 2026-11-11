@@ -577,6 +577,11 @@ const {
 
     // Case 2: Switching tracks or starting fresh
     stopCurrent();
+    window.dispatchEvent(
+      new CustomEvent('music:stop-other-audio', {
+        detail: { source: 'snippet-player' }
+      })
+    );
 
     activeTarget = target;
     if (target.type === 'pill') {
@@ -806,6 +811,13 @@ const {
       });
     });
   }
+
+  // Global audio coordination across player instances & ticker
+  window.addEventListener('music:stop-other-audio', (e: Event) => {
+    if ((e as CustomEvent).detail?.source !== 'snippet-player') {
+      stopCurrent();
+    }
+  });
 
   // Cleanup audio when user navigates away
   document.addEventListener('astro:before-swap', () => {

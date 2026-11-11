@@ -3,6 +3,7 @@ import { getEntry } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
 import MediaImage from '../components/MediaImage.astro';
 import AudioSnippetPlayer from '../components/AudioSnippetPlayer.astro';
+import MusicTicker from '../components/MusicTicker.astro';
 import { getSiteConfig } from '../config';
 
 const siteConfig = await getSiteConfig();
@@ -155,6 +156,8 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
         </div>
       </div>
     </header>
+
+    <MusicTicker username="itseebo" limit={5} />
 
     <section class="slots-section" aria-labelledby="slots-heading">
       <h2 id="slots-heading" class="section-heading">
