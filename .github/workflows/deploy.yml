@@ -45,7 +45,7 @@ jobs:
         run: npm run check:exif
 
       - name: Cache Notion route geometries
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: src/assets/notion/routes
           key: notion-routes-${{ runner.os }}
