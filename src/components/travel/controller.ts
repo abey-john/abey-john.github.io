@@ -421,6 +421,7 @@ export function initTravelMap(): void {
 
   const map = new maplibregl.Map({
     container: mapEl,
+    style: MAP_STYLE,
     bounds: DEFAULT_BOUNDS,
     fitBoundsOptions: {
       padding:
@@ -438,22 +439,6 @@ export function initTravelMap(): void {
     renderWorldCopies: true,
     crossSourceCollisions: false,
     collectResourceTiming: false
-  });
-  map.setStyle(MAP_STYLE, {
-    transformStyle: (
-      _prev: maplibregl.StyleSpecification | undefined,
-      next: maplibregl.StyleSpecification
-    ) => {
-      if (next.sources && (next.sources as any).ne2_shaded) {
-        delete (next.sources as any).ne2_shaded;
-      }
-      if (next.layers) {
-        next.layers = next.layers.filter(
-          (layer) => layer.id !== 'natural_earth'
-        );
-      }
-      return next;
-    }
   });
   mapInstance = map;
 
