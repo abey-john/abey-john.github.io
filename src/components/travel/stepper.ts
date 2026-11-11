@@ -233,7 +233,15 @@ export function setupKeyboardNav(callbacks: {
       return;
     }
 
-    if (!callbacks.isTripActive() || isImageModalOpen()) return;
+    if (isImageModalOpen()) return;
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      callbacks.onEscape();
+      return;
+    }
+
+    if (!callbacks.isTripActive()) return;
 
     if (e.key === 'ArrowRight') {
       e.preventDefault();
@@ -241,9 +249,6 @@ export function setupKeyboardNav(callbacks: {
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
       callbacks.onPrev();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      callbacks.onEscape();
     }
   };
 

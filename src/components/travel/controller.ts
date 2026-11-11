@@ -723,6 +723,7 @@ export function initTravelMap(): void {
       const openPopup = markerRecords.find((r) => r.popup.isOpen());
       if (openPopup) {
         openPopup.popup.remove();
+        openPopup.element.focus();
       } else if (currentStopIndex !== -1 && stepperFit) {
         stepperFit.click();
       }

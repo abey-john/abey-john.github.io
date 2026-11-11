@@ -283,6 +283,17 @@ export function createMarkers(
       el.style.display = 'none';
     }
 
+    popup.on('close', () => {
+      const active = document.activeElement;
+      if (
+        !active ||
+        active === document.body ||
+        popup.getElement()?.contains(active)
+      ) {
+        el.focus();
+      }
+    });
+
     const pin = document.createElement('div');
     pin.className = `pin-marker ${
       isPark
