@@ -30,7 +30,7 @@
     "esbuild": true
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
+    "@astrojs/check": "^0.9.12",
     "@types/node": "^26.6.4",
     "prettier": "^3.9.10",
     "prettier-plugin-astro": "^1.1.2",
