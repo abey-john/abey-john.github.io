@@ -496,6 +496,74 @@ export function initMusicMosaic(): () => void {
     return false;
   }
 
+  function getBaseTitle(str: string): string {
+    return (str || '')
+      .replace(
+        /\s*[-–—(\[]\s*(feat\.?|ft\.?|with\s|remaster|deluxe|bonus|explicit|clean|version|edition|stereo|mono)[^)\]]*[)\]]?/gi,
+        ''
+      )
+      .split(/[:(\[\-–—]/)[0]
+      .trim();
+  }
+
+  function getAlternatePenalty(
+    trackName: string,
+    collectionName: string,
+    artistName: string,
+    allowedContext: string
+  ): number {
+    const trk = (trackName || '').toLowerCase();
+    const col = (collectionName || '').toLowerCase();
+    const art = (artistName || '').toLowerCase();
+    const ctx = (allowedContext || '').toLowerCase();
+
+    let penalty = 0;
+
+    // Heavy penalty for tribute / karaoke / lullaby / cover bands
+    if (
+      /\b(tribute|lullaby|karaoke|8-bit|music box|piano guys|vitamin string)\b/.test(
+        `${trk} ${col} ${art}`
+      )
+    ) {
+      penalty += 220;
+    }
+
+    // Penalize remixes, DJ mixes, sped-up/slowed, instrumentals, commentary unless expected by the album/track context
+    const remixChecks: Array<[RegExp, number]> = [
+      [/\b(remix|remixes|re-mix|megamix|club mix|vip mix|dub mix)\b/, 130],
+      [/\b(sped up|slowed|chopped|screwed|nightcore)\b/, 130],
+      [/\b(instrumental|acapella|a cappella|karaoke|commentary)\b/, 120],
+      [/\b(live|concert|unplugged|mtv unplugged)\b/, 90],
+      [
+        /\b(acoustic|stripped|demo|voice memo|session|sessions|rehearsal)\b/,
+        85
+      ],
+      [/\b(radio edit|short edit|intro|outro|skit|interlude)\b/, 45]
+    ];
+
+    for (const [regex, weight] of remixChecks) {
+      if ((regex.test(trk) || regex.test(col)) && !regex.test(ctx)) {
+        penalty += weight;
+      }
+    }
+
+    // Penalize singles / EPs / greatest hits compilations when matching a studio album
+    if (
+      (/\b(single|ep)\b/.test(col) || col.includes(' - single')) &&
+      !/\b(single|ep)\b/.test(ctx)
+    ) {
+      penalty += 35;
+    }
+    if (
+      /\b(greatest hits|best of|essential|anthology)\b/.test(col) &&
+      !/\b(greatest hits|best of|essential|anthology)\b/.test(ctx)
+    ) {
+      penalty += 30;
+    }
+
+    return penalty;
+  }
+
   async function resolveAlbumPreview(
     alb: MosaicAlbum,
     albumIdx: number,
@@ -506,10 +574,10 @@ export function initMusicMosaic(): () => void {
     }
 
     const primaryArtist = alb.artist.split(',')[0].trim();
-    const baseAlbumTitle = alb.title.split(/[:(\[]/)[0].trim();
+    const baseAlbumTitle = getBaseTitle(alb.title) || alb.title;
     let preferredTrackName = '';
 
-    // 1. Query stats.fm for the user's top-streamed track on this exact album (plus the album's tracklist)
+    // 1. Query stats.fm for the user's #1 most-streamed studio track on this exact album
     if (alb.id) {
       try {
         const [userTracksRes, albumTracksRes] = await Promise.all([
@@ -526,11 +594,32 @@ export function initMusicMosaic(): () => void {
           const userData = await userTracksRes.json();
           const userItems = Array.isArray(userData.items) ? userData.items : [];
           if (userItems.length > 0) {
-            preferredTrackName = userItems[0]?.track?.name || '';
-            for (const item of userItems) {
+            // Prefer the user's highest-streamed non-remix/non-alternate track
+            const bestUserItem =
+              userItems.find(
+                (item: any) =>
+                  item?.track?.name &&
+                  getAlternatePenalty(
+                    item.track.name,
+                    alb.title,
+                    alb.artist,
+                    alb.title
+                  ) === 0
+              ) || userItems[0];
+
+            preferredTrackName = bestUserItem?.track?.name || '';
+
+            // Only use a direct stats.fm preview URL if it is on one of the user's top 2 tracks
+            // AND that track has zero remix/live/acoustic penalty (otherwise look up the studio track on iTunes)
+            for (const item of userItems.slice(0, 2)) {
+              const tName = item?.track?.name || '';
               const directUrl =
                 item?.track?.appleMusicPreview || item?.track?.spotifyPreview;
-              if (directUrl) {
+              if (
+                directUrl &&
+                getAlternatePenalty(tName, alb.title, alb.artist, alb.title) ===
+                  0
+              ) {
                 previewUrlCache.set(albumIdx, directUrl);
                 return directUrl;
               }
@@ -538,18 +627,22 @@ export function initMusicMosaic(): () => void {
           }
         }
 
-        if (albumTracksRes?.ok) {
+        if (!preferredTrackName && albumTracksRes?.ok) {
           const albData = await albumTracksRes.json();
           const albTracks = Array.isArray(albData.items) ? albData.items : [];
-          if (!preferredTrackName && albTracks.length > 0) {
-            preferredTrackName = albTracks[0]?.name || '';
-          }
-          for (const trk of albTracks) {
-            const directUrl = trk?.appleMusicPreview || trk?.spotifyPreview;
-            if (directUrl) {
-              previewUrlCache.set(albumIdx, directUrl);
-              return directUrl;
-            }
+          if (albTracks.length > 0) {
+            const bestAlbTrack =
+              albTracks.find(
+                (trk: any) =>
+                  trk?.name &&
+                  getAlternatePenalty(
+                    trk.name,
+                    alb.title,
+                    alb.artist,
+                    alb.title
+                  ) === 0
+              ) || albTracks[0];
+            preferredTrackName = bestAlbTrack?.name || '';
           }
         }
       } catch (err: any) {
@@ -557,7 +650,46 @@ export function initMusicMosaic(): () => void {
       }
     }
 
-    // 2. Album-First iTunes Lookup: Find the verified album collectionId, then look up its songs
+    const allowedContext = `${alb.title} ${preferredTrackName}`;
+    const cleanPrefFull = cleanMatchText(preferredTrackName);
+    const cleanPrefBase = cleanMatchText(getBaseTitle(preferredTrackName));
+    const cleanAlbumBase = cleanMatchText(baseAlbumTitle);
+
+    const scoreCandidateTrack = (
+      trackName: string,
+      collectionName: string,
+      artistName: string
+    ): number => {
+      const cTrkFull = cleanMatchText(trackName);
+      const cTrkBase = cleanMatchText(getBaseTitle(trackName));
+      let score = 0;
+
+      if (cleanPrefFull && cTrkFull === cleanPrefFull) {
+        score += 140;
+      } else if (cleanPrefBase && cTrkBase === cleanPrefBase) {
+        score += 110;
+      } else if (
+        cleanPrefBase &&
+        cleanPrefBase.length >= 3 &&
+        (cTrkBase.includes(cleanPrefBase) || cleanPrefBase.includes(cTrkBase))
+      ) {
+        score += 65;
+      } else if (cleanAlbumBase && cTrkBase === cleanAlbumBase) {
+        score += 35;
+      } else {
+        score += 10;
+      }
+
+      score -= getAlternatePenalty(
+        trackName,
+        collectionName,
+        artistName,
+        allowedContext
+      );
+      return score;
+    };
+
+    // 2. Album-First iTunes Lookup: Find the verified studio album collectionId, then score its tracks
     try {
       const albumQueries = [
         `${alb.title} ${primaryArtist}`,
@@ -568,7 +700,7 @@ export function initMusicMosaic(): () => void {
 
       for (const q of albumQueries) {
         const albRes = await fetch(
-          `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=8`,
+          `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=10`,
           { signal }
         );
         if (!albRes.ok) continue;
@@ -580,7 +712,14 @@ export function initMusicMosaic(): () => void {
             matchesAlbumTitle(c.collectionName, alb.title)
         );
 
-        for (const col of matchingCollections.slice(0, 2)) {
+        // Sort standard studio albums ahead of Remix / Live / Single / Tribute editions
+        matchingCollections.sort(
+          (a: any, b: any) =>
+            getAlternatePenalty('', a.collectionName, a.artistName, alb.title) -
+            getAlternatePenalty('', b.collectionName, b.artistName, alb.title)
+        );
+
+        for (const col of matchingCollections.slice(0, 3)) {
           const lookupRes = await fetch(
             `https://itunes.apple.com/lookup?id=${col.collectionId}&entity=song`,
             { signal }
@@ -591,30 +730,28 @@ export function initMusicMosaic(): () => void {
             (t: any) => t.wrapperType === 'track' && t.previewUrl
           );
           if (tracks.length > 0) {
-            const cleanPref = cleanMatchText(
-              preferredTrackName.split(/[:(\[-]/)[0]
-            );
-            const matchedTrack = cleanPref
-              ? tracks.find((t: any) =>
-                  cleanMatchText(t.trackName).includes(cleanPref)
+            const scoredTracks = tracks
+              .map((t: any) => ({
+                track: t,
+                score: scoreCandidateTrack(
+                  t.trackName,
+                  col.collectionName || alb.title,
+                  t.artistName || alb.artist
                 )
-              : null;
-            const chosen =
-              matchedTrack ||
-              tracks.find(
-                (t: any) => !t.trackName.toLowerCase().includes('intro')
-              ) ||
-              tracks[0];
-            if (chosen?.previewUrl) {
-              previewUrlCache.set(albumIdx, chosen.previewUrl);
-              return chosen.previewUrl;
+              }))
+              .sort((a: any, b: any) => b.score - a.score);
+
+            const best = scoredTracks[0];
+            if (best && best.score > 0 && best.track?.previewUrl) {
+              previewUrlCache.set(albumIdx, best.track.previewUrl);
+              return best.track.previewUrl;
             }
           }
         }
       }
 
-      // 3. Fallback: Search by preferredTrackName (from stats.fm album tracks) or album title with strict artist & album verification
-      const cleanPrefTrack = preferredTrackName.split(/[:(\[-]/)[0].trim();
+      // 3. Fallback: Scoped song search with strict album & anti-remix scoring
+      const cleanPrefTrack = getBaseTitle(preferredTrackName);
       const songQueries = [
         ...(cleanPrefTrack
           ? [
@@ -627,22 +764,32 @@ export function initMusicMosaic(): () => void {
 
       for (const sq of songQueries) {
         const songRes = await fetch(
-          `https://itunes.apple.com/search?term=${encodeURIComponent(sq)}&entity=song&limit=15`,
+          `https://itunes.apple.com/search?term=${encodeURIComponent(sq)}&entity=song&limit=20`,
           { signal }
         );
         if (!songRes.ok) continue;
         const songJson = await songRes.json();
-        const validSongs = (songJson.results || []).filter(
+        const candidates = (songJson.results || []).filter(
           (s: any) =>
-            s.previewUrl &&
-            matchesArtistName(s.artistName, alb.artist) &&
-            (matchesAlbumTitle(s.collectionName || '', alb.title) ||
-              (cleanPrefTrack &&
-                matchesAlbumTitle(s.trackName || '', cleanPrefTrack)))
+            s.previewUrl && matchesArtistName(s.artistName, alb.artist)
         );
 
-        if (validSongs.length > 0) {
-          const url = validSongs[0].previewUrl;
+        const scoredSongs = candidates
+          .map((s: any) => {
+            let score = scoreCandidateTrack(
+              s.trackName || '',
+              s.collectionName || '',
+              s.artistName || ''
+            );
+            if (matchesAlbumTitle(s.collectionName || '', alb.title)) {
+              score += 90;
+            }
+            return { song: s, score };
+          })
+          .sort((a: any, b: any) => b.score - a.score);
+
+        if (scoredSongs.length > 0 && scoredSongs[0].score > 25) {
+          const url = scoredSongs[0].song.previewUrl;
           previewUrlCache.set(albumIdx, url);
           return url;
         }
