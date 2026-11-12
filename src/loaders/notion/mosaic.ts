@@ -16,6 +16,8 @@ export interface MosaicAlbumItem {
 export interface MosaicBuildData {
   atlasUrl: string;
   gridSize: number;
+  gridCols: number;
+  gridRows: number;
   tilePixelSize: number;
   albums: MosaicAlbumItem[];
   grid: number[];
@@ -38,14 +40,15 @@ interface CachedAlbumSignature {
   ];
 }
 
-const GRID_SIZE = 70;
-const TILE_PX = 50; // 70 * 50 = 3500x3500 high-res mosaic canvas
+const MAX_GRID_AXIS = 120; // Longest axis of the auto-cropped cutout grid (up to 120 tiles)
+const TILE_PX = 45; // 45x45px per tile in the transparent RGBA WebP atlas
 const MAX_ALBUM_POOL = 2000; // Candidate pool of top lifetime unique albums
-const MAX_USES_PER_ALBUM = 7; // Up to 7 uses per album across the 4,900-tile grid
+const MAX_USES_PER_ALBUM = 7; // Up to 7 uses per album across active cutout tiles
 const TILE_DC_SHIFT = 0.0; // 0.0 = pure un-tinted album covers (all matching comes from the LAB solver)
 const TILE_INTERNAL_CONTRAST = 0.92; // Keep 92% of the album cover's own crisp internal artwork contrast
 const TILE_SATURATION = 0.92; // Preserve vibrant original album cover colors
-const CACHE_VERSION = 'v12-70x70-50px-pool2000-max7-dc000';
+const ALPHA_THRESHOLD = 115; // Minimum cell average alpha (0..255, ~45%) to place a whole square album tile
+const CACHE_VERSION = 'v14-cutout-axis120-45px-pool2000-max7-dc000';
 
 function rgbToLab(r: number, g: number, b: number): [number, number, number] {
   let sr = r / 255;
@@ -233,11 +236,14 @@ export async function buildAlbumMosaic(
         ) as MosaicBuildData;
         if (
           cachedData &&
-          cachedData.grid?.length === GRID_SIZE * GRID_SIZE &&
+          cachedData.gridCols > 0 &&
+          cachedData.gridRows > 0 &&
+          cachedData.grid?.length ===
+            cachedData.gridCols * cachedData.gridRows &&
           cachedData.albums?.length > 0
         ) {
           logger?.info(
-            `Loaded cached ${GRID_SIZE}x${GRID_SIZE} stats.fm album mosaic (${cachedData.albums.length} unique albums).`
+            `Loaded cached ${cachedData.gridCols}x${cachedData.gridRows} stats.fm cutout mosaic (${cachedData.albums.length} unique albums).`
           );
           return cachedData;
         }
@@ -350,65 +356,201 @@ export async function buildAlbumMosaic(
       return undefined;
     }
 
-    // 4. Analyze source portrait on a 120x120 grid (2x2 quadrants per 60x60 cell)
-    const subGridSize = GRID_SIZE * 2; // 120x120
-    const portraitSubRaw = await sharp(portraitBytes)
+    // 4. Decode portrait with alpha channel, auto-crop to non-transparent bounding box, and size rectangular grid
+    const decoded = await sharp(portraitBytes)
       .rotate()
-      .resize(subGridSize, subGridSize, { fit: 'cover', position: 'centre' })
-      .removeAlpha()
+      .ensureAlpha()
       .raw()
-      .toBuffer();
+      .toBuffer({ resolveWithObject: true });
 
+    const fullRgba = decoded.data;
+    const srcW = decoded.info.width;
+    const srcH = decoded.info.height;
+
+    let minX = srcW;
+    let minY = srcH;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < srcH; y++) {
+      const rowOff = y * srcW * 4;
+      for (let x = 0; x < srcW; x++) {
+        const a = fullRgba[rowOff + x * 4 + 3];
+        if (a >= 128) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (maxX <= minX || maxY <= minY) {
+      minX = 0;
+      minY = 0;
+      maxX = srcW - 1;
+      maxY = srcH - 1;
+    }
+
+    const cropW = maxX - minX + 1;
+    const cropH = maxY - minY + 1;
+
+    let gridCols: number;
+    let gridRows: number;
+    if (cropH >= cropW) {
+      gridRows = MAX_GRID_AXIS;
+      gridCols = Math.max(24, Math.round((cropW / cropH) * MAX_GRID_AXIS));
+    } else {
+      gridCols = MAX_GRID_AXIS;
+      gridRows = Math.max(24, Math.round((cropH / cropW) * MAX_GRID_AXIS));
+    }
+    const totalCells = gridCols * gridRows;
+
+    // Sample alpha-weighted RGB directly from the cropped region so transparent edge pixels never darken silhouette tiles
+    const isCellActive = new Uint8Array(totalCells);
+    const cellMeanRgb = new Float32Array(totalCells * 3);
     const targetCellsLab: Array<CachedAlbumSignature['quadLab']> = new Array(
-      GRID_SIZE * GRID_SIZE
+      totalCells
     );
+
+    for (let r = 0; r < gridRows; r++) {
+      const y0 = minY + Math.floor((r * cropH) / gridRows);
+      const y1 = Math.max(
+        y0 + 1,
+        minY + Math.floor(((r + 1) * cropH) / gridRows)
+      );
+      const yMid = Math.floor((y0 + y1) / 2);
+
+      for (let c = 0; c < gridCols; c++) {
+        const cellIdx = r * gridCols + c;
+        const x0 = minX + Math.floor((c * cropW) / gridCols);
+        const x1 = Math.max(
+          x0 + 1,
+          minX + Math.floor(((c + 1) * cropW) / gridCols)
+        );
+        const xMid = Math.floor((x0 + x1) / 2);
+
+        let totalAlphaSum = 0;
+        let pixelCount = 0;
+        const qSumR = [0, 0, 0, 0];
+        const qSumG = [0, 0, 0, 0];
+        const qSumB = [0, 0, 0, 0];
+        const qSumW = [0, 0, 0, 0];
+
+        for (let py = y0; py < y1 && py <= maxY; py++) {
+          const rowOff = py * srcW * 4;
+          const qRow = py >= yMid ? 2 : 0;
+          for (let px = x0; px < x1 && px <= maxX; px++) {
+            const idx = rowOff + px * 4;
+            const a = fullRgba[idx + 3];
+            totalAlphaSum += a;
+            pixelCount++;
+
+            if (a >= 165) {
+              const weight = a * a;
+              const qIdx = qRow + (px >= xMid ? 1 : 0);
+              qSumR[qIdx] += fullRgba[idx] * weight;
+              qSumG[qIdx] += fullRgba[idx + 1] * weight;
+              qSumB[qIdx] += fullRgba[idx + 2] * weight;
+              qSumW[qIdx] += weight;
+            }
+          }
+        }
+
+        const meanAlpha = pixelCount > 0 ? totalAlphaSum / pixelCount : 0;
+        const cellSumW = qSumW[0] + qSumW[1] + qSumW[2] + qSumW[3];
+        if (meanAlpha < ALPHA_THRESHOLD || cellSumW <= 0) {
+          isCellActive[cellIdx] = 0;
+          continue;
+        }
+
+        isCellActive[cellIdx] = 1;
+        const cR = (qSumR[0] + qSumR[1] + qSumR[2] + qSumR[3]) / cellSumW;
+        const cG = (qSumG[0] + qSumG[1] + qSumG[2] + qSumG[3]) / cellSumW;
+        const cB = (qSumB[0] + qSumB[1] + qSumB[2] + qSumB[3]) / cellSumW;
+        cellMeanRgb[cellIdx * 3] = cR;
+        cellMeanRgb[cellIdx * 3 + 1] = cG;
+        cellMeanRgb[cellIdx * 3 + 2] = cB;
+
+        const quads: CachedAlbumSignature['quadLab'] = [
+          [0, 0, 0],
+          [0, 0, 0],
+          [0, 0, 0],
+          [0, 0, 0]
+        ];
+        for (let q = 0; q < 4; q++) {
+          if (qSumW[q] > 0) {
+            quads[q] = rgbToLab(
+              qSumR[q] / qSumW[q],
+              qSumG[q] / qSumW[q],
+              qSumB[q] / qSumW[q]
+            );
+          } else {
+            quads[q] = rgbToLab(cR, cG, cB);
+          }
+        }
+        targetCellsLab[cellIdx] = quads;
+      }
+    }
+
+    // Automatically locate horizontal center of the head (top 20% of active silhouette rows)
+    let headSumC = 0;
+    let headSumR = 0;
+    let headCount = 0;
+    const headMaxRow = Math.max(1, Math.ceil(gridRows * 0.2));
+    for (let r = 0; r < headMaxRow; r++) {
+      for (let c = 0; c < gridCols; c++) {
+        if (isCellActive[r * gridCols + c]) {
+          headSumC += c;
+          headSumR += r;
+          headCount++;
+        }
+      }
+    }
+    const headCenterC = headCount > 0 ? headSumC / headCount : gridCols * 0.5;
+    const headCenterR = headCount > 0 ? headSumR / headCount : gridRows * 0.11;
+    const headRadius = Math.max(gridCols, gridRows) * 0.12;
+
     const cellPriority: Array<{ idx: number; priority: number }> = [];
 
-    for (let r = 0; r < GRID_SIZE; r++) {
-      for (let c = 0; c < GRID_SIZE; c++) {
-        const cellIdx = r * GRID_SIZE + c;
-        const sr = r * 2;
-        const sc = c * 2;
+    for (let r = 0; r < gridRows; r++) {
+      for (let c = 0; c < gridCols; c++) {
+        const cellIdx = r * gridCols + c;
+        if (!isCellActive[cellIdx]) continue;
 
-        // Match directly against the true colors and luminance of the original portrait
-        const getSubLab = (
-          dr: number,
-          dc: number
-        ): [number, number, number] => {
-          const offset = ((sr + dr) * subGridSize + (sc + dc)) * 3;
-          return rgbToLab(
-            portraitSubRaw[offset],
-            portraitSubRaw[offset + 1],
-            portraitSubRaw[offset + 2]
-          );
-        };
-
-        const q0 = getSubLab(0, 0);
-        const q1 = getSubLab(0, 1);
-        const q2 = getSubLab(1, 0);
-        const q3 = getSubLab(1, 1);
-        targetCellsLab[cellIdx] = [q0, q1, q2, q3];
-
-        // Prioritize tight facial region (upper-center: ~12% down, ~47% across, 12% radius) + high internal contrast edges
+        const [q0, q1, q2, q3] = targetCellsLab[cellIdx];
         const distFromFace = Math.hypot(
-          (r - GRID_SIZE * 0.12) / (GRID_SIZE * 0.12),
-          (c - GRID_SIZE * 0.47) / (GRID_SIZE * 0.12)
+          (r - headCenterR) / headRadius,
+          (c - headCenterC) / headRadius
         );
         const faceWeight = Math.max(0, 2.5 - distFromFace) * 40;
         const internalContrast =
           Math.abs(q0[0] - q3[0]) + Math.abs(q1[0] - q2[0]);
+
+        // Slight priority boost for silhouette contour edge cells
+        const isEdge =
+          r === 0 ||
+          r === gridRows - 1 ||
+          c === 0 ||
+          c === gridCols - 1 ||
+          !isCellActive[(r - 1) * gridCols + c] ||
+          !isCellActive[(r + 1) * gridCols + c] ||
+          !isCellActive[r * gridCols + (c - 1)] ||
+          !isCellActive[r * gridCols + (c + 1)];
+        const edgeWeight = isEdge ? 16 : 0;
+
         cellPriority.push({
           idx: cellIdx,
-          priority: faceWeight + internalContrast
+          priority: faceWeight + internalContrast + edgeWeight
         });
       }
     }
 
-    // Solve highest-priority cells (face, sunglasses, smile, silhouette edges) first
+    // Solve highest-priority cells (face, features, silhouette contour) first
     cellPriority.sort((a, b) => b.priority - a.priority);
 
-    // 5. Solve 60x60 grid with max uses = 7, minimum Euclidean distance spacing, and excess-saturation penalty
-    const assignedPoolIdx = new Int32Array(GRID_SIZE * GRID_SIZE).fill(-1);
+    // 5. Solve active cutout cells with max uses = 7, minimum Euclidean distance spacing, and excess-saturation penalty
+    const assignedPoolIdx = new Int32Array(totalCells).fill(-1);
     const placedPositions: Array<Array<[number, number]>> = Array.from(
       { length: validAlbums.length },
       () => []
@@ -417,8 +559,8 @@ export async function buildAlbumMosaic(
     const minDistancesSq = [196, 121, 64, 25, 0]; // Prefer 14+, 11+, 8+, 5+ tiles spacing between repeats
 
     for (const { idx: cellIdx } of cellPriority) {
-      const r = Math.floor(cellIdx / GRID_SIZE);
-      const c = cellIdx % GRID_SIZE;
+      const r = Math.floor(cellIdx / gridCols);
+      const c = cellIdx % gridCols;
       const tQuad = targetCellsLab[cellIdx];
 
       let chosenAlbumIdx = -1;
@@ -464,7 +606,7 @@ export async function buildAlbumMosaic(
               redOvershoot * redOvershoot * 2.4;
           }
 
-          // Diversity penalty encourages using more of the 1,000-album pool before repeating a cover
+          // Diversity penalty encourages using more of the 2,000-album pool before repeating a cover
           const rankPenalty = (aIdx / validAlbums.length) * 12;
           const score = colorDist + coords.length * 65 + rankPenalty;
           if (score < bestScore) {
@@ -480,39 +622,33 @@ export async function buildAlbumMosaic(
       }
 
       if (chosenAlbumIdx === -1) {
-        // Fallback only if pool size * MAX_USES_PER_ALBUM < 3600
-        let LeastUsedIdx = 0;
+        let leastUsedIdx = 0;
         for (let aIdx = 1; aIdx < validAlbums.length; aIdx++) {
           if (
-            placedPositions[aIdx].length < placedPositions[LeastUsedIdx].length
+            placedPositions[aIdx].length < placedPositions[leastUsedIdx].length
           ) {
-            LeastUsedIdx = aIdx;
+            leastUsedIdx = aIdx;
           }
         }
-        chosenAlbumIdx = LeastUsedIdx;
+        chosenAlbumIdx = leastUsedIdx;
       }
 
       assignedPoolIdx[cellIdx] = chosenAlbumIdx;
       placedPositions[chosenAlbumIdx].push([r, c]);
     }
 
-    // 6. Composite the 3000x3000 high-res mosaic image using ONLY per-tile flat DC color shifts
-    // (Never overlay the 3000x3000 portrait; each 50x50 square is 100% an intact album cover)
-    const fullSizePx = GRID_SIZE * TILE_PX; // 3000
-    const portraitCellRaw = await sharp(portraitBytes)
-      .rotate()
-      .resize(GRID_SIZE, GRID_SIZE, { fit: 'cover', position: 'centre' })
-      .removeAlpha()
-      .raw()
-      .toBuffer();
+    // 6. Composite the transparent RGBA WebP mosaic atlas (inactive cells remain 100% transparent)
+    const fullWidthPx = gridCols * TILE_PX;
+    const fullHeightPx = gridRows * TILE_PX;
 
-    const mosaicRaw = Buffer.alloc(fullSizePx * fullSizePx * 3);
+    const mosaicRgba = Buffer.alloc(fullWidthPx * fullHeightPx * 4);
     const thumbRawBuffers = new Map<number, Buffer>();
     const thumbMeanRgb = new Map<number, [number, number, number]>();
 
     // Load only the raw buffers of albums that were actually selected & compute each tile's flat mean RGB
     for (let i = 0; i < assignedPoolIdx.length; i++) {
       const poolIdx = assignedPoolIdx[i];
+      if (poolIdx < 0) continue;
       if (!thumbRawBuffers.has(poolIdx)) {
         const rawPath = path.join(
           thumbsDir,
@@ -544,22 +680,24 @@ export async function buildAlbumMosaic(
       }
     }
 
-    const rowStride = fullSizePx * 3;
-    const tileRowBytes = TILE_PX * 3;
+    const rowStride = fullWidthPx * 4;
+    const tileRowRgbaBytes = TILE_PX * 4;
+    const tileRowRgbBytes = TILE_PX * 3;
 
-    for (let r = 0; r < GRID_SIZE; r++) {
-      for (let c = 0; c < GRID_SIZE; c++) {
-        const cellIdx = r * GRID_SIZE + c;
+    for (let r = 0; r < gridRows; r++) {
+      for (let c = 0; c < gridCols; c++) {
+        const cellIdx = r * gridCols + c;
         const poolIdx = assignedPoolIdx[cellIdx];
+        if (poolIdx < 0) continue;
+
         const tileBuf = thumbRawBuffers.get(poolIdx);
         const tileMean = thumbMeanRgb.get(poolIdx);
         if (!tileBuf || !tileMean) continue;
 
-        // Single flat target RGB for this entire 50x50 tile (zero sub-tile portrait detail)
         const cellOffset = cellIdx * 3;
-        const cellR = portraitCellRaw[cellOffset];
-        const cellG = portraitCellRaw[cellOffset + 1];
-        const cellB = portraitCellRaw[cellOffset + 2];
+        const cellR = cellMeanRgb[cellOffset];
+        const cellG = cellMeanRgb[cellOffset + 1];
+        const cellB = cellMeanRgb[cellOffset + 2];
 
         const [meanR, meanG, meanB] = tileMean;
         const targetMeanR = meanR * (1 - TILE_DC_SHIFT) + cellR * TILE_DC_SHIFT;
@@ -567,16 +705,16 @@ export async function buildAlbumMosaic(
         const targetMeanB = meanB * (1 - TILE_DC_SHIFT) + cellB * TILE_DC_SHIFT;
 
         const baseRow = r * TILE_PX;
-        const baseColBytes = c * tileRowBytes;
+        const baseColBytes = c * tileRowRgbaBytes;
 
         for (let tr = 0; tr < TILE_PX; tr++) {
           const destRowStart = (baseRow + tr) * rowStride + baseColBytes;
-          const srcRowStart = tr * tileRowBytes;
+          const srcRowStart = tr * tileRowRgbBytes;
           const isBottomSeam = tr === TILE_PX - 1;
 
           for (let tc = 0; tc < TILE_PX; tc++) {
             const srcIdx = srcRowStart + tc * 3;
-            const destIdx = destRowStart + tc * 3;
+            const destIdx = destRowStart + tc * 4;
 
             const pr = tileBuf[srcIdx];
             const pg = tileBuf[srcIdx + 1];
@@ -587,7 +725,6 @@ export async function buildAlbumMosaic(
             const sg = lum + (pg - lum) * TILE_SATURATION;
             const sb = lum + (pb - lum) * TILE_SATURATION;
 
-            // Pure album artwork AC detail + per-tile flat DC color shift
             const seamFactor = isBottomSeam || tc === TILE_PX - 1 ? 0.91 : 1.0;
             const outR =
               (targetMeanR + (sr - meanR) * TILE_INTERNAL_CONTRAST) *
@@ -599,24 +736,25 @@ export async function buildAlbumMosaic(
               (targetMeanB + (sb - meanB) * TILE_INTERNAL_CONTRAST) *
               seamFactor;
 
-            mosaicRaw[destIdx] = Math.max(0, Math.min(255, Math.round(outR)));
-            mosaicRaw[destIdx + 1] = Math.max(
+            mosaicRgba[destIdx] = Math.max(0, Math.min(255, Math.round(outR)));
+            mosaicRgba[destIdx + 1] = Math.max(
               0,
               Math.min(255, Math.round(outG))
             );
-            mosaicRaw[destIdx + 2] = Math.max(
+            mosaicRgba[destIdx + 2] = Math.max(
               0,
               Math.min(255, Math.round(outB))
             );
+            mosaicRgba[destIdx + 3] = 255;
           }
         }
       }
     }
 
-    const webpAtlasBuffer = await sharp(mosaicRaw, {
-      raw: { width: fullSizePx, height: fullSizePx, channels: 3 }
+    const webpAtlasBuffer = await sharp(mosaicRgba, {
+      raw: { width: fullWidthPx, height: fullHeightPx, channels: 4 }
     })
-      .webp({ quality: 84, effort: 4 })
+      .webp({ quality: 84, alphaQuality: 95, effort: 4 })
       .toBuffer();
 
     fs.writeFileSync(publicAtlasPath, webpAtlasBuffer);
@@ -633,13 +771,17 @@ export async function buildAlbumMosaic(
       }
     }
 
-    // 7. Build compact output palette containing only the unique albums used in the 60x60 grid
+    // 7. Build compact output palette containing only the unique albums used in active silhouette cells
     const poolToCompactIdx = new Map<number, number>();
     const compactAlbums: MosaicAlbumItem[] = [];
-    const compactGrid: number[] = new Array(GRID_SIZE * GRID_SIZE);
+    const compactGrid: number[] = new Array(totalCells).fill(-1);
 
     for (let i = 0; i < assignedPoolIdx.length; i++) {
       const poolIdx = assignedPoolIdx[i];
+      if (poolIdx < 0) {
+        compactGrid[i] = -1;
+        continue;
+      }
       let cIdx = poolToCompactIdx.get(poolIdx);
       if (cIdx === undefined) {
         cIdx = compactAlbums.length;
@@ -659,7 +801,9 @@ export async function buildAlbumMosaic(
 
     const resultData: MosaicBuildData = {
       atlasUrl: `/assets/notion/${atlasFilename}`,
-      gridSize: GRID_SIZE,
+      gridSize: Math.max(gridCols, gridRows),
+      gridCols,
+      gridRows,
       tilePixelSize: TILE_PX,
       albums: compactAlbums,
       grid: compactGrid
@@ -670,7 +814,7 @@ export async function buildAlbumMosaic(
     } catch {}
 
     logger?.info(
-      `Generated ${GRID_SIZE}x${GRID_SIZE} stats.fm album mosaic (${compactAlbums.length} unique albums used from top ${validAlbums.length}).`
+      `Generated ${gridCols}x${gridRows} stats.fm cutout mosaic (${cellPriority.length} active tiles, ${compactAlbums.length} unique albums used from top ${validAlbums.length}).`
     );
 
     return resultData;

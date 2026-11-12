@@ -127,6 +127,8 @@ const music = defineCollection({
       .object({
         atlasUrl: z.string(),
         gridSize: z.number(),
+        gridCols: z.number(),
+        gridRows: z.number(),
         tilePixelSize: z.number(),
         albums: z.array(
           z.object({

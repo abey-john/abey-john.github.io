@@ -472,6 +472,14 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     gap: var(--space-2xl);
   }
 
+  .music-page:has([data-music-mosaic-stage]:not([hidden])) {
+    gap: var(--space-md);
+  }
+
+  :global(.main-content:has([data-music-mosaic-stage]:not([hidden]))) {
+    padding-bottom: var(--space-md);
+  }
+
   .music-normal-view {
     display: flex;
     flex-direction: column;

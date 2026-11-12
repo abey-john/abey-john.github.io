@@ -19,7 +19,7 @@ const { mosaic } = Astro.props;
       <canvas
         class="mosaic-canvas"
         data-mosaic-canvas
-        aria-label="60 by 60 portrait mosaic of album covers. Hover a tile to inspect album details, click to play a 30-second audio snippet, or scroll to zoom."
+        aria-label="Interactive cutout mosaic of album covers. Hover a tile to inspect album details, click to play a 30-second audio snippet, or scroll and pinch to zoom."
       ></canvas>
 
       <button
@@ -115,7 +115,11 @@ const { mosaic } = Astro.props;
 
 <style>
   .music-mosaic-stage {
-    width: 100%;
+    width: min(94vw, 72rem);
+    margin-left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
   }
 
   .music-mosaic-stage[hidden] {
@@ -125,21 +129,18 @@ const { mosaic } = Astro.props;
   .mosaic-viewport {
     position: relative;
     width: 100%;
-    aspect-ratio: 1 / 1;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--color-border);
-    background-color: var(--color-border-subtle);
+    background: transparent;
     overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     user-select: none;
-    touch-action: none;
+    touch-action: pan-y;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
   .mosaic-canvas {
     display: block;
-    width: 100%;
-    height: 100%;
-    cursor: pointer;
+    cursor: default;
   }
 
   .mosaic-reset-zoom {

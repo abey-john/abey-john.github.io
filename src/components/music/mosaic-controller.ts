@@ -10,6 +10,8 @@ export interface MosaicAlbum {
 export interface MosaicPayload {
   atlasUrl: string;
   gridSize: number;
+  gridCols?: number;
+  gridRows?: number;
   tilePixelSize: number;
   albums: MosaicAlbum[];
   grid: number[];
@@ -63,6 +65,9 @@ export function initMusicMosaic(): () => void {
   }
 
   const { atlasUrl, gridSize, tilePixelSize, albums, grid } = payload;
+  const gridCols = payload.gridCols || gridSize;
+  const gridRows = payload.gridRows || gridSize;
+  const totalCells = gridCols * gridRows;
   const ctx = canvas.getContext('2d');
   if (!ctx) return () => {};
 
@@ -81,7 +86,11 @@ export function initMusicMosaic(): () => void {
   const previewUrlCache = new Map<number, string | null>();
 
   // Viewport & Transform state
-  let cssSize = 0;
+  let cssWidth = 0;
+  let cssHeight = 0;
+  let cellCss = 1;
+  let baseOffsetX = 0;
+  let baseOffsetY = 0;
   let dpr = 1;
   let scale = 1;
   let panX = 0;
@@ -92,7 +101,7 @@ export function initMusicMosaic(): () => void {
   let revealStartMs = 0;
   const REVEAL_DURATION_MS = 680;
   let isRevealing = false;
-  const tileRevealDelays = new Float32Array(gridSize * gridSize);
+  const tileRevealDelays = new Float32Array(totalCells);
 
   function randomizeRevealDelays() {
     for (let i = 0; i < tileRevealDelays.length; i++) {
@@ -176,9 +185,10 @@ export function initMusicMosaic(): () => void {
       panY = 0;
       return;
     }
-    const minPan = cssSize * (1 - nextScale);
-    panX = Math.min(0, Math.max(minPan, nextPanX));
-    panY = Math.min(0, Math.max(minPan, nextPanY));
+    const minPanX = cssWidth * (1 - nextScale);
+    const minPanY = cssHeight * (1 - nextScale);
+    panX = Math.min(0, Math.max(minPanX, nextPanX));
+    panY = Math.min(0, Math.max(minPanY, nextPanY));
   }
 
   function updateResetZoomButton() {
@@ -194,21 +204,45 @@ export function initMusicMosaic(): () => void {
   function measureCanvas() {
     if (!viewport || !canvas) return;
     const rect = viewport.getBoundingClientRect();
-    const nextSize = Math.max(
+    const stageWidth = Math.max(
       280,
       viewport.clientWidth || Math.floor(rect.width)
     );
+    const docTop = Math.max(0, rect.top + window.scrollY);
+    const footerEl = document.querySelector<HTMLElement>('.site-footer');
+    const footerH = footerEl ? footerEl.offsetHeight : 80;
+    const mainEl = document.querySelector<HTMLElement>('.main-content');
+    const mainPadBottom = mainEl
+      ? parseFloat(window.getComputedStyle(mainEl).paddingBottom) || 0
+      : 16;
+
+    const maxStageHeight = Math.max(
+      240,
+      Math.floor(window.innerHeight - docTop - footerH - mainPadBottom - 4)
+    );
+
+    const nextCellCss = Math.min(
+      stageWidth / gridCols,
+      maxStageHeight / gridRows
+    );
+    const nextWidth = stageWidth;
+    const nextHeight = Math.max(220, Math.floor(nextCellCss * gridRows));
     const nextDpr = Math.min(window.devicePixelRatio || 1, 2.5);
 
-    if (nextSize !== cssSize || nextDpr !== dpr) {
-      const ratio = cssSize > 0 ? nextSize / cssSize : 1;
-      cssSize = nextSize;
+    if (nextWidth !== cssWidth || nextHeight !== cssHeight || nextDpr !== dpr) {
+      const ratioX = cssWidth > 0 ? nextWidth / cssWidth : 1;
+      const ratioY = cssHeight > 0 ? nextHeight / cssHeight : 1;
+      cssWidth = nextWidth;
+      cssHeight = nextHeight;
+      cellCss = nextCellCss;
+      baseOffsetX = (cssWidth - cellCss * gridCols) / 2;
+      baseOffsetY = (cssHeight - cellCss * gridRows) / 2;
       dpr = nextDpr;
-      canvas.width = Math.round(cssSize * dpr);
-      canvas.height = Math.round(cssSize * dpr);
-      canvas.style.width = `${cssSize}px`;
-      canvas.style.height = `${cssSize}px`;
-      clampPan(panX * ratio, panY * ratio, scale);
+      canvas.width = Math.round(cssWidth * dpr);
+      canvas.height = Math.round(cssHeight * dpr);
+      canvas.style.width = `${cssWidth}px`;
+      canvas.style.height = `${cssHeight}px`;
+      clampPan(panX * ratioX, panY * ratioY, scale);
     }
   }
 
@@ -219,12 +253,9 @@ export function initMusicMosaic(): () => void {
     measureCanvas();
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssSize, cssSize);
+    ctx.clearRect(0, 0, cssWidth, cssHeight);
 
     if (!atlasLoaded || !atlasImg) {
-      // Subtle skeleton shimmer while atlas finishes decoding
-      ctx.fillStyle = 'rgba(128, 128, 136, 0.08)';
-      ctx.fillRect(0, 0, cssSize, cssSize);
       ctx.restore();
       return;
     }
@@ -234,7 +265,6 @@ export function initMusicMosaic(): () => void {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    const cellCss = cssSize / gridSize;
     const elapsed = now - revealStartMs;
 
     if (isRevealing && elapsed < REVEAL_DURATION_MS) {
@@ -243,10 +273,13 @@ export function initMusicMosaic(): () => void {
         Math.min(1, elapsed / REVEAL_DURATION_MS)
       );
 
-      for (let r = 0; r < gridSize; r++) {
-        const rowOffset = r * gridSize;
-        for (let c = 0; c < gridSize; c++) {
-          const delay = tileRevealDelays[rowOffset + c];
+      for (let r = 0; r < gridRows; r++) {
+        const rowOffset = r * gridCols;
+        for (let c = 0; c < gridCols; c++) {
+          const cellIdx = rowOffset + c;
+          if (grid[cellIdx] < 0) continue;
+
+          const delay = tileRevealDelays[cellIdx];
           const localT = Math.max(
             0,
             Math.min(1, (overallProgress - delay) / 0.38)
@@ -257,8 +290,8 @@ export function initMusicMosaic(): () => void {
           const eased = 1 - Math.pow(1 - localT, 3);
           const tileScale = 0.2 + 0.8 * eased;
           const drawSize = cellCss * tileScale + 0.35;
-          const dx = c * cellCss + (cellCss - drawSize) / 2;
-          const dy = r * cellCss + (cellCss - drawSize) / 2;
+          const dx = baseOffsetX + c * cellCss + (cellCss - drawSize) / 2;
+          const dy = baseOffsetY + r * cellCss + (cellCss - drawSize) / 2;
 
           ctx.globalAlpha = eased;
           ctx.drawImage(
@@ -282,16 +315,20 @@ export function initMusicMosaic(): () => void {
         atlasImg,
         0,
         0,
-        gridSize * tilePixelSize,
-        gridSize * tilePixelSize,
-        0,
-        0,
-        cssSize,
-        cssSize
+        gridCols * tilePixelSize,
+        gridRows * tilePixelSize,
+        baseOffsetX,
+        baseOffsetY,
+        gridCols * cellCss,
+        gridRows * cellCss
       );
 
       // Highlight active audio tile if any
-      if (activeCellIdx >= 0 && activeCellIdx < grid.length) {
+      if (
+        activeCellIdx >= 0 &&
+        activeCellIdx < grid.length &&
+        grid[activeCellIdx] >= 0
+      ) {
         drawHighlightedTile(activeCellIdx, true);
       }
 
@@ -299,6 +336,7 @@ export function initMusicMosaic(): () => void {
       if (
         hoveredCellIdx >= 0 &&
         hoveredCellIdx < grid.length &&
+        grid[hoveredCellIdx] >= 0 &&
         hoveredCellIdx !== activeCellIdx
       ) {
         drawHighlightedTile(hoveredCellIdx, false);
@@ -310,13 +348,14 @@ export function initMusicMosaic(): () => void {
 
   function drawHighlightedTile(cellIdx: number, isAudioTile: boolean) {
     if (!ctx) return;
-    const r = Math.floor(cellIdx / gridSize);
-    const c = cellIdx % gridSize;
-    const cellCss = cssSize / gridSize;
-    const x = c * cellCss;
-    const y = r * cellCss;
-
     const albumIdx = grid[cellIdx];
+    if (albumIdx === undefined || albumIdx < 0) return;
+
+    const r = Math.floor(cellIdx / gridCols);
+    const c = cellIdx % gridCols;
+    const x = baseOffsetX + c * cellCss;
+    const y = baseOffsetY + r * cellCss;
+
     const unblendedImg = getUnblendedCoverImage(albumIdx);
 
     if (unblendedImg) {
@@ -341,7 +380,7 @@ export function initMusicMosaic(): () => void {
   }
 
   function getCellFromClientCoords(clientX: number, clientY: number): number {
-    if (!canvas || cssSize <= 0) return -1;
+    if (!canvas || cssWidth <= 0 || cssHeight <= 0) return -1;
     const rect = canvas.getBoundingClientRect();
     const localX = clientX - rect.left;
     const localY = clientY - rect.top;
@@ -355,13 +394,15 @@ export function initMusicMosaic(): () => void {
       return -1;
     }
 
-    const worldX = (localX - panX) / scale;
-    const worldY = (localY - panY) / scale;
-    const c = Math.floor((worldX / cssSize) * gridSize);
-    const r = Math.floor((worldY / cssSize) * gridSize);
+    const worldX = (localX - panX) / scale - baseOffsetX;
+    const worldY = (localY - panY) / scale - baseOffsetY;
+    const c = Math.floor(worldX / cellCss);
+    const r = Math.floor(worldY / cellCss);
 
-    if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return -1;
-    return r * gridSize + c;
+    if (r < 0 || r >= gridRows || c < 0 || c >= gridCols) return -1;
+    const cellIdx = r * gridCols + c;
+    if (grid[cellIdx] === undefined || grid[cellIdx] < 0) return -1;
+    return cellIdx;
   }
 
   function updateTooltipContent(cellIdx: number) {
@@ -928,6 +969,7 @@ export function initMusicMosaic(): () => void {
     if (isActive) {
       normalView!.hidden = true;
       mosaicStage!.hidden = false;
+      window.scrollTo({ top: 0 });
       scale = 1;
       panX = 0;
       panY = 0;
@@ -973,6 +1015,10 @@ export function initMusicMosaic(): () => void {
 
   const onWheel = (e: WheelEvent) => {
     if (!isActive || !canvas) return;
+    // Allow normal page scrolling anywhere outside an active silhouette tile
+    const hoveredBeforeZoom = getCellFromClientCoords(e.clientX, e.clientY);
+    if (hoveredBeforeZoom === -1) return;
+
     e.preventDefault();
 
     const rect = canvas.getBoundingClientRect();
@@ -1002,17 +1048,21 @@ export function initMusicMosaic(): () => void {
     scheduleRender();
   };
 
-  function beginPinch() {
-    if (!canvas || activePointers.size < 2) return;
-    const pts = Array.from(activePointers.values());
-    const p1 = pts[0];
-    const p2 = pts[1];
-    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+  let touchStartedOnTile = false;
+
+  function beginPinchFromCoords(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number
+  ) {
+    if (!canvas) return;
+    const dist = Math.hypot(x2 - x1, y2 - y1);
     if (dist < 4) return;
 
     const rect = canvas.getBoundingClientRect();
-    const midX = (p1.x + p2.x) / 2 - rect.left;
-    const midY = (p1.y + p2.y) / 2 - rect.top;
+    const midX = (x1 + x2) / 2 - rect.left;
+    const midY = (y1 + y2) / 2 - rect.top;
 
     isPinching = true;
     dragMoved = true;
@@ -1025,14 +1075,72 @@ export function initMusicMosaic(): () => void {
     if (tooltip) tooltip.hidden = true;
   }
 
+  function updatePinchFromCoords(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number
+  ) {
+    if (!canvas) return;
+    if (!isPinching) {
+      beginPinchFromCoords(x1, y1, x2, y2);
+    }
+    const dist = Math.hypot(x2 - x1, y2 - y1);
+    if (dist >= 4 && pinchStartDist >= 4) {
+      const rect = canvas.getBoundingClientRect();
+      const midX = (x1 + x2) / 2 - rect.left;
+      const midY = (y1 + y2) / 2 - rect.top;
+
+      const nextScale = Math.min(
+        6,
+        Math.max(1, pinchStartScale * (dist / pinchStartDist))
+      );
+      const nextPanX = midX - pinchStartWorldX * nextScale;
+      const nextPanY = midY - pinchStartWorldY * nextScale;
+
+      scale = nextScale;
+      clampPan(nextPanX, nextPanY, scale);
+      updateResetZoomButton();
+      scheduleRender();
+    }
+  }
+
+  function beginPinch() {
+    if (activePointers.size < 2) return;
+    const pts = Array.from(activePointers.values());
+    beginPinchFromCoords(pts[0].x, pts[0].y, pts[1].x, pts[1].y);
+  }
+
   const onPointerDown = (e: PointerEvent) => {
     if (!isActive || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const startCellIdx = getCellFromClientCoords(e.clientX, e.clientY);
+
+    if (e.pointerType === 'touch') {
+      if (activePointers.size === 0) {
+        touchStartedOnTile = startCellIdx !== -1;
+      }
+      // If touching empty space with 1 finger, let the browser handle native page scrolling
+      if (!touchStartedOnTile && activePointers.size === 0) {
+        isDragging = true;
+        isPinching = false;
+        dragMoved = false;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragStartPanX = panX;
+        dragStartPanY = panY;
+        return;
+      }
+    }
+
     activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    try {
-      canvas.setPointerCapture(e.pointerId);
-    } catch {}
+    if (e.pointerType === 'mouse' && startCellIdx !== -1) {
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch {}
+    }
 
     if (activePointers.size === 1) {
+      touchStartedOnTile = startCellIdx !== -1;
       isDragging = true;
       isPinching = false;
       dragMoved = false;
@@ -1057,30 +1165,8 @@ export function initMusicMosaic(): () => void {
 
     // Two-finger pinch-to-zoom + two-finger pan
     if (activePointers.size >= 2) {
-      if (!isPinching) {
-        beginPinch();
-      }
       const pts = Array.from(activePointers.values());
-      const p1 = pts[0];
-      const p2 = pts[1];
-      const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-      if (dist >= 4 && pinchStartDist >= 4) {
-        const rect = canvas.getBoundingClientRect();
-        const midX = (p1.x + p2.x) / 2 - rect.left;
-        const midY = (p1.y + p2.y) / 2 - rect.top;
-
-        const nextScale = Math.min(
-          6,
-          Math.max(1, pinchStartScale * (dist / pinchStartDist))
-        );
-        const nextPanX = midX - pinchStartWorldX * nextScale;
-        const nextPanY = midY - pinchStartWorldY * nextScale;
-
-        scale = nextScale;
-        clampPan(nextPanX, nextPanY, scale);
-        updateResetZoomButton();
-        scheduleRender();
-      }
+      updatePinchFromCoords(pts[0].x, pts[0].y, pts[1].x, pts[1].y);
       return;
     }
 
@@ -1090,7 +1176,11 @@ export function initMusicMosaic(): () => void {
       if (Math.hypot(dx, dy) > (e.pointerType === 'touch' ? 6 : 4)) {
         dragMoved = true;
       }
-      if (dragMoved && scale > 1.01) {
+      if (
+        dragMoved &&
+        scale > 1.01 &&
+        (e.pointerType === 'mouse' || touchStartedOnTile)
+      ) {
         clampPan(dragStartPanX + dx, dragStartPanY + dy, scale);
         canvas.style.cursor = 'grabbing';
         scheduleRender();
@@ -1100,8 +1190,9 @@ export function initMusicMosaic(): () => void {
 
     if (e.pointerType === 'touch') return;
 
-    canvas.style.cursor = scale > 1.02 ? 'grab' : 'pointer';
     const cellIdx = getCellFromClientCoords(e.clientX, e.clientY);
+    canvas.style.cursor =
+      cellIdx !== -1 ? (scale > 1.02 ? 'grab' : 'pointer') : 'default';
     if (cellIdx !== hoveredCellIdx) {
       hoveredCellIdx = cellIdx;
       updateTooltipContent(cellIdx);
@@ -1138,15 +1229,21 @@ export function initMusicMosaic(): () => void {
       const wasTap = e.type === 'pointerup' && !dragMoved && !isPinching;
       isDragging = false;
       isPinching = false;
-      canvas.style.cursor = scale > 1.02 ? 'grab' : 'pointer';
+      const cellIdx = getCellFromClientCoords(e.clientX, e.clientY);
+      canvas.style.cursor =
+        cellIdx !== -1 ? (scale > 1.02 ? 'grab' : 'pointer') : 'default';
 
       if (wasTap) {
-        const cellIdx = getCellFromClientCoords(e.clientX, e.clientY);
         if (cellIdx !== -1) {
           hoveredCellIdx = cellIdx;
           updateTooltipContent(cellIdx);
           positionTooltip(e.clientX, e.clientY);
           handleTileClick(cellIdx);
+        } else {
+          hoveredCellIdx = -1;
+          if (tooltip) tooltip.hidden = true;
+          stopMosaicAudio();
+          scheduleRender();
         }
       }
     }
@@ -1161,10 +1258,62 @@ export function initMusicMosaic(): () => void {
     scheduleRender();
   };
 
+  const onTouchStart = (e: TouchEvent) => {
+    if (!isActive) return;
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      touchStartedOnTile = getCellFromClientCoords(t.clientX, t.clientY) !== -1;
+      isDragging = true;
+      isPinching = false;
+      dragMoved = false;
+      dragStartX = t.clientX;
+      dragStartY = t.clientY;
+      dragStartPanX = panX;
+      dragStartPanY = panY;
+    } else if (e.touches.length >= 2) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      beginPinchFromCoords(t1.clientX, t1.clientY, t2.clientX, t2.clientY);
+    }
+  };
+
   const onTouchMove = (e: TouchEvent) => {
     if (!isActive) return;
-    if (e.touches.length >= 2 || scale > 1.01) {
+    if (e.touches.length >= 2) {
       e.preventDefault();
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      updatePinchFromCoords(t1.clientX, t1.clientY, t2.clientX, t2.clientY);
+      return;
+    }
+    if (e.touches.length === 1 && touchStartedOnTile && scale > 1.01) {
+      e.preventDefault();
+      const t = e.touches[0];
+      const dx = t.clientX - dragStartX;
+      const dy = t.clientY - dragStartY;
+      if (Math.hypot(dx, dy) > 6) {
+        dragMoved = true;
+      }
+      if (dragMoved) {
+        clampPan(dragStartPanX + dx, dragStartPanY + dy, scale);
+        scheduleRender();
+      }
+    }
+  };
+
+  const onTouchEnd = (e: TouchEvent) => {
+    if (!isActive) return;
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      isPinching = false;
+      isDragging = true;
+      dragMoved = true;
+      dragStartX = t.clientX;
+      dragStartY = t.clientY;
+      dragStartPanX = panX;
+      dragStartPanY = panY;
+    } else if (e.touches.length === 0) {
+      isPinching = false;
     }
   };
 
@@ -1199,7 +1348,10 @@ export function initMusicMosaic(): () => void {
   toggleBtn.addEventListener('focus', onToggleHover);
   resetZoomBtn?.addEventListener('click', onResetZoomClick);
   canvas.addEventListener('wheel', onWheel, { passive: false });
+  canvas.addEventListener('touchstart', onTouchStart, { passive: true });
   canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+  canvas.addEventListener('touchend', onTouchEnd, { passive: true });
+  canvas.addEventListener('touchcancel', onTouchEnd, { passive: true });
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUpOrCancel);
@@ -1220,7 +1372,10 @@ export function initMusicMosaic(): () => void {
     toggleBtn.removeEventListener('focus', onToggleHover);
     resetZoomBtn?.removeEventListener('click', onResetZoomClick);
     canvas.removeEventListener('wheel', onWheel);
+    canvas.removeEventListener('touchstart', onTouchStart);
     canvas.removeEventListener('touchmove', onTouchMove);
+    canvas.removeEventListener('touchend', onTouchEnd);
+    canvas.removeEventListener('touchcancel', onTouchEnd);
     canvas.removeEventListener('pointerdown', onPointerDown);
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerup', onPointerUpOrCancel);
