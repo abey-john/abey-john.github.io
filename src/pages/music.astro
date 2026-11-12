@@ -473,11 +473,40 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
   }
 
   .music-page:has([data-music-mosaic-stage]:not([hidden])) {
-    gap: var(--space-md);
+    gap: var(--space-sm);
+  }
+
+  .music-page:has([data-music-mosaic-stage]:not([hidden])) .music-header {
+    padding-bottom: var(--space-sm);
+  }
+
+  :global(.site-wrapper:has([data-music-mosaic-stage]:not([hidden]))) {
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   :global(.main-content:has([data-music-mosaic-stage]:not([hidden]))) {
-    padding-bottom: var(--space-md);
+    padding-top: var(--space-md);
+    padding-bottom: var(--space-xs);
+  }
+
+  :global(
+    .site-wrapper:has([data-music-mosaic-stage]:not([hidden])) .site-footer
+  ) {
+    padding: var(--space-sm) 0;
+  }
+
+  @media (max-width: 640px) {
+    :global(.main-content:has([data-music-mosaic-stage]:not([hidden]))) {
+      padding-top: var(--space-sm);
+      padding-bottom: 4px;
+    }
+
+    :global(
+      .site-wrapper:has([data-music-mosaic-stage]:not([hidden])) .site-footer
+    ) {
+      display: none;
+    }
   }
 
   .music-normal-view {
