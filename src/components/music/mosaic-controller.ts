@@ -101,16 +101,22 @@ export function initMusicMosaic(): () => void {
   }
   randomizeRevealDelays();
 
-  // Pointer / Hover / Drag state
+  // Pointer / Hover / Drag / Pinch state
+  const activePointers = new Map<number, { x: number; y: number }>();
   let hoveredCellIdx = -1;
   let lastPointerClientX = 0;
   let lastPointerClientY = 0;
   let isDragging = false;
+  let isPinching = false;
   let dragMoved = false;
   let dragStartX = 0;
   let dragStartY = 0;
   let dragStartPanX = 0;
   let dragStartPanY = 0;
+  let pinchStartDist = 1;
+  let pinchStartScale = 1;
+  let pinchStartWorldX = 0;
+  let pinchStartWorldY = 0;
 
   // Audio playback state
   let activeAudio: HTMLAudioElement | null = null;
@@ -915,6 +921,10 @@ export function initMusicMosaic(): () => void {
       })
     );
 
+    activePointers.clear();
+    isDragging = false;
+    isPinching = false;
+
     if (isActive) {
       normalView!.hidden = true;
       mosaicStage!.hidden = false;
@@ -951,6 +961,9 @@ export function initMusicMosaic(): () => void {
   };
 
   const onResetZoomClick = () => {
+    activePointers.clear();
+    isDragging = false;
+    isPinching = false;
     scale = 1;
     panX = 0;
     panY = 0;
@@ -989,15 +1002,48 @@ export function initMusicMosaic(): () => void {
     scheduleRender();
   };
 
+  function beginPinch() {
+    if (!canvas || activePointers.size < 2) return;
+    const pts = Array.from(activePointers.values());
+    const p1 = pts[0];
+    const p2 = pts[1];
+    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    if (dist < 4) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const midX = (p1.x + p2.x) / 2 - rect.left;
+    const midY = (p1.y + p2.y) / 2 - rect.top;
+
+    isPinching = true;
+    dragMoved = true;
+    pinchStartDist = dist;
+    pinchStartScale = scale;
+    pinchStartWorldX = (midX - panX) / scale;
+    pinchStartWorldY = (midY - panY) / scale;
+
+    hoveredCellIdx = -1;
+    if (tooltip) tooltip.hidden = true;
+  }
+
   const onPointerDown = (e: PointerEvent) => {
-    if (!isActive || e.button !== 0) return;
-    isDragging = true;
-    dragMoved = false;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
-    dragStartPanX = panX;
-    dragStartPanY = panY;
-    canvas.setPointerCapture(e.pointerId);
+    if (!isActive || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {}
+
+    if (activePointers.size === 1) {
+      isDragging = true;
+      isPinching = false;
+      dragMoved = false;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      dragStartPanX = panX;
+      dragStartPanY = panY;
+    } else if (activePointers.size >= 2) {
+      beginPinch();
+      scheduleRender();
+    }
   };
 
   const onPointerMove = (e: PointerEvent) => {
@@ -1005,19 +1051,54 @@ export function initMusicMosaic(): () => void {
     lastPointerClientX = e.clientX;
     lastPointerClientY = e.clientY;
 
-    if (isDragging && scale > 1.01) {
+    if (activePointers.has(e.pointerId)) {
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    // Two-finger pinch-to-zoom + two-finger pan
+    if (activePointers.size >= 2) {
+      if (!isPinching) {
+        beginPinch();
+      }
+      const pts = Array.from(activePointers.values());
+      const p1 = pts[0];
+      const p2 = pts[1];
+      const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      if (dist >= 4 && pinchStartDist >= 4) {
+        const rect = canvas.getBoundingClientRect();
+        const midX = (p1.x + p2.x) / 2 - rect.left;
+        const midY = (p1.y + p2.y) / 2 - rect.top;
+
+        const nextScale = Math.min(
+          6,
+          Math.max(1, pinchStartScale * (dist / pinchStartDist))
+        );
+        const nextPanX = midX - pinchStartWorldX * nextScale;
+        const nextPanY = midY - pinchStartWorldY * nextScale;
+
+        scale = nextScale;
+        clampPan(nextPanX, nextPanY, scale);
+        updateResetZoomButton();
+        scheduleRender();
+      }
+      return;
+    }
+
+    if (isDragging) {
       const dx = e.clientX - dragStartX;
       const dy = e.clientY - dragStartY;
-      if (Math.hypot(dx, dy) > 4) {
+      if (Math.hypot(dx, dy) > (e.pointerType === 'touch' ? 6 : 4)) {
         dragMoved = true;
       }
-      if (dragMoved) {
+      if (dragMoved && scale > 1.01) {
         clampPan(dragStartPanX + dx, dragStartPanY + dy, scale);
         canvas.style.cursor = 'grabbing';
         scheduleRender();
         return;
       }
     }
+
+    if (e.pointerType === 'touch') return;
 
     canvas.style.cursor = scale > 1.02 ? 'grab' : 'pointer';
     const cellIdx = getCellFromClientCoords(e.clientX, e.clientY);
@@ -1029,16 +1110,37 @@ export function initMusicMosaic(): () => void {
     positionTooltip(e.clientX, e.clientY);
   };
 
-  const onPointerUp = (e: PointerEvent) => {
+  const onPointerUpOrCancel = (e: PointerEvent) => {
     if (!isActive) return;
+    activePointers.delete(e.pointerId);
+    try {
+      canvas.releasePointerCapture(e.pointerId);
+    } catch {}
+
+    if (activePointers.size >= 2) {
+      beginPinch();
+      return;
+    }
+
+    if (activePointers.size === 1) {
+      const remaining = Array.from(activePointers.values())[0];
+      isPinching = false;
+      isDragging = true;
+      dragMoved = true;
+      dragStartX = remaining.x;
+      dragStartY = remaining.y;
+      dragStartPanX = panX;
+      dragStartPanY = panY;
+      return;
+    }
+
     if (isDragging) {
+      const wasTap = e.type === 'pointerup' && !dragMoved && !isPinching;
       isDragging = false;
-      try {
-        canvas.releasePointerCapture(e.pointerId);
-      } catch {}
+      isPinching = false;
       canvas.style.cursor = scale > 1.02 ? 'grab' : 'pointer';
 
-      if (!dragMoved) {
+      if (wasTap) {
         const cellIdx = getCellFromClientCoords(e.clientX, e.clientY);
         if (cellIdx !== -1) {
           hoveredCellIdx = cellIdx;
@@ -1050,11 +1152,20 @@ export function initMusicMosaic(): () => void {
     }
   };
 
-  const onPointerLeave = () => {
-    if (!isActive) return;
+  const onPointerLeave = (e: PointerEvent) => {
+    if (!isActive || e.pointerType === 'touch' || activePointers.size > 0) {
+      return;
+    }
     hoveredCellIdx = -1;
     if (tooltip) tooltip.hidden = true;
     scheduleRender();
+  };
+
+  const onTouchMove = (e: TouchEvent) => {
+    if (!isActive) return;
+    if (e.touches.length >= 2 || scale > 1.01) {
+      e.preventDefault();
+    }
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -1088,9 +1199,11 @@ export function initMusicMosaic(): () => void {
   toggleBtn.addEventListener('focus', onToggleHover);
   resetZoomBtn?.addEventListener('click', onResetZoomClick);
   canvas.addEventListener('wheel', onWheel, { passive: false });
+  canvas.addEventListener('touchmove', onTouchMove, { passive: false });
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
-  canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointerup', onPointerUpOrCancel);
+  canvas.addEventListener('pointercancel', onPointerUpOrCancel);
   canvas.addEventListener('pointerleave', onPointerLeave);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('resize', onResize);
@@ -1107,9 +1220,11 @@ export function initMusicMosaic(): () => void {
     toggleBtn.removeEventListener('focus', onToggleHover);
     resetZoomBtn?.removeEventListener('click', onResetZoomClick);
     canvas.removeEventListener('wheel', onWheel);
+    canvas.removeEventListener('touchmove', onTouchMove);
     canvas.removeEventListener('pointerdown', onPointerDown);
     canvas.removeEventListener('pointermove', onPointerMove);
-    canvas.removeEventListener('pointerup', onPointerUp);
+    canvas.removeEventListener('pointerup', onPointerUpOrCancel);
+    canvas.removeEventListener('pointercancel', onPointerUpOrCancel);
     canvas.removeEventListener('pointerleave', onPointerLeave);
     window.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('resize', onResize);
