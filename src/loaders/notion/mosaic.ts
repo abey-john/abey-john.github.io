@@ -40,12 +40,12 @@ interface CachedAlbumSignature {
 
 const GRID_SIZE = 70;
 const TILE_PX = 50; // 70 * 50 = 3500x3500 high-res mosaic canvas
-const MAX_ALBUM_POOL = 1100;
-const MAX_USES_PER_ALBUM = 5; // 4,900 tiles / ~1,000 albums ≈ 4.9 uses max
-const TILE_DC_SHIFT = 0.25; // Per-tile flat average color nudge (constant across all 50x50 pixels of a tile)
+const MAX_ALBUM_POOL = 2000; // Candidate pool of top lifetime unique albums
+const MAX_USES_PER_ALBUM = 7; // Up to 7 uses per album across the 4,900-tile grid
+const TILE_DC_SHIFT = 0.0; // 0.0 = pure un-tinted album covers (all matching comes from the LAB solver)
 const TILE_INTERNAL_CONTRAST = 0.92; // Keep 92% of the album cover's own crisp internal artwork contrast
 const TILE_SATURATION = 0.92; // Preserve vibrant original album cover colors
-const CACHE_VERSION = 'v11-70x70-50px-max5-dc025';
+const CACHE_VERSION = 'v12-70x70-50px-pool2000-max7-dc000';
 
 function rgbToLab(r: number, g: number, b: number): [number, number, number] {
   let sr = r / 255;
@@ -83,7 +83,7 @@ function getSpotifyThumbUrl(url: string): string {
 async function fetchLifetimeTopAlbums(
   username: string
 ): Promise<MosaicAlbumItem[]> {
-  const offsets = [0, 500, 1000, 1500];
+  const offsets = [0, 500, 1000, 1500, 2000, 2500];
   const responses = await Promise.all(
     offsets.map(async (offset) => {
       try {
@@ -389,10 +389,10 @@ export async function buildAlbumMosaic(
         const q3 = getSubLab(1, 1);
         targetCellsLab[cellIdx] = [q0, q1, q2, q3];
 
-        // Prioritize facial region (centered around upper-middle) + high internal contrast edges
+        // Prioritize tight facial region (upper-center: ~12% down, ~47% across, 12% radius) + high internal contrast edges
         const distFromFace = Math.hypot(
-          (r - GRID_SIZE * 0.36) / (GRID_SIZE * 0.3),
-          (c - GRID_SIZE * 0.5) / (GRID_SIZE * 0.3)
+          (r - GRID_SIZE * 0.12) / (GRID_SIZE * 0.12),
+          (c - GRID_SIZE * 0.47) / (GRID_SIZE * 0.12)
         );
         const faceWeight = Math.max(0, 2.5 - distFromFace) * 40;
         const internalContrast =
