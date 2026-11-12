@@ -79,7 +79,8 @@ export function initMusicMosaic(): () => void {
   const LOUPE_ZOOM = 3.6;
 
   // Tooltip DOM sub-elements
-  const ttCover = tooltip.querySelector<HTMLImageElement>('[data-tt-cover]');
+  const ttCover = tooltip.querySelector<HTMLCanvasElement>('[data-tt-cover]');
+  const ttCoverCtx = ttCover ? ttCover.getContext('2d') : null;
   const ttTitle = tooltip.querySelector<HTMLElement>('[data-tt-title]');
   const ttArtist = tooltip.querySelector<HTMLElement>('[data-tt-artist]');
   const ttStats = tooltip.querySelector<HTMLElement>('[data-tt-stats]');
@@ -90,6 +91,7 @@ export function initMusicMosaic(): () => void {
   let atlasImg: HTMLImageElement | null = null;
   let atlasLoaded = false;
   const rawCoverCache = new Map<number, HTMLImageElement>();
+  let coverLoadTimer: number | null = null;
   const previewUrlCache = new Map<number, string | null>();
 
   // Viewport & Transform state
@@ -158,6 +160,9 @@ export function initMusicMosaic(): () => void {
     img.onload = () => {
       atlasLoaded = true;
       if (isActive) {
+        if (hoveredCellIdx >= 0) {
+          drawTooltipCover(hoveredCellIdx);
+        }
         randomizeRevealDelays();
         revealStartMs = performance.now();
         isRevealing = true;
@@ -172,23 +177,76 @@ export function initMusicMosaic(): () => void {
     if (existing) {
       return existing.complete && existing.naturalWidth > 0 ? existing : null;
     }
-    const alb = albums[albumIdx];
-    if (!alb?.image) return null;
-
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.decoding = 'async';
-    img.src = getThumbUrl(alb.image);
-    img.onload = () => {
-      if (isActive && (hoveredCellIdx !== -1 || activeCellIdx !== -1)) {
-        scheduleRender();
-        if (isPointerInside && hoveredCellIdx !== -1) {
-          renderLoupe(lastPointerClientX, lastPointerClientY);
-        }
-      }
-    };
-    rawCoverCache.set(albumIdx, img);
     return null;
+  }
+
+  function queueHighResCoverLoad(albumIdx: number) {
+    if (rawCoverCache.has(albumIdx)) return;
+    if (coverLoadTimer !== null) {
+      window.clearTimeout(coverLoadTimer);
+    }
+    coverLoadTimer = window.setTimeout(() => {
+      coverLoadTimer = null;
+      if (!isActive || rawCoverCache.has(albumIdx)) return;
+      const alb = albums[albumIdx];
+      if (!alb?.image) return;
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.decoding = 'async';
+      img.src = getThumbUrl(alb.image);
+      img.onload = () => {
+        if (!isActive) return;
+        if (hoveredCellIdx >= 0 && grid[hoveredCellIdx] === albumIdx) {
+          drawTooltipCover(hoveredCellIdx);
+          if (isPointerInside) {
+            renderLoupe(lastPointerClientX, lastPointerClientY);
+          }
+        }
+        if (hoveredCellIdx !== -1 || activeCellIdx !== -1) {
+          scheduleRender();
+        }
+      };
+      rawCoverCache.set(albumIdx, img);
+    }, 45);
+  }
+
+  function drawTooltipCover(cellIdx: number) {
+    if (!ttCover || !ttCoverCtx || cellIdx < 0 || cellIdx >= grid.length) {
+      return;
+    }
+    const albumIdx = grid[cellIdx];
+    if (albumIdx === undefined || albumIdx < 0) return;
+
+    const w = ttCover.width;
+    const h = ttCover.height;
+    ttCoverCtx.clearRect(0, 0, w, h);
+    ttCoverCtx.imageSmoothingEnabled = true;
+    ttCoverCtx.imageSmoothingQuality = 'high';
+
+    const highResImg = getUnblendedCoverImage(albumIdx);
+    if (highResImg) {
+      ttCoverCtx.drawImage(highResImg, 0, 0, w, h);
+      return;
+    }
+
+    if (atlasLoaded && atlasImg) {
+      const r = Math.floor(cellIdx / gridCols);
+      const c = cellIdx % gridCols;
+      ttCoverCtx.drawImage(
+        atlasImg,
+        c * tilePixelSize,
+        r * tilePixelSize,
+        tilePixelSize,
+        tilePixelSize,
+        0,
+        0,
+        w,
+        h
+      );
+    }
+
+    queueHighResCoverLoad(albumIdx);
   }
 
   function clampPan(nextPanX: number, nextPanY: number, nextScale: number) {
@@ -329,6 +387,7 @@ export function initMusicMosaic(): () => void {
       ctx.globalAlpha = 1;
       scheduleRender();
     } else {
+      const wasRevealing = isRevealing;
       isRevealing = false;
       ctx.drawImage(
         atlasImg,
@@ -359,6 +418,11 @@ export function initMusicMosaic(): () => void {
         hoveredCellIdx !== activeCellIdx
       ) {
         drawHighlightedTile(hoveredCellIdx, false);
+      }
+
+      if (wasRevealing && isPointerInside && hoveredCellIdx >= 0) {
+        renderLoupe(lastPointerClientX, lastPointerClientY);
+        positionTooltip(lastPointerClientX, lastPointerClientY);
       }
     }
 
@@ -532,11 +596,7 @@ export function initMusicMosaic(): () => void {
       return;
     }
 
-    const thumbUrl = getThumbUrl(alb.image);
-    if (ttCover && ttCover.dataset.currentSrc !== thumbUrl) {
-      ttCover.dataset.currentSrc = thumbUrl;
-      ttCover.src = thumbUrl;
-    }
+    drawTooltipCover(cellIdx);
     if (ttTitle) ttTitle.textContent = alb.title;
     if (ttArtist) ttArtist.textContent = alb.artist;
     if (ttStats) {
@@ -1094,6 +1154,7 @@ export function initMusicMosaic(): () => void {
       tooltip!.hidden = true;
       if (loupeCanvas) loupeCanvas.hidden = true;
       updateResetZoomButton();
+      measureCanvas();
 
       ensureAtlasLoaded();
       if (atlasLoaded) {
@@ -1456,6 +1517,10 @@ export function initMusicMosaic(): () => void {
     if (rafId !== null) {
       cancelAnimationFrame(rafId);
       rafId = null;
+    }
+    if (coverLoadTimer !== null) {
+      window.clearTimeout(coverLoadTimer);
+      coverLoadTimer = null;
     }
     stopMosaicAudio();
     toggleBtn.removeEventListener('click', onToggleClick);

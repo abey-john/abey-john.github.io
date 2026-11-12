@@ -54,14 +54,13 @@ const { mosaic } = Astro.props;
               pathLength="100"
             />
           </svg>
-          <img
+          <canvas
             class="tt-cover"
             data-tt-cover
-            src="/assets/covers/placeholder-album.svg"
-            alt=""
-            width="48"
-            height="48"
-          />
+            width="96"
+            height="96"
+            aria-hidden="true"
+          ></canvas>
           <span class="tt-icon-overlay" aria-hidden="true">
             <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8 5v14l11-7z" />
@@ -161,6 +160,9 @@ const { mosaic } = Astro.props;
     z-index: 4;
     width: 164px;
     height: 164px;
+    box-sizing: content-box;
+    margin-left: -2px;
+    margin-top: -2px;
     border-radius: 50%;
     pointer-events: none;
     background: var(--color-bg);
