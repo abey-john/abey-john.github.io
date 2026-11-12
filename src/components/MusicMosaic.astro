@@ -19,7 +19,14 @@ const { mosaic } = Astro.props;
       <canvas
         class="mosaic-canvas"
         data-mosaic-canvas
-        aria-label="Interactive cutout mosaic of album covers. Hover a tile to inspect album details, click to play a 30-second audio snippet, or scroll and pinch to zoom."
+        aria-label="Interactive cutout mosaic of album covers. Hover a tile to magnify and inspect album details, click to play a 30-second audio snippet, or pinch to zoom on mobile."
+      ></canvas>
+
+      <canvas
+        class="mosaic-loupe"
+        data-mosaic-loupe
+        hidden
+        aria-hidden="true"
       ></canvas>
 
       <button
@@ -130,7 +137,7 @@ const { mosaic } = Astro.props;
     position: relative;
     width: 100%;
     background: transparent;
-    overflow: hidden;
+    overflow: visible;
     user-select: none;
     touch-action: pan-y;
     display: flex;
@@ -138,9 +145,35 @@ const { mosaic } = Astro.props;
     align-items: center;
   }
 
+  .mosaic-viewport.is-zoomed {
+    overflow: hidden;
+  }
+
   .mosaic-canvas {
     display: block;
     cursor: default;
+  }
+
+  .mosaic-loupe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 4;
+    width: 164px;
+    height: 164px;
+    border-radius: 50%;
+    pointer-events: none;
+    background: var(--color-bg);
+    border: 2px solid rgba(255, 255, 255, 0.88);
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, 0.32),
+      0 2px 8px rgba(0, 0, 0, 0.16),
+      0 0 0 1px rgba(0, 0, 0, 0.22);
+    will-change: transform;
+  }
+
+  .mosaic-loupe[hidden] {
+    display: none !important;
   }
 
   .mosaic-reset-zoom {

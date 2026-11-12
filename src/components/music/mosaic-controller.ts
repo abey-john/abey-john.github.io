@@ -30,6 +30,9 @@ export function initMusicMosaic(): () => void {
   const canvas = document.querySelector<HTMLCanvasElement>(
     '[data-mosaic-canvas]'
   );
+  const loupeCanvas = document.querySelector<HTMLCanvasElement>(
+    '[data-mosaic-loupe]'
+  );
   const viewport = document.querySelector<HTMLElement>(
     '[data-mosaic-viewport]'
   );
@@ -70,6 +73,10 @@ export function initMusicMosaic(): () => void {
   const totalCells = gridCols * gridRows;
   const ctx = canvas.getContext('2d');
   if (!ctx) return () => {};
+  const loupeCtx = loupeCanvas ? loupeCanvas.getContext('2d') : null;
+  const LOUPE_SIZE = 164;
+  const LOUPE_RADIUS = LOUPE_SIZE / 2;
+  const LOUPE_ZOOM = 3.6;
 
   // Tooltip DOM sub-elements
   const ttCover = tooltip.querySelector<HTMLImageElement>('[data-tt-cover]');
@@ -115,6 +122,8 @@ export function initMusicMosaic(): () => void {
   let hoveredCellIdx = -1;
   let lastPointerClientX = 0;
   let lastPointerClientY = 0;
+  let lastPointerType = 'mouse';
+  let isPointerInside = false;
   let isDragging = false;
   let isPinching = false;
   let dragMoved = false;
@@ -173,6 +182,9 @@ export function initMusicMosaic(): () => void {
     img.onload = () => {
       if (isActive && (hoveredCellIdx !== -1 || activeCellIdx !== -1)) {
         scheduleRender();
+        if (isPointerInside && hoveredCellIdx !== -1) {
+          renderLoupe(lastPointerClientX, lastPointerClientY);
+        }
       }
     };
     rawCoverCache.set(albumIdx, img);
@@ -192,6 +204,9 @@ export function initMusicMosaic(): () => void {
   }
 
   function updateResetZoomButton() {
+    if (viewport) {
+      viewport.classList.toggle('is-zoomed', scale > 1.03);
+    }
     if (!resetZoomBtn) return;
     if (scale > 1.03) {
       resetZoomBtn.hidden = false;
@@ -242,6 +257,10 @@ export function initMusicMosaic(): () => void {
       canvas.height = Math.round(cssHeight * dpr);
       canvas.style.width = `${cssWidth}px`;
       canvas.style.height = `${cssHeight}px`;
+      if (loupeCanvas) {
+        loupeCanvas.width = Math.round(LOUPE_SIZE * dpr);
+        loupeCanvas.height = Math.round(LOUPE_SIZE * dpr);
+      }
       clampPan(panX * ratioX, panY * ratioY, scale);
     }
   }
@@ -373,6 +392,101 @@ export function initMusicMosaic(): () => void {
     );
   }
 
+  function renderLoupe(clientX: number, clientY: number) {
+    if (
+      !loupeCanvas ||
+      !loupeCtx ||
+      !viewport ||
+      !canvas ||
+      !atlasLoaded ||
+      !atlasImg ||
+      isRevealing ||
+      !isPointerInside ||
+      lastPointerType === 'touch' ||
+      hoveredCellIdx < 0 ||
+      scale > 1.02
+    ) {
+      if (loupeCanvas) loupeCanvas.hidden = true;
+      return;
+    }
+
+    const vpRect = viewport.getBoundingClientRect();
+    const cRect = canvas.getBoundingClientRect();
+    const localX = clientX - cRect.left;
+    const localY = clientY - cRect.top;
+
+    const gridX = (localX - panX) / scale - baseOffsetX;
+    const gridY = (localY - panY) / scale - baseOffsetY;
+
+    loupeCanvas.hidden = false;
+    const lx = clientX - vpRect.left - LOUPE_RADIUS;
+    const ly = clientY - vpRect.top - LOUPE_RADIUS;
+    loupeCanvas.style.transform = `translate3d(${Math.round(lx)}px, ${Math.round(ly)}px, 0)`;
+
+    loupeCtx.save();
+    loupeCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    loupeCtx.clearRect(0, 0, LOUPE_SIZE, LOUPE_SIZE);
+    loupeCtx.imageSmoothingEnabled = true;
+    loupeCtx.imageSmoothingQuality = 'high';
+
+    loupeCtx.translate(LOUPE_RADIUS, LOUPE_RADIUS);
+    loupeCtx.scale(LOUPE_ZOOM, LOUPE_ZOOM);
+    loupeCtx.translate(-gridX, -gridY);
+
+    loupeCtx.drawImage(
+      atlasImg,
+      0,
+      0,
+      gridCols * tilePixelSize,
+      gridRows * tilePixelSize,
+      0,
+      0,
+      gridCols * cellCss,
+      gridRows * cellCss
+    );
+
+    const drawLoupeHighlight = (cellIdx: number, isAudioTile: boolean) => {
+      const albumIdx = grid[cellIdx];
+      if (albumIdx === undefined || albumIdx < 0) return;
+      const r = Math.floor(cellIdx / gridCols);
+      const c = cellIdx % gridCols;
+      const x = c * cellCss;
+      const y = r * cellCss;
+      const unblendedImg = getUnblendedCoverImage(albumIdx);
+      if (unblendedImg) {
+        loupeCtx.drawImage(unblendedImg, x, y, cellCss, cellCss);
+      }
+      const lw = 1.6 / LOUPE_ZOOM;
+      loupeCtx.lineWidth = lw;
+      loupeCtx.strokeStyle = isAudioTile ? '#10b981' : '#ffffff';
+      loupeCtx.strokeRect(
+        x + lw * 0.5,
+        y + lw * 0.5,
+        cellCss - lw,
+        cellCss - lw
+      );
+    };
+
+    if (
+      activeCellIdx >= 0 &&
+      activeCellIdx < grid.length &&
+      grid[activeCellIdx] >= 0
+    ) {
+      drawLoupeHighlight(activeCellIdx, true);
+    }
+
+    if (
+      hoveredCellIdx >= 0 &&
+      hoveredCellIdx < grid.length &&
+      grid[hoveredCellIdx] >= 0 &&
+      hoveredCellIdx !== activeCellIdx
+    ) {
+      drawLoupeHighlight(hoveredCellIdx, false);
+    }
+
+    loupeCtx.restore();
+  }
+
   function scheduleRender() {
     if (rafId === null) {
       rafId = requestAnimationFrame(renderFrame);
@@ -437,16 +551,18 @@ export function initMusicMosaic(): () => void {
     if (!tooltip || tooltip.hidden || !viewport) return;
     const vpRect = viewport.getBoundingClientRect();
     const ttRect = tooltip.getBoundingClientRect();
-    const offset = 16;
+    const isLoupeShown = loupeCanvas && !loupeCanvas.hidden;
+    const offsetX = isLoupeShown ? LOUPE_RADIUS + 14 : 16;
+    const offsetY = isLoupeShown ? -ttRect.height * 0.5 : 16;
 
-    let left = clientX - vpRect.left + offset;
-    let top = clientY - vpRect.top + offset;
+    let left = clientX - vpRect.left + offsetX;
+    let top = clientY - vpRect.top + offsetY;
 
     if (left + ttRect.width > vpRect.width - 8) {
-      left = clientX - vpRect.left - ttRect.width - offset;
+      left = clientX - vpRect.left - ttRect.width - offsetX;
     }
-    if (top + ttRect.height > vpRect.height - 8) {
-      top = clientY - vpRect.top - ttRect.height - offset;
+    if (!isLoupeShown && top + ttRect.height > vpRect.height - 8) {
+      top = clientY - vpRect.top - ttRect.height - 16;
     }
 
     left = Math.max(8, Math.min(vpRect.width - ttRect.width - 8, left));
@@ -974,7 +1090,9 @@ export function initMusicMosaic(): () => void {
       panX = 0;
       panY = 0;
       hoveredCellIdx = -1;
+      isPointerInside = false;
       tooltip!.hidden = true;
+      if (loupeCanvas) loupeCanvas.hidden = true;
       updateResetZoomButton();
 
       ensureAtlasLoaded();
@@ -988,7 +1106,9 @@ export function initMusicMosaic(): () => void {
       mosaicStage!.hidden = true;
       normalView!.hidden = false;
       hoveredCellIdx = -1;
+      isPointerInside = false;
       tooltip!.hidden = true;
+      if (loupeCanvas) loupeCanvas.hidden = true;
     }
   }
 
@@ -1010,41 +1130,6 @@ export function initMusicMosaic(): () => void {
     panX = 0;
     panY = 0;
     updateResetZoomButton();
-    scheduleRender();
-  };
-
-  const onWheel = (e: WheelEvent) => {
-    if (!isActive || !canvas) return;
-    // Allow normal page scrolling anywhere outside an active silhouette tile
-    const hoveredBeforeZoom = getCellFromClientCoords(e.clientX, e.clientY);
-    if (hoveredBeforeZoom === -1) return;
-
-    e.preventDefault();
-
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    const zoomFactor = e.deltaY < 0 ? 1.18 : 1 / 1.18;
-    const nextScale = Math.min(6, Math.max(1, scale * zoomFactor));
-    if (Math.abs(nextScale - scale) < 0.001) return;
-
-    const worldX = (mouseX - panX) / scale;
-    const worldY = (mouseY - panY) / scale;
-
-    const nextPanX = mouseX - worldX * nextScale;
-    const nextPanY = mouseY - worldY * nextScale;
-
-    scale = nextScale;
-    clampPan(nextPanX, nextPanY, scale);
-    updateResetZoomButton();
-
-    const cellIdx = getCellFromClientCoords(e.clientX, e.clientY);
-    if (cellIdx !== hoveredCellIdx) {
-      hoveredCellIdx = cellIdx;
-      updateTooltipContent(cellIdx);
-    }
-    positionTooltip(e.clientX, e.clientY);
     scheduleRender();
   };
 
@@ -1073,6 +1158,7 @@ export function initMusicMosaic(): () => void {
 
     hoveredCellIdx = -1;
     if (tooltip) tooltip.hidden = true;
+    if (loupeCanvas) loupeCanvas.hidden = true;
   }
 
   function updatePinchFromCoords(
@@ -1158,6 +1244,8 @@ export function initMusicMosaic(): () => void {
     if (!isActive) return;
     lastPointerClientX = e.clientX;
     lastPointerClientY = e.clientY;
+    lastPointerType = e.pointerType || 'mouse';
+    isPointerInside = e.pointerType !== 'touch';
 
     if (activePointers.has(e.pointerId)) {
       activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1183,6 +1271,7 @@ export function initMusicMosaic(): () => void {
       ) {
         clampPan(dragStartPanX + dx, dragStartPanY + dy, scale);
         canvas.style.cursor = 'grabbing';
+        if (loupeCanvas) loupeCanvas.hidden = true;
         scheduleRender();
         return;
       }
@@ -1198,6 +1287,7 @@ export function initMusicMosaic(): () => void {
       updateTooltipContent(cellIdx);
       scheduleRender();
     }
+    renderLoupe(e.clientX, e.clientY);
     positionTooltip(e.clientX, e.clientY);
   };
 
@@ -1253,8 +1343,10 @@ export function initMusicMosaic(): () => void {
     if (!isActive || e.pointerType === 'touch' || activePointers.size > 0) {
       return;
     }
+    isPointerInside = false;
     hoveredCellIdx = -1;
     if (tooltip) tooltip.hidden = true;
+    if (loupeCanvas) loupeCanvas.hidden = true;
     scheduleRender();
   };
 
@@ -1347,7 +1439,6 @@ export function initMusicMosaic(): () => void {
   toggleBtn.addEventListener('mouseenter', onToggleHover);
   toggleBtn.addEventListener('focus', onToggleHover);
   resetZoomBtn?.addEventListener('click', onResetZoomClick);
-  canvas.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('touchstart', onTouchStart, { passive: true });
   canvas.addEventListener('touchmove', onTouchMove, { passive: false });
   canvas.addEventListener('touchend', onTouchEnd, { passive: true });
@@ -1371,7 +1462,6 @@ export function initMusicMosaic(): () => void {
     toggleBtn.removeEventListener('mouseenter', onToggleHover);
     toggleBtn.removeEventListener('focus', onToggleHover);
     resetZoomBtn?.removeEventListener('click', onResetZoomClick);
-    canvas.removeEventListener('wheel', onWheel);
     canvas.removeEventListener('touchstart', onTouchStart);
     canvas.removeEventListener('touchmove', onTouchMove);
     canvas.removeEventListener('touchend', onTouchEnd);
