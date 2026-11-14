@@ -105,11 +105,16 @@ export function initMusicMosaic(): () => void {
   let panX = 0;
   let panY = 0;
 
-  // Entrance / Zoom animation state
+  // Entrance / Exit / Zoom animation state
   let rafId: number | null = null;
   let revealStartMs = 0;
   const REVEAL_DURATION_MS = 680;
+  const EXIT_DURATION_MS = 480;
+  const CONTENT_FADE_MS = 240;
   let isRevealing = false;
+  let isExiting = false;
+  let exitStartMs = 0;
+  let transitionTimer: number | null = null;
   const tileRevealDelays = new Float32Array(totalCells);
 
   function randomizeRevealDelays() {
@@ -325,7 +330,7 @@ export function initMusicMosaic(): () => void {
 
   function renderFrame(now: number = performance.now()) {
     rafId = null;
-    if (!isActive || !ctx || !canvas) return;
+    if ((!isActive && !isExiting) || !ctx || !canvas) return;
 
     measureCanvas();
     ctx.save();
@@ -341,6 +346,73 @@ export function initMusicMosaic(): () => void {
     ctx.scale(scale, scale);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
+
+    if (isExiting) {
+      const elapsed = now - exitStartMs;
+      const overallProgress = Math.max(
+        0,
+        Math.min(1, elapsed / EXIT_DURATION_MS)
+      );
+
+      for (let r = 0; r < gridRows; r++) {
+        const rowOffset = r * gridCols;
+        for (let c = 0; c < gridCols; c++) {
+          const cellIdx = rowOffset + c;
+          if (grid[cellIdx] < 0) continue;
+
+          const delay = tileRevealDelays[cellIdx];
+          const localT = Math.max(
+            0,
+            Math.min(1, (overallProgress - delay) / 0.38)
+          );
+          if (localT >= 1) continue;
+
+          // Shrink & fade out (reverse of entry)
+          const remaining = 1 - Math.pow(localT, 2.5);
+          const tileScale = 0.2 + 0.8 * remaining;
+          const drawSize = cellCss * tileScale + 0.35;
+          const dx = baseOffsetX + c * cellCss + (cellCss - drawSize) / 2;
+          const dy = baseOffsetY + r * cellCss + (cellCss - drawSize) / 2;
+
+          ctx.globalAlpha = remaining;
+          ctx.drawImage(
+            atlasImg,
+            c * tilePixelSize,
+            r * tilePixelSize,
+            tilePixelSize,
+            tilePixelSize,
+            dx,
+            dy,
+            drawSize,
+            drawSize
+          );
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      if (elapsed < EXIT_DURATION_MS) {
+        scheduleRender();
+      } else {
+        isExiting = false;
+        mosaicStage!.hidden = true;
+        normalView!.hidden = false;
+        normalView!.classList.remove('is-fading-out');
+        normalView!.classList.add('is-fading-in');
+        if (transitionTimer !== null) {
+          window.clearTimeout(transitionTimer);
+        }
+        transitionTimer = window.setTimeout(() => {
+          transitionTimer = null;
+          normalView?.classList.remove('is-fading-in');
+        }, 360);
+        hoveredCellIdx = -1;
+        isPointerInside = false;
+        tooltip!.hidden = true;
+        if (loupeCanvas) loupeCanvas.hidden = true;
+      }
+      ctx.restore();
+      return;
+    }
 
     const elapsed = now - revealStartMs;
 
@@ -1143,9 +1215,45 @@ export function initMusicMosaic(): () => void {
     isPinching = false;
 
     if (isActive) {
-      normalView!.hidden = true;
-      mosaicStage!.hidden = false;
-      window.scrollTo({ top: 0 });
+      isExiting = false;
+      if (transitionTimer !== null) {
+        window.clearTimeout(transitionTimer);
+        transitionTimer = null;
+      }
+      normalView!.classList.remove('is-fading-in');
+      normalView!.classList.add('is-fading-out');
+
+      transitionTimer = window.setTimeout(() => {
+        transitionTimer = null;
+        if (!isActive) return;
+        normalView!.hidden = true;
+        normalView!.classList.remove('is-fading-out');
+        mosaicStage!.hidden = false;
+        window.scrollTo({ top: 0 });
+        scale = 1;
+        panX = 0;
+        panY = 0;
+        hoveredCellIdx = -1;
+        isPointerInside = false;
+        tooltip!.hidden = true;
+        if (loupeCanvas) loupeCanvas.hidden = true;
+        updateResetZoomButton();
+        measureCanvas();
+
+        ensureAtlasLoaded();
+        if (atlasLoaded) {
+          randomizeRevealDelays();
+          revealStartMs = performance.now();
+          isRevealing = true;
+        }
+        scheduleRender();
+      }, CONTENT_FADE_MS);
+    } else {
+      if (transitionTimer !== null) {
+        window.clearTimeout(transitionTimer);
+        transitionTimer = null;
+      }
+      normalView!.classList.remove('is-fading-out', 'is-fading-in');
       scale = 1;
       panX = 0;
       panY = 0;
@@ -1154,22 +1262,17 @@ export function initMusicMosaic(): () => void {
       tooltip!.hidden = true;
       if (loupeCanvas) loupeCanvas.hidden = true;
       updateResetZoomButton();
-      measureCanvas();
 
-      ensureAtlasLoaded();
-      if (atlasLoaded) {
+      if (atlasLoaded && atlasImg) {
         randomizeRevealDelays();
-        revealStartMs = performance.now();
-        isRevealing = true;
+        isRevealing = false;
+        isExiting = true;
+        exitStartMs = performance.now();
+        scheduleRender();
+      } else {
+        mosaicStage!.hidden = true;
+        normalView!.hidden = false;
       }
-      scheduleRender();
-    } else {
-      mosaicStage!.hidden = true;
-      normalView!.hidden = false;
-      hoveredCellIdx = -1;
-      isPointerInside = false;
-      tooltip!.hidden = true;
-      if (loupeCanvas) loupeCanvas.hidden = true;
     }
   }
 
@@ -1518,10 +1621,17 @@ export function initMusicMosaic(): () => void {
       cancelAnimationFrame(rafId);
       rafId = null;
     }
+    isExiting = false;
+    isRevealing = false;
     if (coverLoadTimer !== null) {
       window.clearTimeout(coverLoadTimer);
       coverLoadTimer = null;
     }
+    if (transitionTimer !== null) {
+      window.clearTimeout(transitionTimer);
+      transitionTimer = null;
+    }
+    normalView?.classList.remove('is-fading-out', 'is-fading-in');
     stopMosaicAudio();
     toggleBtn.removeEventListener('click', onToggleClick);
     toggleBtn.removeEventListener('mouseenter', onToggleHover);

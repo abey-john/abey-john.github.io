@@ -476,17 +476,12 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     gap: var(--space-sm);
   }
 
-  .music-page:has([data-music-mosaic-stage]:not([hidden])) .music-header {
-    padding-bottom: var(--space-sm);
-  }
-
   :global(.site-wrapper:has([data-music-mosaic-stage]:not([hidden]))) {
     min-height: 100vh;
     min-height: 100dvh;
   }
 
   :global(.main-content:has([data-music-mosaic-stage]:not([hidden]))) {
-    padding-top: var(--space-md);
     padding-bottom: var(--space-xs);
   }
 
@@ -498,7 +493,6 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
 
   @media (max-width: 640px) {
     :global(.main-content:has([data-music-mosaic-stage]:not([hidden]))) {
-      padding-top: var(--space-sm);
       padding-bottom: 4px;
     }
 
@@ -513,6 +507,32 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     display: flex;
     flex-direction: column;
     gap: var(--space-2xl);
+    transition:
+      opacity 0.28s ease,
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+  }
+
+  .music-normal-view.is-fading-out {
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+  }
+
+  .music-normal-view.is-fading-in {
+    animation: music-content-fade-in 0.32s cubic-bezier(0.22, 1, 0.36, 1)
+      forwards;
+  }
+
+  @keyframes music-content-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .music-normal-view[hidden] {
