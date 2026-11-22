@@ -63,7 +63,10 @@ const { username = 'itseebo', limit = 5, class: className = '' } = Astro.props;
 </aside>
 
 <script>
+  import { resolveTrackPreview } from './music/audio-preview';
+
   let activeAbortController: AbortController | null = null;
+  let activePreviewAbortController: AbortController | null = null;
   let activeAudio: HTMLAudioElement | null = null;
   let activeTrackId: string | null = null;
 
@@ -93,6 +96,10 @@ const { username = 'itseebo', limit = 5, class: className = '' } = Astro.props;
   }
 
   function stopTickerAudio() {
+    if (activePreviewAbortController) {
+      activePreviewAbortController.abort();
+      activePreviewAbortController = null;
+    }
     if (activeAudio) {
       activeAudio.pause();
       activeAudio.removeAttribute('src');
@@ -118,35 +125,12 @@ const { username = 'itseebo', limit = 5, class: className = '' } = Astro.props;
       });
   }
 
-  async function resolveAudioPreview(
-    title: string,
-    artist: string,
-    providedUrl?: string | null
-  ): Promise<string | null> {
-    if (providedUrl) return providedUrl;
-
-    try {
-      const q = `${title} ${artist}`.trim();
-      const res = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=5`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const songs = (data.results || []).filter((t: any) => t.previewUrl);
-        if (songs.length > 0) {
-          return songs[0].previewUrl;
-        }
-      }
-    } catch {}
-
-    return null;
-  }
-
   async function handlePillClick(pill: HTMLElement) {
     const trackId = pill.dataset.trackId || '';
     const title = pill.dataset.title || 'Unknown Track';
     const artist = pill.dataset.artist || 'Unknown Artist';
-    const rawPreviewUrl = pill.dataset.previewUrl || '';
+    const album = pill.dataset.album || '';
+    const fallbackSpotifyPreview = pill.dataset.spotifyPreview || '';
 
     // Immediately release mouse focus so the marquee does not stay locked
     pill.blur();
@@ -179,10 +163,28 @@ const { username = 'itseebo', limit = 5, class: className = '' } = Astro.props;
     syncPillActiveState(trackId, true);
     syncPillLoadingState(trackId, true);
 
-    const previewUrl = await resolveAudioPreview(title, artist, rawPreviewUrl);
+    activePreviewAbortController = new AbortController();
+    const signal = activePreviewAbortController.signal;
+
+    let previewUrl: string | null = null;
+    try {
+      previewUrl = await resolveTrackPreview(
+        {
+          id: trackId,
+          title,
+          artist,
+          album,
+          fallbackSpotifyPreview: fallbackSpotifyPreview || null
+        },
+        signal
+      );
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+    }
+
     syncPillLoadingState(trackId, false);
 
-    if (!previewUrl || activeTrackId !== trackId) {
+    if (signal.aborted || !previewUrl || activeTrackId !== trackId) {
       stopTickerAudio();
       return;
     }
@@ -311,9 +313,9 @@ const { username = 'itseebo', limit = 5, class: className = '' } = Astro.props;
         const image =
           item.track?.albums?.[0]?.image ||
           '/assets/covers/placeholder-album.svg';
+        const album = item.track?.albums?.[0]?.name || '';
         const trackId = String(item.track?.id || `${title}-${artist}`);
-        const previewUrl =
-          item.track?.appleMusicPreview || item.track?.spotifyPreview || '';
+        const spotifyPreview = item.track?.spotifyPreview || '';
 
         const cloneAttrs = isAriaClone
           ? 'tabindex="-1" aria-hidden="true"'
@@ -326,7 +328,8 @@ const { username = 'itseebo', limit = 5, class: className = '' } = Astro.props;
             data-track-id="${escapeHtml(trackId)}"
             data-title="${escapeHtml(title)}"
             data-artist="${escapeHtml(artist)}"
-            data-preview-url="${escapeHtml(previewUrl)}"
+            data-album="${escapeHtml(album)}"
+            data-spotify-preview="${escapeHtml(spotifyPreview)}"
             ${cloneAttrs}
             aria-label="Preview snippet of ${escapeHtml(title)} by ${escapeHtml(artist)}"
             aria-pressed="false"

@@ -4,6 +4,14 @@ export interface AudioPreviewTarget {
   artist: string;
 }
 
+export interface TrackPreviewTarget {
+  id?: string | number;
+  title: string;
+  artist: string;
+  album?: string;
+  fallbackSpotifyPreview?: string | null;
+}
+
 const previewUrlCache = new Map<string, string | null>();
 
 export function getMediumThumbUrl(url: string): string {
@@ -105,10 +113,10 @@ export function getAlternatePenalty(
     penalty += 220;
   }
 
-  // Penalize remixes, DJ mixes, covers, EDM versions, sped-up/slowed, instrumentals, commentary unless expected
+  // Penalize remixes, DJ mixes, covers, genre-qualified remixes, sped-up/slowed, instrumentals, commentary unless expected
   const remixChecks: Array<[RegExp, number]> = [
     [
-      /\b(cover|covers|piano version|guitar version|orchestral|lofi|lo-fi|edm|dubstep|hardstyle|techno|house mix|trance)\b/,
+      /\b(cover|covers|piano version|guitar version|orchestral version|(?:edm|dubstep|hardstyle|techno|trance|lofi|lo-fi)\s+(?:remix|mix|version|edit|cover))\b/,
       140
     ],
     [/\b(remix|remixes|re-mix|megamix|club mix|vip mix|dub mix)\b/, 130],
@@ -140,6 +148,140 @@ export function getAlternatePenalty(
   }
 
   return penalty;
+}
+
+function scoreTrackMatch(
+  candidateTrackName: string,
+  candidateCollectionName: string,
+  candidateArtistName: string,
+  targetTrackName: string,
+  targetAlbumTitle: string,
+  allowedContext: string
+): number {
+  const cleanPrefFull = cleanMatchText(targetTrackName);
+  const cleanPrefBase = cleanMatchText(getBaseTitle(targetTrackName));
+  const cleanAlbumBase = cleanMatchText(
+    getBaseTitle(targetAlbumTitle) || targetAlbumTitle
+  );
+  const cTrkFull = cleanMatchText(candidateTrackName);
+  const cTrkBase = cleanMatchText(getBaseTitle(candidateTrackName));
+  let score = 0;
+
+  if (cleanPrefFull && cTrkFull === cleanPrefFull) {
+    score += 140;
+  } else if (cleanPrefBase && cTrkBase === cleanPrefBase) {
+    score += 110;
+  } else if (
+    cleanPrefBase &&
+    cleanPrefBase.length >= 3 &&
+    (cTrkBase.includes(cleanPrefBase) || cleanPrefBase.includes(cTrkBase))
+  ) {
+    score += 65;
+  } else if (cleanAlbumBase && cTrkBase === cleanAlbumBase) {
+    score += 35;
+  } else {
+    score += 10;
+  }
+
+  score -= getAlternatePenalty(
+    candidateTrackName,
+    candidateCollectionName,
+    candidateArtistName,
+    allowedContext
+  );
+  return score;
+}
+
+async function searchItunesSongPreview(
+  songQueries: string[],
+  artist: string,
+  albumTitle: string,
+  targetTrackName: string,
+  allowedContext: string,
+  signal?: AbortSignal
+): Promise<string | null> {
+  for (const sq of songQueries) {
+    const songRes = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(sq)}&entity=song&limit=20`,
+      { signal }
+    );
+    if (!songRes.ok) continue;
+    const songJson = await songRes.json();
+    const candidates = (songJson.results || []).filter(
+      (s: any) => s.previewUrl && matchesArtistName(s.artistName, artist)
+    );
+
+    const scoredSongs = candidates
+      .map((s: any) => {
+        let score = scoreTrackMatch(
+          s.trackName || '',
+          s.collectionName || '',
+          s.artistName || '',
+          targetTrackName,
+          albumTitle,
+          allowedContext
+        );
+        if (
+          albumTitle &&
+          matchesAlbumTitle(s.collectionName || '', albumTitle)
+        ) {
+          score += 90;
+        }
+        return { song: s, score };
+      })
+      .sort((a: any, b: any) => b.score - a.score);
+
+    if (scoredSongs.length > 0 && scoredSongs[0].score > 25) {
+      return scoredSongs[0].song.previewUrl;
+    }
+  }
+  return null;
+}
+
+export async function resolveTrackPreview(
+  track: TrackPreviewTarget,
+  signal?: AbortSignal
+): Promise<string | null> {
+  const cacheKey = `track:${cleanMatchText(track.title)}:::${cleanMatchText(track.artist)}:::${cleanMatchText(track.album || '')}`;
+  if (previewUrlCache.has(cacheKey)) {
+    return previewUrlCache.get(cacheKey) ?? null;
+  }
+
+  const primaryArtist = track.artist.split(',')[0].trim();
+  const baseTrack = getBaseTitle(track.title) || track.title;
+  const baseAlbum = track.album ? getBaseTitle(track.album) || track.album : '';
+  const allowedContext = `${track.title} ${track.album || ''}`.trim();
+
+  const songQueries = [
+    ...(baseAlbum ? [`${baseTrack} ${primaryArtist} ${baseAlbum}`] : []),
+    `${baseTrack} ${primaryArtist}`,
+    ...(track.title !== baseTrack ? [`${track.title} ${primaryArtist}`] : [])
+  ];
+
+  try {
+    const url = await searchItunesSongPreview(
+      songQueries,
+      track.artist,
+      track.album || '',
+      track.title,
+      allowedContext,
+      signal
+    );
+    if (url) {
+      previewUrlCache.set(cacheKey, url);
+      return url;
+    }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw err;
+  }
+
+  if (track.fallbackSpotifyPreview) {
+    previewUrlCache.set(cacheKey, track.fallbackSpotifyPreview);
+    return track.fallbackSpotifyPreview;
+  }
+
+  previewUrlCache.set(cacheKey, null);
+  return null;
 }
 
 function getPreviewCacheKey(alb: AudioPreviewTarget): string {
@@ -234,43 +376,6 @@ export async function resolveAlbumPreview(
   }
 
   const allowedContext = `${alb.title} ${preferredTrackName}`;
-  const cleanPrefFull = cleanMatchText(preferredTrackName);
-  const cleanPrefBase = cleanMatchText(getBaseTitle(preferredTrackName));
-  const cleanAlbumBase = cleanMatchText(baseAlbumTitle);
-
-  const scoreCandidateTrack = (
-    trackName: string,
-    collectionName: string,
-    artistName: string
-  ): number => {
-    const cTrkFull = cleanMatchText(trackName);
-    const cTrkBase = cleanMatchText(getBaseTitle(trackName));
-    let score = 0;
-
-    if (cleanPrefFull && cTrkFull === cleanPrefFull) {
-      score += 140;
-    } else if (cleanPrefBase && cTrkBase === cleanPrefBase) {
-      score += 110;
-    } else if (
-      cleanPrefBase &&
-      cleanPrefBase.length >= 3 &&
-      (cTrkBase.includes(cleanPrefBase) || cleanPrefBase.includes(cTrkBase))
-    ) {
-      score += 65;
-    } else if (cleanAlbumBase && cTrkBase === cleanAlbumBase) {
-      score += 35;
-    } else {
-      score += 10;
-    }
-
-    score -= getAlternatePenalty(
-      trackName,
-      collectionName,
-      artistName,
-      allowedContext
-    );
-    return score;
-  };
 
   // 2. Album-First iTunes Lookup: Find the verified studio album collectionId, then score its tracks
   try {
@@ -316,10 +421,13 @@ export async function resolveAlbumPreview(
           const scoredTracks = tracks
             .map((t: any) => ({
               track: t,
-              score: scoreCandidateTrack(
+              score: scoreTrackMatch(
                 t.trackName,
                 col.collectionName || alb.title,
-                t.artistName || alb.artist
+                t.artistName || alb.artist,
+                preferredTrackName,
+                alb.title,
+                allowedContext
               )
             }))
             .sort((a: any, b: any) => b.score - a.score);
@@ -345,36 +453,17 @@ export async function resolveAlbumPreview(
       `${baseAlbumTitle} ${primaryArtist}`
     ];
 
-    for (const sq of songQueries) {
-      const songRes = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(sq)}&entity=song&limit=20`,
-        { signal }
-      );
-      if (!songRes.ok) continue;
-      const songJson = await songRes.json();
-      const candidates = (songJson.results || []).filter(
-        (s: any) => s.previewUrl && matchesArtistName(s.artistName, alb.artist)
-      );
-
-      const scoredSongs = candidates
-        .map((s: any) => {
-          let score = scoreCandidateTrack(
-            s.trackName || '',
-            s.collectionName || '',
-            s.artistName || ''
-          );
-          if (matchesAlbumTitle(s.collectionName || '', alb.title)) {
-            score += 90;
-          }
-          return { song: s, score };
-        })
-        .sort((a: any, b: any) => b.score - a.score);
-
-      if (scoredSongs.length > 0 && scoredSongs[0].score > 25) {
-        const url = scoredSongs[0].song.previewUrl;
-        previewUrlCache.set(cacheKey, url);
-        return url;
-      }
+    const fallbackUrl = await searchItunesSongPreview(
+      songQueries,
+      alb.artist,
+      alb.title,
+      preferredTrackName,
+      allowedContext,
+      signal
+    );
+    if (fallbackUrl) {
+      previewUrlCache.set(cacheKey, fallbackUrl);
+      return fallbackUrl;
     }
   } catch (err: any) {
     if (err?.name === 'AbortError') throw err;
