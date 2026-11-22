@@ -14,7 +14,8 @@ export function createTimelineTrail(
   railButtons: HTMLButtonElement[],
   pillEl: HTMLElement
 ): TimelineTrailController {
-  const summaryEl = pillEl.querySelector<HTMLElement>('[data-trail-summary]');
+  const artistEl = pillEl.querySelector<HTMLElement>('[data-trail-artist]');
+  const metaEl = pillEl.querySelector<HTMLElement>('[data-trail-meta]');
   const prevBtn = pillEl.querySelector<HTMLButtonElement>('[data-trail-prev]');
   const nextBtn = pillEl.querySelector<HTMLButtonElement>('[data-trail-next]');
   const pinBtn = pillEl.querySelector<HTMLButtonElement>('[data-trail-pin]');
@@ -124,10 +125,13 @@ export function createTimelineTrail(
     const count = matchedTiles.length;
     const unit = count === 1 ? 'album' : 'albums';
 
-    if (summaryEl) {
-      summaryEl.textContent = yearSpan
-        ? `${primaryArtist} · ${count} ${unit} · ${yearSpan}`
-        : `${primaryArtist} · ${count} ${unit}`;
+    if (artistEl) {
+      artistEl.textContent = primaryArtist;
+    }
+    if (metaEl) {
+      metaEl.textContent = yearSpan
+        ? `${count} ${unit} · ${yearSpan}`
+        : `${count} ${unit}`;
     }
 
     if (prevBtn) prevBtn.disabled = count <= 1;

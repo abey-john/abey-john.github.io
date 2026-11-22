@@ -130,23 +130,73 @@ const { timeline } = Astro.props;
         ))}
       </div>
 
-      <nav class="timeline-rail" aria-label="Jump to year">
-        {timeline.years.map((y) => (
-          <button
-            type="button"
-            class="rail-year-btn"
-            data-rail-year={y.year}
-            style={`--vol: ${Math.max(12, Math.round(y.volumeRatio * 100))}%;`}
-            title={`${y.year}: ${y.totalHours.toLocaleString()} hours`}
-          >
-            <span class="rail-year-label">{y.year}</span>
-            <span class="rail-vol-track" aria-hidden="true">
-              <span class="rail-vol-fill" />
-            </span>
-            <span class="rail-trail-dot" aria-hidden="true" />
-          </button>
-        ))}
-      </nav>
+      <aside class="timeline-sidebar" aria-label="Timeline controls">
+        <nav class="timeline-rail" aria-label="Jump to year">
+          {timeline.years.map((y) => (
+            <button
+              type="button"
+              class="rail-year-btn"
+              data-rail-year={y.year}
+              title={`Jump to ${y.year}`}
+            >
+              <span class="rail-year-label">{y.year}</span>
+              <span class="rail-trail-dot" aria-hidden="true" />
+            </button>
+          ))}
+        </nav>
+
+        <div
+          class="tl-trail-pill"
+          data-tl-trail-pill
+          hidden
+          role="region"
+          aria-label="Artist trail controls"
+        >
+          <div class="trail-head">
+            <span class="trail-dot" aria-hidden="true" />
+            <span class="trail-artist" data-trail-artist />
+          </div>
+          <span class="trail-meta" data-trail-meta />
+          <div class="trail-actions">
+            <button
+              type="button"
+              class="trail-btn trail-step"
+              data-trail-prev
+              aria-label="Jump to previous occurrence"
+              title="Previous appearance"
+            >
+              &uarr;
+            </button>
+            <button
+              type="button"
+              class="trail-btn trail-step"
+              data-trail-next
+              aria-label="Jump to next occurrence"
+              title="Next appearance"
+            >
+              &darr;
+            </button>
+            <button
+              type="button"
+              class="trail-btn trail-pin"
+              data-trail-pin
+              aria-pressed="false"
+              title="Keep trail active after audio ends"
+            >
+              Pin
+            </button>
+            <button
+              type="button"
+              class="trail-btn trail-close"
+              data-trail-close
+              aria-label="Clear artist trail"
+              title="Clear trail"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      </aside>
     </div>
 
     <div class="tl-tooltip" data-tl-tooltip hidden aria-live="polite">
@@ -189,55 +239,6 @@ const { timeline } = Astro.props;
         <p class="tt-title" data-tl-tt-title />
         <p class="tt-artist" data-tl-tt-artist />
         <p class="tt-stats" data-tl-tt-stats />
-      </div>
-    </div>
-
-    <div
-      class="tl-trail-pill"
-      data-tl-trail-pill
-      hidden
-      role="region"
-      aria-label="Artist trail controls"
-    >
-      <span class="trail-dot" aria-hidden="true" />
-      <span class="trail-summary" data-trail-summary />
-      <div class="trail-actions">
-        <button
-          type="button"
-          class="trail-btn trail-step"
-          data-trail-prev
-          aria-label="Jump to previous occurrence"
-          title="Previous appearance"
-        >
-          &uarr;
-        </button>
-        <button
-          type="button"
-          class="trail-btn trail-step"
-          data-trail-next
-          aria-label="Jump to next occurrence"
-          title="Next appearance"
-        >
-          &darr;
-        </button>
-        <button
-          type="button"
-          class="trail-btn trail-pin"
-          data-trail-pin
-          aria-pressed="false"
-          title="Keep trail active after audio ends"
-        >
-          Pin
-        </button>
-        <button
-          type="button"
-          class="trail-btn trail-close"
-          data-trail-close
-          aria-label="Clear artist trail"
-          title="Clear trail"
-        >
-          &times;
-        </button>
       </div>
     </div>
   </section>
@@ -311,6 +312,10 @@ const { timeline } = Astro.props;
     display: none;
   }
 
+  .timeline-sidebar {
+    display: contents;
+  }
+
   .timeline-rail {
     display: none;
   }
@@ -318,7 +323,7 @@ const { timeline } = Astro.props;
   @media (min-width: 1100px) {
     .timeline-layout {
       display: grid;
-      grid-template-columns: 116px minmax(0, 1fr) 116px;
+      grid-template-columns: 156px minmax(0, 1fr) 156px;
       gap: var(--space-md);
       align-items: start;
     }
@@ -327,14 +332,22 @@ const { timeline } = Astro.props;
       display: block;
     }
 
-    .timeline-rail {
+    .timeline-sidebar {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 0.75rem;
       position: sticky;
       top: 5.25rem;
       align-self: start;
-      padding-top: 0.35rem;
+      width: 100%;
+    }
+
+    .timeline-rail {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      padding-top: 0.25rem;
     }
   }
 
@@ -445,7 +458,7 @@ const { timeline } = Astro.props;
   /* Centered Modular Soundwave Grid */
   .timeline-wave-grid {
     --tile-gap: 3px;
-    --tile: min(46px, calc((min(94vw, 72rem) - 272px - 16 * 3px) / 17));
+    --tile: min(46px, calc((min(94vw, 72rem) - 352px - 16 * 3px) / 17));
     display: grid;
     grid-template-columns: repeat(var(--cols), var(--tile));
     grid-template-rows: repeat(var(--rows), var(--tile));
@@ -666,11 +679,10 @@ const { timeline } = Astro.props;
 
   /* Desktop Sticky Year Rail */
   .rail-year-btn {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 6px;
+    gap: 8px;
+    padding: 3px 8px;
     border: none;
     border-radius: var(--radius-sm);
     background: transparent;
@@ -690,33 +702,9 @@ const { timeline } = Astro.props;
   }
 
   .rail-year-btn.is-current {
-    color: var(--color-text);
+    color: var(--color-accent);
     font-weight: 700;
     background-color: var(--color-border-subtle);
-  }
-
-  .rail-vol-track {
-    height: 4px;
-    border-radius: 999px;
-    background-color: var(--color-border-subtle);
-    overflow: hidden;
-  }
-
-  .rail-vol-fill {
-    display: block;
-    height: 100%;
-    width: var(--vol, 20%);
-    border-radius: 999px;
-    background-color: var(--color-text-muted);
-    opacity: 0.45;
-    transition:
-      background-color 0.15s ease,
-      opacity 0.15s ease;
-  }
-
-  .rail-year-btn.is-current .rail-vol-fill {
-    background-color: var(--color-accent);
-    opacity: 0.9;
   }
 
   .rail-trail-dot {
@@ -893,7 +881,7 @@ const { timeline } = Astro.props;
     white-space: nowrap;
   }
 
-  /* Floating Bottom Artist Trail Pill */
+  /* Artist Trail Controls: Fixed Bottom Pill (<1100px) / Docked Sidebar Card (>=1100px) */
   .tl-trail-pill {
     position: fixed;
     bottom: max(1rem, env(safe-area-inset-bottom));
@@ -902,8 +890,8 @@ const { timeline } = Astro.props;
     z-index: 45;
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.45rem 0.55rem 0.45rem 0.8rem;
+    gap: 0.5rem;
+    padding: 0.42rem 0.5rem 0.42rem 0.75rem;
     width: max-content;
     max-width: min(calc(100vw - 1.5rem), 34rem);
     background-color: color-mix(in srgb, var(--color-bg) 90%, transparent);
@@ -920,6 +908,14 @@ const { timeline } = Astro.props;
     display: none !important;
   }
 
+  .trail-head {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
   .trail-dot {
     width: 7px;
     height: 7px;
@@ -930,26 +926,50 @@ const { timeline } = Astro.props;
       color-mix(in srgb, var(--color-accent) 22%, transparent);
   }
 
-  .trail-summary {
-    flex: 1 1 auto;
-    min-width: 0;
+  .trail-artist {
     font-family: var(--font-mono);
     font-size: 0.75rem;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .trail-meta {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  @media (max-width: 1099px) {
+    .trail-meta {
+      flex-shrink: 0;
+    }
+
+    .trail-meta::before {
+      content: '· ';
+    }
   }
 
   @media (max-width: 480px) {
     .tl-trail-pill {
-      gap: 0.4rem;
+      gap: 0.35rem;
       padding: 0.38rem 0.45rem 0.38rem 0.65rem;
     }
 
-    .trail-summary {
-      font-size: 0.7rem;
+    .trail-artist {
+      font-size: 0.69rem;
+    }
+
+    .trail-meta {
+      font-size: 0.65rem;
+      letter-spacing: -0.015em;
     }
   }
 
@@ -996,5 +1016,55 @@ const { timeline } = Astro.props;
   .trail-btn.trail-close {
     font-size: 0.9rem;
     padding: 0;
+  }
+
+  @media (min-width: 1100px) {
+    .tl-trail-pill {
+      position: static;
+      transform: none;
+      left: auto;
+      bottom: auto;
+      width: 100%;
+      max-width: none;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.45rem;
+      padding: 0.6rem 0.65rem;
+      border-radius: var(--radius-md);
+      background-color: var(--color-bg);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    }
+
+    .trail-head {
+      flex: none;
+    }
+
+    .trail-meta {
+      font-size: 0.64rem;
+      letter-spacing: -0.015em;
+      line-height: 1.3;
+      white-space: normal;
+      overflow: visible;
+    }
+
+    .trail-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.2rem;
+      width: 100%;
+    }
+
+    .trail-btn {
+      min-width: 24px;
+      height: 24px;
+      padding: 0 0.4rem;
+      font-size: 0.7rem;
+    }
+
+    .trail-btn.trail-pin {
+      flex: 1 1 auto;
+    }
   }
 </style>
