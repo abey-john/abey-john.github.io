@@ -1,0 +1,955 @@
+---
+import type { TimelinePayload } from './music/timeline-types';
+
+interface Props {
+  timeline?: TimelinePayload;
+}
+
+const { timeline } = Astro.props;
+---
+
+{timeline && timeline.years.length > 0 && (
+  <section
+    class="music-timeline-stage"
+    data-music-timeline-stage
+    hidden
+    aria-label="Year-by-year soundwave timeline of stats.fm listening history"
+  >
+    <div class="timeline-layout">
+      <div class="timeline-rail-spacer" aria-hidden="true" />
+
+      <div class="timeline-spine-column" data-timeline-container>
+        {timeline.years.map((y) => (
+          <article
+            class="timeline-year"
+            id={`timeline-year-${y.year}`}
+            data-timeline-year={y.year}
+          >
+            <header class="timeline-year-header">
+              <div class="year-headline">
+                <h2 class="year-label">{y.year}</h2>
+                {y.isCurrentYear && <span class="year-live-badge">so far</span>}
+                <span class="year-stats">
+                  {y.totalHours.toLocaleString()} hrs &middot;{' '}
+                  {y.uniqueAlbums.toLocaleString()} albums
+                </span>
+              </div>
+              {y.topGenres.length > 0 && (
+                <p class="year-genres">{y.topGenres.join(' · ')}</p>
+              )}
+              {y.eraNote && <p class="timeline-era-note">{y.eraNote}</p>}
+            </header>
+
+            <div
+              class="timeline-wave-grid"
+              style={`--cols: ${y.cols}; --rows: ${y.rows};`}
+              role="list"
+              aria-label={`Top ${y.tiles.length} albums of ${y.year}`}
+            >
+              {y.tiles.map((t) => (
+                <button
+                  type="button"
+                  role="listitem"
+                  class:list={['tl-tile', `span-${t.span}`]}
+                  style={`grid-column: ${t.col} / span ${t.span}; grid-row: ${t.row} / span ${t.span};`}
+                  data-tl-tile
+                  data-tile-id={`${y.year}-${t.rank}`}
+                  data-year={y.year}
+                  data-album-id={t.id ?? ''}
+                  data-title={t.title}
+                  data-artist={t.artist}
+                  data-primary-artist={t.primaryArtist}
+                  data-artist-keys={t.artistKeys.join('|')}
+                  data-album-key={t.albumKey}
+                  data-rank={t.rank}
+                  data-streams={t.streams}
+                  data-image={t.image}
+                  aria-label={`${t.title} by ${t.artist} — #${t.rank} in ${y.year} (${t.streams.toLocaleString()} streams). Click to play 30-second snippet and trace artist.`}
+                  aria-pressed="false"
+                >
+                  <img
+                    src={t.image}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    class="tl-cover"
+                  />
+                  <span class="tl-audio-overlay" aria-hidden="true">
+                    <svg class="tl-ring" viewBox="0 0 36 36">
+                      <rect
+                        class="ring-bg"
+                        x="2"
+                        y="2"
+                        width="32"
+                        height="32"
+                        rx="6"
+                      />
+                      <rect
+                        class="ring-fill"
+                        data-tile-ring
+                        x="2"
+                        y="2"
+                        width="32"
+                        height="32"
+                        rx="6"
+                        pathLength="100"
+                      />
+                    </svg>
+                    <svg
+                      class="icon-play"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                    <svg
+                      class="icon-pause"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                    </svg>
+                    <svg
+                      class="icon-spinner"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                    >
+                      <circle cx="12" cy="12" r="10" stroke-opacity="0.25" />
+                      <path
+                        d="M12 2a10 10 0 0 1 10 10"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <nav class="timeline-rail" aria-label="Jump to year">
+        {timeline.years.map((y) => (
+          <button
+            type="button"
+            class="rail-year-btn"
+            data-rail-year={y.year}
+            style={`--vol: ${Math.max(12, Math.round(y.volumeRatio * 100))}%;`}
+            title={`${y.year}: ${y.totalHours.toLocaleString()} hours`}
+          >
+            <span class="rail-year-label">{y.year}</span>
+            <span class="rail-vol-track" aria-hidden="true">
+              <span class="rail-vol-fill" />
+            </span>
+            <span class="rail-trail-dot" aria-hidden="true" />
+          </button>
+        ))}
+      </nav>
+    </div>
+
+    <div class="tl-tooltip" data-tl-tooltip hidden aria-live="polite">
+      <div class="tt-thumb-box">
+        <svg class="tt-progress-ring" viewBox="0 0 56 56" aria-hidden="true">
+          <rect class="ring-bg" x="2" y="2" width="52" height="52" rx="8" />
+          <rect
+            class="ring-fill"
+            data-tl-tt-ring
+            x="2"
+            y="2"
+            width="52"
+            height="52"
+            rx="8"
+            pathLength="100"
+          />
+        </svg>
+        <img class="tt-cover" data-tl-tt-cover src="" alt="" />
+        <span class="tt-icon-overlay" aria-hidden="true">
+          <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+          </svg>
+          <svg
+            class="icon-spinner"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <circle cx="12" cy="12" r="10" stroke-opacity="0.25" />
+            <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round" />
+          </svg>
+        </span>
+      </div>
+
+      <div class="tt-info">
+        <p class="tt-title" data-tl-tt-title />
+        <p class="tt-artist" data-tl-tt-artist />
+        <p class="tt-stats" data-tl-tt-stats />
+      </div>
+    </div>
+
+    <div
+      class="tl-trail-pill"
+      data-tl-trail-pill
+      hidden
+      role="region"
+      aria-label="Artist trail controls"
+    >
+      <span class="trail-dot" aria-hidden="true" />
+      <span class="trail-summary" data-trail-summary />
+      <div class="trail-actions">
+        <button
+          type="button"
+          class="trail-btn trail-step"
+          data-trail-prev
+          aria-label="Jump to previous occurrence"
+          title="Previous appearance"
+        >
+          &uarr;
+        </button>
+        <button
+          type="button"
+          class="trail-btn trail-step"
+          data-trail-next
+          aria-label="Jump to next occurrence"
+          title="Next appearance"
+        >
+          &darr;
+        </button>
+        <button
+          type="button"
+          class="trail-btn trail-pin"
+          data-trail-pin
+          aria-pressed="false"
+          title="Keep trail active after audio ends"
+        >
+          Pin
+        </button>
+        <button
+          type="button"
+          class="trail-btn trail-close"
+          data-trail-close
+          aria-label="Clear artist trail"
+          title="Clear trail"
+        >
+          &times;
+        </button>
+      </div>
+    </div>
+  </section>
+)}
+
+<style>
+  .music-timeline-stage {
+    width: min(94vw, 72rem);
+    position: relative;
+    left: 50%;
+    margin-left: calc(-0.5 * min(94vw, 72rem));
+  }
+
+  .music-timeline-stage[hidden] {
+    display: none !important;
+  }
+
+  .music-timeline-stage.is-fading-in {
+    animation: timeline-fade-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .music-timeline-stage.is-fading-out {
+    opacity: 0;
+    transform: translateY(6px);
+    transition:
+      opacity 0.22s ease,
+      transform 0.22s ease;
+    pointer-events: none;
+  }
+
+  @keyframes timeline-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .timeline-layout {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .timeline-rail-spacer {
+    display: none;
+  }
+
+  .timeline-rail {
+    display: none;
+  }
+
+  @media (min-width: 1100px) {
+    .timeline-layout {
+      display: grid;
+      grid-template-columns: 116px minmax(0, 1fr) 116px;
+      gap: var(--space-md);
+      align-items: start;
+    }
+
+    .timeline-rail-spacer {
+      display: block;
+    }
+
+    .timeline-rail {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      position: sticky;
+      top: 5.25rem;
+      align-self: start;
+      padding-top: 0.35rem;
+    }
+  }
+
+  .timeline-spine-column {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2.5rem;
+    padding: 0.25rem 0 4.5rem 0;
+  }
+
+  .timeline-spine-column::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 2.5rem;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      var(--color-border) 2.5rem,
+      var(--color-border) calc(100% - 2.5rem),
+      transparent
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .timeline-year {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    scroll-margin-top: 5.25rem;
+  }
+
+  .timeline-year-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.18rem;
+    padding: 0.3rem 0.95rem;
+    background-color: var(--color-bg);
+    border-radius: var(--radius-md);
+  }
+
+  .year-headline {
+    display: inline-flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.45rem;
+  }
+
+  .year-label {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--color-text);
+  }
+
+  .year-live-badge {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    color: var(--color-accent);
+    background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
+    transform: translateY(-1px);
+  }
+
+  .year-stats {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+  }
+
+  .year-genres {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    opacity: 0.85;
+  }
+
+  .timeline-era-note {
+    margin: 0.25rem 0 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    max-width: 34rem;
+    line-height: 1.45;
+  }
+
+  /* Centered Modular Soundwave Grid */
+  .timeline-wave-grid {
+    --tile-gap: 3px;
+    --tile: min(46px, calc((min(94vw, 72rem) - 272px - 16 * 3px) / 17));
+    display: grid;
+    grid-template-columns: repeat(var(--cols), var(--tile));
+    grid-template-rows: repeat(var(--rows), var(--tile));
+    gap: var(--tile-gap);
+    margin-inline: auto;
+    padding: 4px;
+    border-radius: calc(var(--radius-md) + 2px);
+    background-color: var(--color-bg);
+    position: relative;
+  }
+
+  @media (max-width: 1099px) {
+    .timeline-wave-grid {
+      --tile: min(44px, calc((min(94vw, 72rem) - 20px - 16 * 3px) / 17));
+    }
+  }
+
+  @media (max-width: 767px) {
+    .timeline-spine-column {
+      gap: 2rem;
+    }
+
+    .timeline-wave-grid {
+      --tile-gap: 2px;
+      --tile: min(26px, calc((94vw - 16px - 16 * 2px) / 17));
+      padding: 3px;
+    }
+  }
+
+  .tl-tile {
+    appearance: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 3px;
+    background-color: var(--color-border-subtle);
+    cursor: pointer;
+    transition:
+      opacity 0.22s ease,
+      filter 0.22s ease,
+      transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.2s ease;
+  }
+
+  .tl-tile.span-3 {
+    border-radius: 4px;
+  }
+
+  @media (hover: hover) {
+    .tl-tile:hover {
+      transform: scale(1.06);
+      z-index: 6;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+    }
+  }
+
+  .tl-tile:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 1px;
+    z-index: 7;
+  }
+
+  .tl-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+  }
+
+  /* Trail visual states */
+  .music-timeline-stage.has-trail .tl-tile {
+    opacity: 0.2;
+    filter: saturate(0.35);
+  }
+
+  .music-timeline-stage.has-trail .tl-tile.is-trail-artist {
+    opacity: 1;
+    filter: none;
+    box-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--color-accent) 75%, transparent);
+    z-index: 2;
+  }
+
+  .music-timeline-stage.has-trail .tl-tile.is-trail-album {
+    opacity: 1;
+    filter: none;
+    box-shadow:
+      0 0 0 2.5px var(--color-accent),
+      0 0 14px color-mix(in srgb, var(--color-accent) 50%, transparent);
+    z-index: 3;
+  }
+
+  .tl-tile.is-trail-focus {
+    transform: scale(1.1);
+    z-index: 8 !important;
+    box-shadow:
+      0 0 0 3px var(--color-accent),
+      0 8px 24px color-mix(in srgb, var(--color-accent) 55%, transparent);
+  }
+
+  /* Tile Audio Overlay */
+  .tl-audio-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.44);
+    color: #ffffff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+
+  @media (hover: hover) {
+    .tl-tile:hover .tl-audio-overlay {
+      opacity: 0.88;
+    }
+  }
+
+  .tl-tile.is-playing .tl-audio-overlay,
+  .tl-tile.is-paused .tl-audio-overlay,
+  .tl-tile.is-loading .tl-audio-overlay {
+    opacity: 1;
+  }
+
+  .tl-audio-overlay .tl-ring {
+    position: absolute;
+    inset: 2px;
+    width: calc(100% - 4px);
+    height: calc(100% - 4px);
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .tl-audio-overlay .ring-bg {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 2.25;
+  }
+
+  .tl-tile.is-playing .tl-audio-overlay .ring-bg,
+  .tl-tile.is-paused .tl-audio-overlay .ring-bg,
+  .tl-tile.is-loading .tl-audio-overlay .ring-bg {
+    stroke: rgba(255, 255, 255, 0.25);
+  }
+
+  .tl-audio-overlay .ring-fill {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 2.5;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.15s linear;
+  }
+
+  .tl-audio-overlay .icon-play,
+  .tl-audio-overlay .icon-pause,
+  .tl-audio-overlay .icon-spinner {
+    width: min(50%, 22px);
+    height: min(50%, 22px);
+    position: relative;
+    z-index: 1;
+  }
+
+  .tl-audio-overlay .icon-play {
+    display: block;
+  }
+
+  .tl-audio-overlay .icon-pause,
+  .tl-audio-overlay .icon-spinner {
+    display: none;
+  }
+
+  .tl-tile.is-playing .tl-audio-overlay .icon-play {
+    display: none;
+  }
+
+  .tl-tile.is-playing .tl-audio-overlay .icon-pause {
+    display: block;
+  }
+
+  .tl-tile.is-paused .tl-audio-overlay .icon-play {
+    display: block;
+  }
+
+  .tl-tile.is-loading .tl-audio-overlay .icon-play,
+  .tl-tile.is-loading .tl-audio-overlay .icon-pause {
+    display: none;
+  }
+
+  .tl-tile.is-loading .tl-audio-overlay .icon-spinner {
+    display: block;
+    animation: tl-spin 0.8s linear infinite;
+  }
+
+  @keyframes tl-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Desktop Sticky Year Rail */
+  .rail-year-btn {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    cursor: pointer;
+    text-align: left;
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .rail-year-btn:hover {
+    color: var(--color-text);
+    background-color: var(--color-border-subtle);
+  }
+
+  .rail-year-btn.is-current {
+    color: var(--color-text);
+    font-weight: 700;
+    background-color: var(--color-border-subtle);
+  }
+
+  .rail-vol-track {
+    height: 4px;
+    border-radius: 999px;
+    background-color: var(--color-border-subtle);
+    overflow: hidden;
+  }
+
+  .rail-vol-fill {
+    display: block;
+    height: 100%;
+    width: var(--vol, 20%);
+    border-radius: 999px;
+    background-color: var(--color-text-muted);
+    opacity: 0.45;
+    transition:
+      background-color 0.15s ease,
+      opacity 0.15s ease;
+  }
+
+  .rail-year-btn.is-current .rail-vol-fill {
+    background-color: var(--color-accent);
+    opacity: 0.9;
+  }
+
+  .rail-trail-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-accent);
+    opacity: 0;
+    transform: scale(0.5);
+    transition:
+      opacity 0.18s ease,
+      transform 0.18s ease;
+  }
+
+  .rail-year-btn.has-trail-hit .rail-trail-dot {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Floating Hover Tooltip */
+  .tl-tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 40;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.5rem 0.7rem;
+    max-width: 280px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.18),
+      0 2px 6px rgba(0, 0, 0, 0.08);
+    will-change: transform;
+  }
+
+  .tl-tooltip[hidden] {
+    display: none !important;
+  }
+
+  .tl-tooltip .tt-thumb-box {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tl-tooltip .tt-progress-ring {
+    position: absolute;
+    inset: -2px;
+    width: 56px;
+    height: 56px;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .tl-tooltip .tt-progress-ring .ring-bg {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 2.25;
+  }
+
+  .tl-tooltip.is-playing .tt-progress-ring .ring-bg,
+  .tl-tooltip.is-paused .tt-progress-ring .ring-bg,
+  .tl-tooltip.is-loading .tt-progress-ring .ring-bg {
+    stroke: var(--color-border);
+  }
+
+  .tl-tooltip .tt-progress-ring .ring-fill {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 2.25;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.15s linear;
+  }
+
+  .tl-tooltip .tt-cover {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    object-fit: cover;
+    display: block;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+  }
+
+  .tl-tooltip .tt-icon-overlay {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.42);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .tl-tooltip.is-playing .tt-icon-overlay,
+  .tl-tooltip.is-paused .tt-icon-overlay,
+  .tl-tooltip.is-loading .tt-icon-overlay {
+    opacity: 1;
+  }
+
+  .tl-tooltip .tt-icon-overlay svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .tl-tooltip .tt-icon-overlay .icon-play,
+  .tl-tooltip .tt-icon-overlay .icon-pause,
+  .tl-tooltip .tt-icon-overlay .icon-spinner {
+    display: none;
+  }
+
+  .tl-tooltip.is-playing .tt-icon-overlay .icon-pause {
+    display: block;
+  }
+
+  .tl-tooltip.is-paused .tt-icon-overlay .icon-play {
+    display: block;
+  }
+
+  .tl-tooltip.is-loading .tt-icon-overlay .icon-spinner {
+    display: block;
+    animation: tl-spin 0.8s linear infinite;
+  }
+
+  .tl-tooltip .tt-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .tl-tooltip .tt-title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tl-tooltip .tt-artist {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tl-tooltip .tt-stats {
+    margin: 2px 0 0 0;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--color-accent);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  /* Floating Bottom Artist Trail Pill */
+  .tl-trail-pill {
+    position: fixed;
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 45;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.45rem 0.6rem 0.45rem 0.8rem;
+    max-width: min(94vw, 34rem);
+    background-color: color-mix(in srgb, var(--color-bg) 90%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.2),
+      0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .tl-trail-pill[hidden] {
+    display: none !important;
+  }
+
+  .trail-dot {
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background-color: var(--color-accent);
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+
+  .trail-summary {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .trail-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  .trail-btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 0.45rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background-color: var(--color-bg);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      border-color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .trail-btn:hover {
+    color: var(--color-text);
+    border-color: var(--color-accent);
+  }
+
+  .trail-btn.is-pinned {
+    color: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+    background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  .trail-btn.trail-close {
+    font-size: 0.9rem;
+    padding: 0;
+  }
+</style>

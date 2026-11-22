@@ -280,7 +280,7 @@ function packSoundwaveGrid(
   albums: RawAlbumEntry[],
   volumeRatio: number
 ): { cols: number; rows: number; tiles: TimelineAlbumTile[] } {
-  const t = Math.sqrt(Math.max(0, Math.min(1, volumeRatio)));
+  const t = Math.max(0, Math.min(1, (volumeRatio - 0.14) / 0.78));
   const baseCols = 2 * Math.round(4 + t * 4); // 8, 10, 12, 14, or 16
   let rows = Math.round(4 + t * 2); // 4, 5, or 6
 

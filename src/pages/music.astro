@@ -5,6 +5,7 @@ import MediaImage from '../components/MediaImage.astro';
 import AudioSnippetPlayer from '../components/AudioSnippetPlayer.astro';
 import MusicTicker from '../components/MusicTicker.astro';
 import MusicMosaic from '../components/MusicMosaic.astro';
+import MusicTimeline from '../components/MusicTimeline.astro';
 import { getSiteConfig } from '../config';
 
 const siteConfig = await getSiteConfig();
@@ -20,7 +21,8 @@ const {
   recentListen,
   vinyl = [],
   updated,
-  mosaic
+  mosaic,
+  timeline
 } = musicEntry.data;
 
 // Sort vinyl records alphabetically by artist (ignoring leading "The "), then by title
@@ -209,6 +211,52 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
                   opacity="0.72"
                 />
                 <rect x="16.5" y="16.5" width="5" height="5" rx="1" />
+              </svg>
+            </button>
+          )}
+          {timeline && (
+            <button
+              type="button"
+              class="profile-logo-link timeline-toggle"
+              data-timeline-toggle
+              aria-label="Toggle year-by-year listening evolution timeline"
+              aria-pressed="false"
+              title="Listening Timeline"
+            >
+              <svg
+                class="profile-logo-svg"
+                viewBox="0 0 24 24"
+                width="17"
+                height="17"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <rect
+                  x="8"
+                  y="3"
+                  width="8"
+                  height="2.4"
+                  rx="1.2"
+                  opacity="0.72"
+                />
+                <rect x="5" y="7.2" width="14" height="2.4" rx="1.2" />
+                <rect x="2.5" y="11.4" width="19" height="2.4" rx="1.2" />
+                <rect
+                  x="6"
+                  y="15.6"
+                  width="12"
+                  height="2.4"
+                  rx="1.2"
+                  opacity="0.72"
+                />
+                <rect
+                  x="9"
+                  y="19.8"
+                  width="6"
+                  height="2.4"
+                  rx="1.2"
+                  opacity="0.55"
+                />
               </svg>
             </button>
           )}
@@ -462,6 +510,7 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     </div>
 
     <MusicMosaic mosaic={mosaic} />
+    <MusicTimeline timeline={timeline} />
   </article>
 </Layout>
 
@@ -474,6 +523,10 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
 
   .music-page:has([data-music-mosaic-stage]:not([hidden])) {
     gap: var(--space-sm);
+  }
+
+  .music-page:has([data-music-timeline-stage]:not([hidden])) {
+    gap: var(--space-lg);
   }
 
   :global(.site-wrapper:has([data-music-mosaic-stage]:not([hidden]))) {
@@ -622,13 +675,16 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
     background-color: rgba(30, 215, 96, 0.08);
   }
 
-  .profile-logo-link.mosaic-toggle {
+  .profile-logo-link.mosaic-toggle,
+  .profile-logo-link.timeline-toggle {
     cursor: pointer;
     padding: 0;
   }
 
   .profile-logo-link.mosaic-toggle:hover,
-  .profile-logo-link.mosaic-toggle.is-active {
+  .profile-logo-link.mosaic-toggle.is-active,
+  .profile-logo-link.timeline-toggle:hover,
+  .profile-logo-link.timeline-toggle.is-active {
     color: var(--color-accent);
     border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
     background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
