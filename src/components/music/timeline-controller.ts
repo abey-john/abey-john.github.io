@@ -57,7 +57,8 @@ export function initMusicTimeline(): () => void {
     timelineStage,
     tiles,
     railButtons,
-    trailPill
+    trailPill,
+    () => stopTimelineAudio()
   );
 
   const CONTENT_FADE_MS = 220;
@@ -249,7 +250,6 @@ export function initMusicTimeline(): () => void {
         const cur = audio.currentTime || 0;
         if (cur >= MAX_DURATION) {
           stopTimelineAudio();
-          trail.clearIfUnpinned();
           return;
         }
         if (cur >= MAX_DURATION - 1.5) {
@@ -267,7 +267,6 @@ export function initMusicTimeline(): () => void {
       audio.addEventListener('ended', () => {
         if (activeTile === tile) {
           stopTimelineAudio();
-          trail.clearIfUnpinned();
         }
       });
 
@@ -537,7 +536,23 @@ export function initMusicTimeline(): () => void {
     }
   };
 
+  const onStageClick = (e: MouseEvent) => {
+    if (!isActive) return;
+    if (!trail.hasActiveTrail() && !activeAudio && !isAudioLoading) return;
+    const target = e.target as Element | null;
+    if (
+      target?.closest(
+        '[data-tl-tile], [data-tl-trail-pill], [data-rail-year], [data-timeline-toggle]'
+      )
+    ) {
+      return;
+    }
+    stopTimelineAudio();
+    trail.clear();
+  };
+
   toggleBtn.addEventListener('click', onToggleClick);
+  timelineStage.addEventListener('click', onStageClick);
   timelineContainer.addEventListener('click', onContainerClick);
   timelineContainer.addEventListener('pointerover', onContainerPointerOver);
   timelineContainer.addEventListener('pointermove', onContainerPointerMove);
@@ -564,6 +579,7 @@ export function initMusicTimeline(): () => void {
     resetMusicViewMode();
 
     toggleBtn.removeEventListener('click', onToggleClick);
+    timelineStage.removeEventListener('click', onStageClick);
     timelineContainer.removeEventListener('click', onContainerClick);
     timelineContainer.removeEventListener(
       'pointerover',
