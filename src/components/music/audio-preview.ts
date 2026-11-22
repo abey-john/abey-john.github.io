@@ -42,6 +42,21 @@ export function matchesAlbumTitle(
   itemAlbum: string,
   targetAlbum: string
 ): boolean {
+  const rawBaseItem = (itemAlbum || '')
+    .split(/[:(\[]/)[0]
+    .trim()
+    .toLowerCase();
+  const rawBaseTarget = (targetAlbum || '')
+    .split(/[:(\[]/)[0]
+    .trim()
+    .toLowerCase();
+  const taBase = cleanMatchText(rawBaseTarget);
+
+  // Handle symbol-only album titles like Ed Sheeran's "÷", "+", "=", "-"
+  if (!taBase && rawBaseTarget) {
+    return rawBaseItem === rawBaseTarget;
+  }
+
   const ia = cleanMatchText(itemAlbum);
   const ta = cleanMatchText(targetAlbum);
   if (!ia || !ta) return false;
@@ -90,8 +105,12 @@ export function getAlternatePenalty(
     penalty += 220;
   }
 
-  // Penalize remixes, DJ mixes, sped-up/slowed, instrumentals, commentary unless expected by the album/track context
+  // Penalize remixes, DJ mixes, covers, EDM versions, sped-up/slowed, instrumentals, commentary unless expected
   const remixChecks: Array<[RegExp, number]> = [
+    [
+      /\b(cover|covers|piano version|guitar version|orchestral|lofi|lo-fi|edm|dubstep|hardstyle|techno|house mix|trance)\b/,
+      140
+    ],
     [/\b(remix|remixes|re-mix|megamix|club mix|vip mix|dub mix)\b/, 130],
     [/\b(sped up|slowed|chopped|screwed|nightcore)\b/, 130],
     [/\b(instrumental|acapella|a cappella|karaoke|commentary)\b/, 120],
@@ -141,8 +160,11 @@ export async function resolveAlbumPreview(
   const primaryArtist = alb.artist.split(',')[0].trim();
   const baseAlbumTitle = getBaseTitle(alb.title) || alb.title;
   let preferredTrackName = '';
+  let fallbackSpotifyPreview: string | null = null;
 
-  // 1. Query stats.fm for the user's #1 most-streamed studio track on this exact album
+  // 1. Query stats.fm for the user's #1 most-streamed studio track on this exact album.
+  //    Do NOT trust stats.fm's appleMusicPreview directly (often mismatched to covers/remixes);
+  //    resolve the verified studio track via iTunes first and keep Spotify's preview only as fallback.
   if (alb.id) {
     try {
       const [userTracksRes, albumTracksRes] = await Promise.all([
@@ -174,18 +196,15 @@ export async function resolveAlbumPreview(
 
           preferredTrackName = bestUserItem?.track?.name || '';
 
-          // Only use a direct stats.fm preview URL if it is on one of the user's top 2 tracks
-          // AND that track has zero remix/live/acoustic penalty (otherwise look up the studio track on iTunes)
           for (const item of userItems.slice(0, 2)) {
             const tName = item?.track?.name || '';
-            const directUrl =
-              item?.track?.appleMusicPreview || item?.track?.spotifyPreview;
+            const directSpotify = item?.track?.spotifyPreview;
             if (
-              directUrl &&
+              directSpotify &&
               getAlternatePenalty(tName, alb.title, alb.artist, alb.title) === 0
             ) {
-              previewUrlCache.set(cacheKey, directUrl);
-              return directUrl;
+              fallbackSpotifyPreview = directSpotify;
+              break;
             }
           }
         }
@@ -359,6 +378,11 @@ export async function resolveAlbumPreview(
     }
   } catch (err: any) {
     if (err?.name === 'AbortError') throw err;
+  }
+
+  if (fallbackSpotifyPreview) {
+    previewUrlCache.set(cacheKey, fallbackSpotifyPreview);
+    return fallbackSpotifyPreview;
   }
 
   previewUrlCache.set(cacheKey, null);
