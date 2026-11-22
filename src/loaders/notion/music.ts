@@ -6,6 +6,7 @@ import { downloadRemoteImage, extractImageSource } from './images';
 import { richTextToHtml } from './text';
 import { fetchAudioPreview, processInBatches } from './music-previews';
 import { buildAlbumMosaic } from './mosaic';
+import { buildMusicTimeline } from './timeline';
 
 export function notionMusicLoader(): Loader {
   return {
@@ -262,11 +263,10 @@ export function notionMusicLoader(): Loader {
             });
           });
 
-          const mosaicData = await buildAlbumMosaic(
-            mosaicPortraitUrl,
-            'itseebo',
-            logger
-          );
+          const [mosaicData, timelineData] = await Promise.all([
+            buildAlbumMosaic(mosaicPortraitUrl, 'itseebo', logger),
+            buildMusicTimeline('itseebo', logger)
+          ]);
 
           const fullMusicContent = {
             updated: latestEditedMs > 0 ? new Date(latestEditedMs) : new Date(),
@@ -284,7 +284,8 @@ export function notionMusicLoader(): Loader {
               cover: '/assets/covers/placeholder-album.svg',
               rating: 8.0
             },
-            mosaic: mosaicData
+            mosaic: mosaicData,
+            timeline: timelineData
           };
 
           const data = await parseData({

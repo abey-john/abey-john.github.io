@@ -142,6 +142,44 @@ const music = defineCollection({
         ),
         grid: z.array(z.number())
       })
+      .optional(),
+    timeline: z
+      .object({
+        username: z.string(),
+        maxHours: z.number(),
+        totalYears: z.number(),
+        years: z.array(
+          z.object({
+            year: z.number(),
+            isCurrentYear: z.boolean(),
+            totalStreams: z.number(),
+            totalMinutes: z.number(),
+            totalHours: z.number(),
+            uniqueAlbums: z.number(),
+            volumeRatio: z.number(),
+            topGenres: z.array(z.string()),
+            cols: z.number(),
+            rows: z.number(),
+            eraNote: z.string().optional(),
+            tiles: z.array(
+              z.object({
+                id: z.number().optional(),
+                title: z.string(),
+                artist: z.string(),
+                primaryArtist: z.string(),
+                artistKeys: z.array(z.string()),
+                albumKey: z.string(),
+                image: z.string(),
+                rank: z.number(),
+                streams: z.number(),
+                col: z.number(),
+                row: z.number(),
+                span: z.union([z.literal(1), z.literal(2), z.literal(3)])
+              })
+            )
+          })
+        )
+      })
       .optional()
   })
 });
