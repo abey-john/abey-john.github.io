@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { MosaicBuildData } from './mosaic';
 import type { TimelineBuildData } from './timeline';
+import { createAppleMusicWebClient } from './apple-music-web';
 import {
   cleanMatchText,
   extractPrimaryArtist,
@@ -13,7 +14,8 @@ import {
   matchesArtistName,
   pickPreferredStatsFmTrack,
   scoreScopedSongCandidate,
-  scoreTrackMatch
+  scoreTrackMatch,
+  splitCreditArtists
 } from '../../utils/audio-preview-matching';
 
 export const MUSIC_PREVIEWS_CACHE_DIR = path.resolve(
@@ -28,7 +30,7 @@ const CACHE_FILE_PATH = path.join(MUSIC_PREVIEWS_CACHE_DIR, 'cache.json');
 const MANIFEST_OUTPUT_PATH = path.resolve(
   'public/assets/notion/music-previews.json'
 );
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const NEGATIVE_MISS_TTL_MS = 30 * 86_400_000;
 const CURRENT_YEAR_REFRESH_TTL_MS = 21 * 86_400_000;
 const PRUNE_UNSEEN_TTL_MS = 90 * 86_400_000;
@@ -287,6 +289,31 @@ function collectUniqueCandidates(
   return list;
 }
 
+function getArtistTokenSet(
+  artist: string,
+  explicitPrimary?: string
+): Set<string> {
+  const tokens = new Set<string>();
+  const rawCandidates = [
+    extractPrimaryArtist(artist, explicitPrimary),
+    ...splitCreditArtists(artist),
+    ...(explicitPrimary?.trim() ? [explicitPrimary.trim()] : []),
+    artist
+  ];
+  for (const raw of rawCandidates) {
+    const clean = cleanMatchText(raw);
+    if (clean) tokens.add(clean);
+  }
+  return tokens;
+}
+
+function hasSharedArtistToken(a: Set<string>, b: Set<string>): boolean {
+  for (const token of a) {
+    if (b.has(token)) return true;
+  }
+  return false;
+}
+
 function seedEntriesFromOverview(
   candidates: CandidateAlbum[],
   overviewItems: OverviewSeedItem[],
@@ -295,15 +322,38 @@ function seedEntriesFromOverview(
 ): number {
   if (overviewItems.length === 0) return 0;
 
-  const seedMap = new Map<string, { url: string; track?: string }>();
+  interface IndexedSeed {
+    item: OverviewSeedItem;
+    artists: Set<string>;
+  }
+
+  const byExactTitle = new Map<string, IndexedSeed[]>();
+  const byBaseTitle = new Map<string, IndexedSeed[]>();
+
+  const pushSeed = (
+    map: Map<string, IndexedSeed[]>,
+    key: string,
+    seed: IndexedSeed
+  ) => {
+    const list = map.get(key);
+    if (list) list.push(seed);
+    else map.set(key, [seed]);
+  };
+
   for (const item of overviewItems) {
     if (!item.previewUrl) continue;
-    const normKey = getNormalizedAlbumArtistKey(item.title, item.artist);
-    if (!seedMap.has(normKey)) {
-      seedMap.set(normKey, {
-        url: item.previewUrl,
-        track: item.previewTrack
-      });
+    const seed: IndexedSeed = {
+      item,
+      artists: getArtistTokenSet(item.artist)
+    };
+    const exactKey =
+      cleanMatchText(item.title) || item.title.trim().toLowerCase();
+    if (exactKey) {
+      pushSeed(byExactTitle, exactKey, seed);
+    }
+    const baseKey = cleanMatchText(getBaseTitle(item.title) || item.title);
+    if (baseKey) {
+      pushSeed(byBaseTitle, baseKey, seed);
     }
   }
 
@@ -311,13 +361,39 @@ function seedEntriesFromOverview(
   for (const c of candidates) {
     const existing = entries[c.key];
     if (existing?.status === 'hit' && existing.url) continue;
-    const seed = seedMap.get(c.normKey);
-    if (!seed) continue;
+
+    const candArtists = getArtistTokenSet(c.artist, c.primaryArtist);
+    const exactKey = cleanMatchText(c.title) || c.title.trim().toLowerCase();
+    let matched = byExactTitle
+      .get(exactKey)
+      ?.find((seed) => hasSharedArtistToken(candArtists, seed.artists));
+
+    if (!matched) {
+      const baseKey = cleanMatchText(getBaseTitle(c.title) || c.title);
+      if (baseKey) {
+        matched = byBaseTitle
+          .get(baseKey)
+          ?.find(
+            (seed) =>
+              hasSharedArtistToken(candArtists, seed.artists) &&
+              getAlternatePenalty('', c.title, c.artist, seed.item.title) ===
+                0 &&
+              getAlternatePenalty(
+                '',
+                seed.item.title,
+                seed.item.artist,
+                c.title
+              ) === 0
+          );
+      }
+    }
+
+    if (!matched) continue;
 
     entries[c.key] = {
       status: 'hit',
-      url: seed.url,
-      track: seed.track,
+      url: matched.item.previewUrl!,
+      track: matched.item.previewTrack,
       resolvedAt: now,
       lastSeenAt: now
     };
@@ -622,7 +698,7 @@ export async function buildMusicPreviewManifest({
 
   interface EligibleItem {
     candidate: CandidateAlbum;
-    refreshBucket: 0 | 1;
+    refreshBucket: 0 | 1 | 2;
     alreadyHasValidHit: boolean;
   }
 
@@ -653,11 +729,13 @@ export async function buildMusicPreviewManifest({
     if (
       bulkTop &&
       entry.track &&
-      cleanMatchText(bulkTop.trackName) !== cleanMatchText(entry.track)
+      (cleanMatchText(bulkTop.trackName) ||
+        bulkTop.trackName.trim().toLowerCase()) !==
+        (cleanMatchText(entry.track) || entry.track.trim().toLowerCase())
     ) {
       eligible.push({
         candidate: c,
-        refreshBucket: 0,
+        refreshBucket: 1,
         alreadyHasValidHit: true
       });
       continue;
@@ -670,7 +748,7 @@ export async function buildMusicPreviewManifest({
     ) {
       eligible.push({
         candidate: c,
-        refreshBucket: 1,
+        refreshBucket: 2,
         alreadyHasValidHit: true
       });
     }
@@ -683,10 +761,16 @@ export async function buildMusicPreviewManifest({
     return compareCandidates(a.candidate, b.candidate);
   });
 
-  const limit = parseEnvInt('PREVIEW_RESOLVE_LIMIT', 6, true);
-  const budgetMs = parseEnvInt('PREVIEW_RESOLVE_BUDGET_MS', 12000);
+  const limit = parseEnvInt('PREVIEW_RESOLVE_LIMIT', 10, true);
+  const budgetMs = parseEnvInt('PREVIEW_RESOLVE_BUDGET_MS', 18000);
   const delayMs = parseEnvInt('PREVIEW_REQUEST_DELAY_MS', 1500);
+  const appleWebDelayMs = parseEnvInt('PREVIEW_APPLE_WEB_DELAY_MS', 450);
   const startedAt = Date.now();
+  const appleWebClient = createAppleMusicWebClient(
+    budgetMs,
+    appleWebDelayMs,
+    startedAt
+  );
   const itunesClient = createPacedItunesClient(budgetMs, delayMs, startedAt);
 
   const toResolve = eligible.slice(0, limit);
@@ -694,7 +778,7 @@ export async function buildMusicPreviewManifest({
   let recordedMisses = 0;
 
   for (let i = 0; i < toResolve.length; i += CHUNK_SIZE) {
-    if (!itunesClient.hasBudget()) break;
+    if (!appleWebClient.hasBudget() && !itunesClient.hasBudget()) break;
     const chunk = toResolve.slice(i, i + CHUNK_SIZE);
 
     // Phase A: resolve preferred tracks (from bulk map or per-album stats.fm fallback)
@@ -723,7 +807,8 @@ export async function buildMusicPreviewManifest({
       collectionId?: number;
       collectionName?: string;
       resolved: boolean;
-      hadTransientError: boolean;
+      appleTransientError: boolean;
+      itunesTransientError: boolean;
     }
 
     const states: ChunkState[] = chunk.map((item, idx) => ({
@@ -731,13 +816,39 @@ export async function buildMusicPreviewManifest({
       preferredTrack: trackMeta[idx].preferredTrack,
       spotifyPreview: trackMeta[idx].spotifyPreview,
       resolved: false,
-      hadTransientError: false
+      appleTransientError: false,
+      itunesTransientError: false
     }));
 
-    // Phase B: search iTunes albums cleanly within paced budget
+    // Phase A.5 (Primary): Apple Music Web HTML resolution for uncensored .ep.m4a explicit previews
     for (const st of states) {
+      if (!appleWebClient.hasBudget()) {
+        st.appleTransientError = true;
+        continue;
+      }
+      const alb = st.item.candidate;
+      const webRes = await appleWebClient.resolveAlbum(alb, st.preferredTrack);
+      if (webRes.status === 'hit' && webRes.url) {
+        diskCache.entries[alb.key] = {
+          status: 'hit',
+          url: webRes.url,
+          track: webRes.track || st.preferredTrack || undefined,
+          resolvedAt: now,
+          lastSeenAt: now
+        };
+        st.resolved = true;
+        resolvedHits++;
+        cacheChanged = true;
+      } else if (webRes.transientError) {
+        st.appleTransientError = true;
+      }
+    }
+
+    // Phase B (Fallback): search iTunes albums cleanly within paced budget for unresolved items
+    for (const st of states) {
+      if (st.resolved) continue;
       if (!itunesClient.hasBudget()) {
-        st.hadTransientError = true;
+        st.itunesTransientError = true;
         continue;
       }
       const alb = st.item.candidate;
@@ -745,7 +856,7 @@ export async function buildMusicPreviewManifest({
         `https://itunes.apple.com/search?term=${encodeURIComponent(`${alb.title} ${alb.primaryArtist}`)}&entity=album&limit=10`
       );
       if (res.transientError || res.rateLimited) {
-        st.hadTransientError = true;
+        st.itunesTransientError = true;
         continue;
       }
       const results = Array.isArray(res.data?.results) ? res.data.results : [];
@@ -768,12 +879,12 @@ export async function buildMusicPreviewManifest({
       }
     }
 
-    // Phase C: batched iTunes lookup for all matched collectionIds in the chunk
+    // Phase C: batched iTunes lookup for unresolved items with matched collectionIds
     const colIds = Array.from(
       new Set(
         states
-          .map((s) => s.collectionId)
-          .filter((id): id is number => Boolean(id))
+          .filter((s) => !s.resolved && s.collectionId)
+          .map((s) => s.collectionId as number)
       )
     );
 
@@ -784,7 +895,7 @@ export async function buildMusicPreviewManifest({
 
       if (lookupRes.transientError || lookupRes.rateLimited) {
         for (const st of states) {
-          if (st.collectionId) st.hadTransientError = true;
+          if (!st.resolved && st.collectionId) st.itunesTransientError = true;
         }
       } else if (lookupRes.ok) {
         const tracksByCol = new Map<number, any[]>();
@@ -798,7 +909,7 @@ export async function buildMusicPreviewManifest({
         }
 
         for (const st of states) {
-          if (!st.collectionId) continue;
+          if (st.resolved || !st.collectionId) continue;
           const tracks = tracksByCol.get(st.collectionId);
           if (!tracks?.length) continue;
 
@@ -837,7 +948,7 @@ export async function buildMusicPreviewManifest({
 
     // Phase D: scoped song fallback (or spotifyPreview / clean negative miss)
     for (const st of states) {
-      if (st.resolved || st.hadTransientError) continue;
+      if (st.resolved || st.itunesTransientError) continue;
       if (!itunesClient.hasBudget()) break;
 
       const alb = st.item.candidate;
@@ -903,7 +1014,12 @@ export async function buildMusicPreviewManifest({
         continue;
       }
 
-      if (!st.item.alreadyHasValidHit) {
+      if (
+        !st.item.alreadyHasValidHit &&
+        !st.appleTransientError &&
+        !appleWebClient.isTripped() &&
+        !itunesClient.isTripped()
+      ) {
         diskCache.entries[alb.key] = {
           status: 'miss',
           resolvedAt: now,
@@ -920,9 +1036,14 @@ export async function buildMusicPreviewManifest({
   }
 
   const manifestHits = writeBrowserManifest(diskCache.entries, activeKeys);
-  const circuitNote = itunesClient.isTripped()
-    ? '; rate-limit circuit breaker tripped early'
-    : '';
+  const trippedSources = [
+    appleWebClient.isTripped() ? 'Apple Music Web' : '',
+    itunesClient.isTripped() ? 'iTunes' : ''
+  ].filter(Boolean);
+  const circuitNote =
+    trippedSources.length > 0
+      ? `; rate-limit circuit breaker tripped (${trippedSources.join(', ')})`
+      : '';
   const extraNotes = [
     resolvedHits > 0 ? `+${resolvedHits} resolved` : '',
     seededCount > 0 ? `+${seededCount} from Overview` : '',

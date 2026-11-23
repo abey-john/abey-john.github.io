@@ -71,9 +71,10 @@ jobs:
           NOTION_MUSIC_DB_ID: ${{ secrets.NOTION_MUSIC_DB_ID }}
           NOTION_PLACES_DB_ID: ${{ secrets.NOTION_PLACES_DB_ID }}
           NOTION_TRIPS_DB_ID: ${{ secrets.NOTION_TRIPS_DB_ID }}
-          PREVIEW_RESOLVE_LIMIT: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '30' || '6' }}
-          PREVIEW_RESOLVE_BUDGET_MS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '120000' || '12000' }}
+          PREVIEW_RESOLVE_LIMIT: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '80' || '10' }}
+          PREVIEW_RESOLVE_BUDGET_MS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '180000' || '18000' }}
           PREVIEW_REQUEST_DELAY_MS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '2600' || '1500' }}
+          PREVIEW_APPLE_WEB_DELAY_MS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '500' || '450' }}
         run: npm run build
 
       - name: Check if music preview cache updated
