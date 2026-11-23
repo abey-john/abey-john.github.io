@@ -127,6 +127,7 @@ const jsonLd = schema || personSchema;
     <link rel="canonical" href={canonicalURL} />
     <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
     <link rel="dns-prefetch" href="https://tiles.openfreemap.org" />
+    <slot name="head" />
     <meta name="generator" content={Astro.generator} />
     {noindex && <meta name="robots" content="noindex, nofollow" />}
     {metaDescription && <meta name="description" content={metaDescription} />}

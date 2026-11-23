@@ -5,6 +5,12 @@ import { NOTION_API_KEY, notionRequest, queryNotionDatabase } from './client';
 import { downloadRemoteImage, extractImageSource } from './images';
 import { richTextToHtml } from './text';
 import { fetchAudioPreview, processInBatches } from './music-previews';
+import {
+  MUSIC_PREVIEWS_CACHE_DIR,
+  MUSIC_PREVIEWS_DIRTY_MARKER,
+  buildMusicPreviewManifest,
+  markMusicPreviewCacheDirty
+} from './music-preview-manifest';
 import { buildAlbumMosaic } from './mosaic';
 import { buildMusicTimeline } from './timeline';
 
@@ -16,6 +22,12 @@ export function notionMusicLoader(): Loader {
 
       if (NOTION_API_KEY && dbId) {
         try {
+          try {
+            if (fs.existsSync(MUSIC_PREVIEWS_DIRTY_MARKER)) {
+              fs.unlinkSync(MUSIC_PREVIEWS_DIRTY_MARKER);
+            }
+          } catch {}
+
           const [results, dbMeta] = await Promise.all([
             queryNotionDatabase(dbId),
             notionRequest(`databases/${dbId}`, 'GET', null, '2025-09-03').catch(
@@ -166,8 +178,12 @@ export function notionMusicLoader(): Loader {
             .slice(0, 10)
             .map(({ rank, ...rest }) => rest);
 
-          // Persistent build cache in node_modules/.cache/ (git-ignored)
-          const cachePath = path.resolve(
+          // Persistent build cache in node_modules/.cache/music-previews/ (git-ignored)
+          const cachePath = path.join(
+            MUSIC_PREVIEWS_CACHE_DIR,
+            'overview-cache.json'
+          );
+          const legacyCachePath = path.resolve(
             'node_modules/.cache/audio-cache.json'
           );
           let diskCache: Record<
@@ -175,8 +191,13 @@ export function notionMusicLoader(): Loader {
             { previewUrl?: string; previewTrack?: string }
           > = {};
           try {
-            if (fs.existsSync(cachePath)) {
-              diskCache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+            const readPath = fs.existsSync(cachePath)
+              ? cachePath
+              : fs.existsSync(legacyCachePath)
+                ? legacyCachePath
+                : null;
+            if (readPath) {
+              diskCache = JSON.parse(fs.readFileSync(readPath, 'utf8'));
             }
           } catch {
             diskCache = {};
@@ -213,6 +234,7 @@ export function notionMusicLoader(): Loader {
                       cachePath,
                       JSON.stringify(diskCache, null, 2)
                     );
+                    markMusicPreviewCacheDirty();
                   } catch {}
                 }
                 return result;
@@ -222,14 +244,14 @@ export function notionMusicLoader(): Loader {
             return previewCache.get(key)!;
           };
 
-          try {
-            const allItems = [
-              ...topTen,
-              ...(recommendation ? [recommendation] : []),
-              ...(recentListen ? [recentListen] : []),
-              ...vinylList
-            ];
+          const allItems = [
+            ...topTen,
+            ...(recommendation ? [recommendation] : []),
+            ...(recentListen ? [recentListen] : []),
+            ...vinylList
+          ];
 
+          try {
             await processInBatches(allItems, 4, async (item: any) => {
               const preview = await getPreviewCached(
                 item.title,
@@ -267,6 +289,14 @@ export function notionMusicLoader(): Loader {
             buildAlbumMosaic(mosaicPortraitUrl, 'itseebo', logger),
             buildMusicTimeline('itseebo', logger)
           ]);
+
+          await buildMusicPreviewManifest({
+            username: 'itseebo',
+            mosaic: mosaicData,
+            timeline: timelineData,
+            overviewItems: allItems,
+            logger
+          });
 
           const fullMusicContent = {
             updated: latestEditedMs > 0 ? new Date(latestEditedMs) : new Date(),

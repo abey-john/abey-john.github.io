@@ -1,9 +1,29 @@
-export interface AudioPreviewTarget {
-  id?: number;
-  title: string;
-  artist: string;
-  primaryArtist?: string;
-}
+import {
+  cleanMatchText,
+  extractPrimaryArtist,
+  getAlternatePenalty,
+  getBaseTitle,
+  getNormalizedAlbumArtistKey,
+  getPreviewCacheKey,
+  matchesAlbumTitle,
+  matchesArtistName,
+  pickPreferredStatsFmTrack,
+  scoreScopedSongCandidate,
+  scoreTrackMatch,
+  type AudioPreviewTarget
+} from '../../utils/audio-preview-matching';
+
+export {
+  cleanMatchText,
+  extractPrimaryArtist,
+  getAlternatePenalty,
+  getBaseTitle,
+  getPreviewCacheKey,
+  matchesAlbumTitle,
+  matchesArtistName,
+  scoreTrackMatch,
+  type AudioPreviewTarget
+};
 
 export interface TrackPreviewTarget {
   id?: string | number;
@@ -13,10 +33,154 @@ export interface TrackPreviewTarget {
   fallbackSpotifyPreview?: string | null;
 }
 
-const previewUrlCache = new Map<string, string>();
+export interface ResolveAlbumPreviewOptions {
+  bypassCache?: boolean;
+}
 
-const COMMA_ARTIST_PREFIX =
-  /^(tyler,\s*the creator|black country,\s*new road|earth,\s*wind\s*&\s*fire|crosby,\s*stills,\s*nash(?:\s*&\s*young)?|emerson,\s*lake\s*&\s*palmer|peter,\s*paul\s*and\s*mary|blood,\s*sweat\s*&\s*tears)/i;
+const MANIFEST_URL = '/assets/notion/music-previews.json';
+const LS_CACHE_KEY = 'eebo:music-previews:v1';
+const LS_MAX_ENTRIES = 600;
+const LS_TTL_MS = 30 * 86_400_000;
+
+interface LocalPreviewEntry {
+  u: string;
+  t: number;
+}
+
+const previewUrlCache = new Map<string, string>();
+const manifestUrlCache = new Map<string, string>();
+let manifestPromise: Promise<void> | null = null;
+let manifestLoaded = false;
+
+function readLocalStorageMap(): Record<string, LocalPreviewEntry> {
+  try {
+    const raw = globalThis.localStorage?.getItem(LS_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeLocalStorageMap(map: Record<string, LocalPreviewEntry>): void {
+  try {
+    globalThis.localStorage?.setItem(LS_CACHE_KEY, JSON.stringify(map));
+  } catch {
+    // Ignore storage quota / private-browsing errors
+  }
+}
+
+function getLocalCachedPreview(cacheKey: string): string | null {
+  const map = readLocalStorageMap();
+  const entry = map[cacheKey];
+  if (!entry?.u || typeof entry.t !== 'number') return null;
+  if (Date.now() - entry.t > LS_TTL_MS) {
+    delete map[cacheKey];
+    writeLocalStorageMap(map);
+    return null;
+  }
+  return entry.u;
+}
+
+function setLocalCachedPreview(cacheKey: string, url: string): void {
+  const map = readLocalStorageMap();
+  const now = Date.now();
+  for (const [k, v] of Object.entries(map)) {
+    if (!v?.u || typeof v.t !== 'number' || now - v.t > LS_TTL_MS) {
+      delete map[k];
+    }
+  }
+  map[cacheKey] = { u: url, t: now };
+  const keys = Object.keys(map);
+  if (keys.length > LS_MAX_ENTRIES) {
+    keys.sort((a, b) => map[a].t - map[b].t);
+    const excess = keys.length - LS_MAX_ENTRIES;
+    for (let i = 0; i < excess; i++) {
+      delete map[keys[i]];
+    }
+  }
+  writeLocalStorageMap(map);
+}
+
+/**
+ * Lazy-fetches the build-time preview URL manifest once and caches it in memory.
+ */
+export function preloadPreviewManifest(): Promise<void> {
+  if (manifestLoaded) return Promise.resolve();
+  if (!manifestPromise) {
+    manifestPromise = (async () => {
+      try {
+        const res = await fetch(MANIFEST_URL, { credentials: 'same-origin' });
+        if (res.ok) {
+          const data = (await res.json()) as Record<string, string>;
+          if (data && typeof data === 'object') {
+            for (const [k, v] of Object.entries(data)) {
+              if (typeof v === 'string' && v) {
+                manifestUrlCache.set(k, v);
+              }
+            }
+          }
+        }
+      } catch {
+        // Fall back seamlessly to live client resolution
+      } finally {
+        manifestLoaded = true;
+      }
+    })();
+  }
+  return manifestPromise;
+}
+
+/**
+ * Clears cached preview URLs for an album across memory, manifest, and localStorage
+ * so a failed/stale audio playback can self-heal with a fresh live lookup.
+ */
+export function invalidateCachedAlbumPreview(alb: AudioPreviewTarget): void {
+  const keys = [
+    getPreviewCacheKey(alb),
+    getNormalizedAlbumArtistKey(alb.title, alb.artist)
+  ];
+  for (const k of keys) {
+    previewUrlCache.delete(k);
+    manifestUrlCache.delete(k);
+  }
+  const map = readLocalStorageMap();
+  let changed = false;
+  for (const k of keys) {
+    if (k in map) {
+      delete map[k];
+      changed = true;
+    }
+  }
+  if (changed) {
+    writeLocalStorageMap(map);
+  }
+}
+
+async function awaitManifestBounded(signal?: AbortSignal): Promise<void> {
+  if (manifestLoaded) return;
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+  let timerId: ReturnType<typeof globalThis.setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
+  try {
+    await Promise.race([
+      preloadPreviewManifest(),
+      new Promise<void>((resolve, reject) => {
+        timerId = globalThis.setTimeout(resolve, 1500);
+        if (signal) {
+          onAbort = () => reject(new DOMException('Aborted', 'AbortError'));
+          signal.addEventListener('abort', onAbort, { once: true });
+        }
+      })
+    ]);
+  } finally {
+    if (timerId !== undefined) globalThis.clearTimeout(timerId);
+    if (onAbort && signal) signal.removeEventListener('abort', onAbort);
+  }
+}
 
 function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
   if (signal?.aborted) {
@@ -33,6 +197,34 @@ function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
     }, ms);
     signal?.addEventListener('abort', onAbort, { once: true });
   });
+}
+
+async function raceWithCap<T>(
+  promise: Promise<T>,
+  fallback: T,
+  capMs: number,
+  signal?: AbortSignal
+): Promise<T> {
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+  let timerId: ReturnType<typeof globalThis.setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve, reject) => {
+        timerId = globalThis.setTimeout(() => resolve(fallback), capMs);
+        if (signal) {
+          onAbort = () => reject(new DOMException('Aborted', 'AbortError'));
+          signal.addEventListener('abort', onAbort, { once: true });
+        }
+      })
+    ]);
+  } finally {
+    if (timerId !== undefined) globalThis.clearTimeout(timerId);
+    if (onAbort && signal) signal.removeEventListener('abort', onAbort);
+  }
 }
 
 async function fetchItunesJson(
@@ -63,216 +255,6 @@ export function getMediumThumbUrl(url: string): string {
   return url;
 }
 
-export function cleanMatchText(str: string): string {
-  return (str || '')
-    .toLowerCase()
-    .replace(/\$/g, 's')
-    .replace(/@/g, 'a')
-    .replace(/[ø]/g, 'o')
-    .replace(/æ/g, 'ae')
-    .replace(/œ/g, 'oe')
-    .replace(/ß/g, 'ss')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '');
-}
-
-export function extractPrimaryArtist(
-  artist: string,
-  explicitPrimary?: string
-): string {
-  if (explicitPrimary?.trim()) {
-    return explicitPrimary.trim();
-  }
-  const trimmed = (artist || '').trim();
-  const known = trimmed.match(COMMA_ARTIST_PREFIX);
-  if (known) {
-    return known[1];
-  }
-  return trimmed.split(',')[0].trim();
-}
-
-export function matchesArtistName(
-  itemArtist: string,
-  targetArtist: string,
-  explicitPrimary?: string
-): boolean {
-  const ia = cleanMatchText(itemArtist);
-  const primaryTarget = cleanMatchText(
-    extractPrimaryArtist(targetArtist, explicitPrimary)
-  );
-  const fullTarget = cleanMatchText(targetArtist);
-  if (!ia || !primaryTarget) return false;
-  return (
-    ia.includes(primaryTarget) ||
-    primaryTarget.includes(ia) ||
-    (fullTarget.length > 0 && ia.includes(fullTarget))
-  );
-}
-
-export function matchesAlbumTitle(
-  itemAlbum: string,
-  targetAlbum: string
-): boolean {
-  const rawBaseItem = getBaseTitle(itemAlbum).toLowerCase();
-  const rawBaseTarget = getBaseTitle(targetAlbum).toLowerCase();
-  const taBase = cleanMatchText(rawBaseTarget);
-
-  // Handle symbol-only album titles like Ed Sheeran's "÷", "+", "=", "-"
-  if (!taBase && rawBaseTarget) {
-    return rawBaseItem === rawBaseTarget;
-  }
-
-  const ia = cleanMatchText(itemAlbum);
-  const ta = cleanMatchText(targetAlbum);
-  if (!ia || !ta) return false;
-  const baseTarget = cleanMatchText(rawBaseTarget);
-  const baseItem = cleanMatchText(rawBaseItem);
-
-  if (ia === ta || (baseItem.length >= 1 && baseItem === baseTarget)) {
-    return true;
-  }
-  if (
-    Math.min(ia.length, ta.length) >= 3 &&
-    (ia.includes(ta) || ta.includes(ia))
-  ) {
-    return true;
-  }
-  if (
-    baseTarget.length >= 3 &&
-    baseItem.length >= 3 &&
-    (baseItem.includes(baseTarget) || baseTarget.includes(baseItem))
-  ) {
-    return true;
-  }
-  return false;
-}
-
-export function getBaseTitle(str: string): string {
-  const stripped = (str || '')
-    .replace(
-      /\s*[-–—(\[]\s*(feat\.?|ft\.?|with\s|remaster|deluxe|bonus|explicit|clean|version|edition|stereo|mono|expanded|anniversary|special|standard|complete|original)[^)\]]*[)\]]?/gi,
-      ''
-    )
-    .trim();
-  if (!stripped) return '';
-  if (stripped.startsWith('(') || stripped.startsWith('[')) {
-    return stripped.split(/\s+[-–—:]\s+/)[0].trim() || stripped;
-  }
-  return stripped.split(/[:(\[\-–—]/)[0].trim() || stripped;
-}
-
-export function getAlternatePenalty(
-  trackName: string,
-  collectionName: string,
-  artistName: string,
-  allowedContext: string
-): number {
-  const trk = (trackName || '').toLowerCase();
-  const col = (collectionName || '').toLowerCase();
-  const art = (artistName || '').toLowerCase();
-  const ctx = (allowedContext || '').toLowerCase();
-
-  let penalty = 0;
-
-  // Heavy penalty for tribute / karaoke / lullaby / cover bands
-  if (
-    /\b(tribute|lullaby|karaoke|8-bit|music box|piano guys|vitamin string)\b/.test(
-      `${trk} ${col} ${art}`
-    )
-  ) {
-    penalty += 220;
-  }
-
-  // Heavy penalty for Broadway / musical cast recordings unless expected by context
-  if (
-    /\b(broadway|cast recording|original cast|musical cast|motion picture cast)\b/.test(
-      `${trk} ${col} ${art}`
-    ) &&
-    !/\b(broadway|cast|musical|soundtrack)\b/.test(ctx)
-  ) {
-    penalty += 220;
-  }
-
-  // Penalize remixes, DJ mixes, covers, genre-qualified remixes, sped-up/slowed, instrumentals, commentary unless expected
-  const remixChecks: Array<[RegExp, number]> = [
-    [
-      /\b(cover|covers|piano version|guitar version|orchestral version|(?:edm|dubstep|hardstyle|techno|trance|lofi|lo-fi)\s+(?:remix|mix|version|edit|cover))\b/,
-      140
-    ],
-    [/\b(remix|remixes|re-mix|megamix|club mix|vip mix|dub mix)\b/, 130],
-    [/\b(sped up|slowed|chopped|screwed|nightcore)\b/, 130],
-    [/\b(instrumental|acapella|a cappella|karaoke|commentary)\b/, 120],
-    [/\b(live|concert|unplugged|mtv unplugged)\b/, 90],
-    [/\b(acoustic|stripped|demo|voice memo|session|sessions|rehearsal)\b/, 85],
-    [/\b(radio edit|short edit|intro|outro|skit|interlude)\b/, 45]
-  ];
-
-  for (const [regex, weight] of remixChecks) {
-    if ((regex.test(trk) || regex.test(col)) && !regex.test(ctx)) {
-      penalty += weight;
-    }
-  }
-
-  // Penalize singles / EPs / greatest hits compilations when matching a studio album
-  if (
-    (/\b(single|ep)\b/.test(col) || col.includes(' - single')) &&
-    !/\b(single|ep)\b/.test(ctx)
-  ) {
-    penalty += 35;
-  }
-  if (
-    /\b(greatest hits|best of|essential|anthology)\b/.test(col) &&
-    !/\b(greatest hits|best of|essential|anthology)\b/.test(ctx)
-  ) {
-    penalty += 30;
-  }
-
-  return penalty;
-}
-
-function scoreTrackMatch(
-  candidateTrackName: string,
-  candidateCollectionName: string,
-  candidateArtistName: string,
-  targetTrackName: string,
-  targetAlbumTitle: string,
-  allowedContext: string
-): number {
-  const cleanPrefFull = cleanMatchText(targetTrackName);
-  const cleanPrefBase = cleanMatchText(getBaseTitle(targetTrackName));
-  const cleanAlbumBase = cleanMatchText(
-    getBaseTitle(targetAlbumTitle) || targetAlbumTitle
-  );
-  const cTrkFull = cleanMatchText(candidateTrackName);
-  const cTrkBase = cleanMatchText(getBaseTitle(candidateTrackName));
-  let score = 0;
-
-  if (cleanPrefFull && cTrkFull === cleanPrefFull) {
-    score += 140;
-  } else if (cleanPrefBase && cTrkBase === cleanPrefBase) {
-    score += 110;
-  } else if (
-    cleanPrefBase &&
-    cleanPrefBase.length >= 3 &&
-    (cTrkBase.includes(cleanPrefBase) || cleanPrefBase.includes(cTrkBase))
-  ) {
-    score += 65;
-  } else if (cleanAlbumBase && cTrkBase === cleanAlbumBase) {
-    score += 35;
-  } else {
-    score += 10;
-  }
-
-  score -= getAlternatePenalty(
-    candidateTrackName,
-    candidateCollectionName,
-    candidateArtistName,
-    allowedContext
-  );
-  return score;
-}
-
 async function searchItunesSongPreview(
   songQueries: string[],
   artist: string,
@@ -298,23 +280,15 @@ async function searchItunesSongPreview(
     );
 
     const scoredSongs = candidates
-      .map((s: any) => {
-        let score = scoreTrackMatch(
-          s.trackName || '',
-          s.collectionName || '',
-          s.artistName || '',
+      .map((s: any) => ({
+        song: s,
+        score: scoreScopedSongCandidate(
+          s,
           targetTrackName,
           albumTitle,
           allowedContext
-        );
-        if (
-          albumTitle &&
-          matchesAlbumTitle(s.collectionName || '', albumTitle)
-        ) {
-          score += 90;
-        }
-        return { song: s, score };
-      })
+        )
+      }))
       .sort((a: any, b: any) => b.score - a.score);
 
     if (scoredSongs.length > 0 && scoredSongs[0].score > 25) {
@@ -379,116 +353,133 @@ export async function resolveTrackPreview(
   return null;
 }
 
-function getPreviewCacheKey(alb: AudioPreviewTarget): string {
-  if (alb.id) return `id:${alb.id}`;
-  return `${cleanMatchText(alb.title)}:::${cleanMatchText(alb.artist)}`;
+async function fetchStatsFmPreferredTrack(
+  alb: AudioPreviewTarget,
+  username: string,
+  signal: AbortSignal
+): Promise<{ trackName: string; spotifyPreview: string | null }> {
+  if (!alb.id) {
+    return { trackName: '', spotifyPreview: null };
+  }
+
+  try {
+    const userTracksRes = await fetch(
+      `https://api.stats.fm/api/v1/users/${encodeURIComponent(username)}/top/albums/${alb.id}/tracks`,
+      { signal }
+    ).catch((err) => {
+      if (err?.name === 'AbortError') throw err;
+      return null;
+    });
+
+    if (userTracksRes?.ok) {
+      const userData = await userTracksRes.json();
+      const userItems = Array.isArray(userData.items) ? userData.items : [];
+      if (userItems.length > 0) {
+        const picked = pickPreferredStatsFmTrack(
+          userItems,
+          alb.title,
+          alb.artist
+        );
+        return {
+          trackName: picked.trackName,
+          spotifyPreview: picked.spotifyPreview || null
+        };
+      }
+    }
+
+    const albumTracksRes = await fetch(
+      `https://api.stats.fm/api/v1/albums/${alb.id}/tracks`,
+      { signal }
+    ).catch((err) => {
+      if (err?.name === 'AbortError') throw err;
+      return null;
+    });
+
+    if (albumTracksRes?.ok) {
+      const albData = await albumTracksRes.json();
+      const albTracks = Array.isArray(albData.items) ? albData.items : [];
+      if (albTracks.length > 0) {
+        const mapped = albTracks.map((trk: any) => ({ track: trk }));
+        const picked = pickPreferredStatsFmTrack(mapped, alb.title, alb.artist);
+        return {
+          trackName: picked.trackName,
+          spotifyPreview: null
+        };
+      }
+    }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw err;
+  }
+
+  return { trackName: '', spotifyPreview: null };
 }
 
 export async function resolveAlbumPreview(
   alb: AudioPreviewTarget,
   signal: AbortSignal,
-  username = 'itseebo'
+  username = 'itseebo',
+  options?: ResolveAlbumPreviewOptions
 ): Promise<string | null> {
   const cacheKey = getPreviewCacheKey(alb);
-  const cached = previewUrlCache.get(cacheKey);
-  if (cached) {
-    return cached;
+  const normKey = getNormalizedAlbumArtistKey(alb.title, alb.artist);
+
+  if (!options?.bypassCache) {
+    const cached = previewUrlCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    await awaitManifestBounded(signal);
+    const manifestHit =
+      manifestUrlCache.get(cacheKey) || manifestUrlCache.get(normKey);
+    if (manifestHit) {
+      previewUrlCache.set(cacheKey, manifestHit);
+      return manifestHit;
+    }
+
+    const localHit = getLocalCachedPreview(cacheKey);
+    if (localHit) {
+      previewUrlCache.set(cacheKey, localHit);
+      return localHit;
+    }
   }
 
   const primaryArtist = extractPrimaryArtist(alb.artist, alb.primaryArtist);
   const baseAlbumTitle = getBaseTitle(alb.title) || alb.title;
   const retryBudget = { left: 2 };
-  let preferredTrackName = '';
-  let fallbackSpotifyPreview: string | null = null;
 
-  // 1. Query stats.fm for the user's #1 most-streamed studio track on this exact album.
-  //    Do NOT trust stats.fm's appleMusicPreview directly (often mismatched to covers/remixes);
-  //    resolve the verified studio track via iTunes first and keep Spotify's preview only as fallback.
-  if (alb.id) {
-    try {
-      const [userTracksRes, albumTracksRes] = await Promise.all([
-        fetch(
-          `https://api.stats.fm/api/v1/users/${encodeURIComponent(username)}/top/albums/${alb.id}/tracks`,
-          { signal }
-        ).catch(() => null),
-        fetch(`https://api.stats.fm/api/v1/albums/${alb.id}/tracks`, {
-          signal
-        }).catch(() => null)
-      ]);
+  const rememberHit = (url: string) => {
+    previewUrlCache.set(cacheKey, url);
+    setLocalCachedPreview(cacheKey, url);
+    return url;
+  };
 
-      if (userTracksRes?.ok) {
-        const userData = await userTracksRes.json();
-        const userItems = Array.isArray(userData.items) ? userData.items : [];
-        if (userItems.length > 0) {
-          // Prefer the user's highest-streamed non-remix/non-alternate track
-          const bestUserItem =
-            userItems.find(
-              (item: any) =>
-                item?.track?.name &&
-                getAlternatePenalty(
-                  item.track.name,
-                  alb.title,
-                  alb.artist,
-                  alb.title
-                ) === 0
-            ) || userItems[0];
+  // Fire stats.fm top-track lookup in parallel with the primary iTunes album search
+  const statsFmPromise = fetchStatsFmPreferredTrack(alb, username, signal);
+  const primarySearchPromise = fetchItunesJson(
+    `https://itunes.apple.com/search?term=${encodeURIComponent(`${alb.title} ${primaryArtist}`)}&entity=album&limit=10`,
+    signal,
+    retryBudget
+  );
 
-          preferredTrackName = bestUserItem?.track?.name || '';
+  const albumQueries = [
+    `${alb.title} ${primaryArtist}`,
+    ...(baseAlbumTitle !== alb.title
+      ? [`${baseAlbumTitle} ${primaryArtist}`]
+      : [])
+  ];
 
-          for (const item of userItems.slice(0, 2)) {
-            const tName = item?.track?.name || '';
-            const directSpotify = item?.track?.spotifyPreview;
-            if (
-              directSpotify &&
-              getAlternatePenalty(tName, alb.title, alb.artist, alb.title) === 0
-            ) {
-              fallbackSpotifyPreview = directSpotify;
-              break;
-            }
-          }
-        }
-      }
-
-      if (!preferredTrackName && albumTracksRes?.ok) {
-        const albData = await albumTracksRes.json();
-        const albTracks = Array.isArray(albData.items) ? albData.items : [];
-        if (albTracks.length > 0) {
-          const bestAlbTrack =
-            albTracks.find(
-              (trk: any) =>
-                trk?.name &&
-                getAlternatePenalty(
-                  trk.name,
-                  alb.title,
-                  alb.artist,
-                  alb.title
-                ) === 0
-            ) || albTracks[0];
-          preferredTrackName = bestAlbTrack?.name || '';
-        }
-      }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') throw err;
-    }
-  }
-
-  const allowedContext = `${alb.title} ${preferredTrackName}`;
-
-  // 2. Album-First iTunes Lookup: Find the verified studio album collectionId, then score its tracks
   try {
-    const albumQueries = [
-      `${alb.title} ${primaryArtist}`,
-      ...(baseAlbumTitle !== alb.title
-        ? [`${baseAlbumTitle} ${primaryArtist}`]
-        : [])
-    ];
+    for (let qIdx = 0; qIdx < albumQueries.length; qIdx++) {
+      const albJson =
+        qIdx === 0
+          ? await primarySearchPromise
+          : await fetchItunesJson(
+              `https://itunes.apple.com/search?term=${encodeURIComponent(albumQueries[qIdx])}&entity=album&limit=10`,
+              signal,
+              retryBudget
+            );
 
-    for (const q of albumQueries) {
-      const albJson = await fetchItunesJson(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=10`,
-        signal,
-        retryBudget
-      );
       if (!albJson) continue;
       const matchingCollections = (albJson.results || []).filter(
         (c: any) =>
@@ -497,7 +488,6 @@ export async function resolveAlbumPreview(
           matchesAlbumTitle(c.collectionName, alb.title)
       );
 
-      // Sort standard studio albums ahead of Remix / Live / Single / Tribute editions
       matchingCollections.sort(
         (a: any, b: any) =>
           getAlternatePenalty('', a.collectionName, a.artistName, alb.title) -
@@ -515,6 +505,16 @@ export async function resolveAlbumPreview(
           (t: any) => t.wrapperType === 'track' && t.previewUrl
         );
         if (tracks.length > 0) {
+          // Cap waiting for slow stats.fm track preference once album tracks are already ready
+          const statsMeta = await raceWithCap(
+            statsFmPromise,
+            { trackName: '', spotifyPreview: null },
+            800,
+            signal
+          );
+          const preferredTrackName = statsMeta.trackName;
+          const allowedContext = `${alb.title} ${preferredTrackName}`;
+
           const scoredTracks = tracks
             .map((t: any) => ({
               track: t,
@@ -531,14 +531,20 @@ export async function resolveAlbumPreview(
 
           const best = scoredTracks[0];
           if (best && best.score > 0 && best.track?.previewUrl) {
-            previewUrlCache.set(cacheKey, best.track.previewUrl);
-            return best.track.previewUrl;
+            return rememberHit(best.track.previewUrl);
           }
         }
       }
     }
 
-    // 3. Fallback: Scoped song search with strict album & anti-remix scoring
+    const statsMeta = await raceWithCap(
+      statsFmPromise,
+      { trackName: '', spotifyPreview: null },
+      1200,
+      signal
+    );
+    const preferredTrackName = statsMeta.trackName;
+    const allowedContext = `${alb.title} ${preferredTrackName}`;
     const cleanPrefTrack = getBaseTitle(preferredTrackName);
     const songQueries = [
       ...(cleanPrefTrack
@@ -561,16 +567,28 @@ export async function resolveAlbumPreview(
       retryBudget
     );
     if (fallbackUrl) {
-      previewUrlCache.set(cacheKey, fallbackUrl);
-      return fallbackUrl;
+      return rememberHit(fallbackUrl);
+    }
+
+    if (statsMeta.spotifyPreview) {
+      return rememberHit(statsMeta.spotifyPreview);
     }
   } catch (err: any) {
     if (err?.name === 'AbortError') throw err;
   }
 
-  if (fallbackSpotifyPreview) {
-    previewUrlCache.set(cacheKey, fallbackSpotifyPreview);
-    return fallbackSpotifyPreview;
+  try {
+    const lateStats = await raceWithCap(
+      statsFmPromise,
+      { trackName: '', spotifyPreview: null },
+      400,
+      signal
+    );
+    if (lateStats.spotifyPreview) {
+      return rememberHit(lateStats.spotifyPreview);
+    }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw err;
   }
 
   return null;

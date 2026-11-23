@@ -102,6 +102,18 @@ const recentRatingColors = getRatingColors(recentListen?.rating);
   title="Music"
   description="Ranked top ten albums, vinyl collection, and recent listens."
 >
+  <Fragment slot="head">
+    <link
+      rel="preconnect"
+      href="https://audio-ssl.itunes.apple.com"
+      crossorigin
+    />
+    <link rel="dns-prefetch" href="https://audio-ssl.itunes.apple.com" />
+    <link rel="preconnect" href="https://itunes.apple.com" crossorigin />
+    <link rel="dns-prefetch" href="https://itunes.apple.com" />
+    <link rel="preconnect" href="https://api.stats.fm" crossorigin />
+    <link rel="dns-prefetch" href="https://api.stats.fm" />
+  </Fragment>
   <article class="music-page">
     <header class="music-header">
       <div class="music-header-row">

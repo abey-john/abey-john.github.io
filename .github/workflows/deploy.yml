@@ -52,6 +52,15 @@ jobs:
           restore-keys: |
             notion-routes-${{ runner.os }}
 
+      - name: Restore music preview cache
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          path: node_modules/.cache/music-previews
+          key: music-previews-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            music-previews-${{ runner.os }}-
+
       - name: Build static site with Notion data
         env:
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
@@ -62,7 +71,27 @@ jobs:
           NOTION_MUSIC_DB_ID: ${{ secrets.NOTION_MUSIC_DB_ID }}
           NOTION_PLACES_DB_ID: ${{ secrets.NOTION_PLACES_DB_ID }}
           NOTION_TRIPS_DB_ID: ${{ secrets.NOTION_TRIPS_DB_ID }}
+          PREVIEW_RESOLVE_LIMIT: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '30' || '6' }}
+          PREVIEW_RESOLVE_BUDGET_MS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '120000' || '12000' }}
+          PREVIEW_REQUEST_DELAY_MS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '2600' || '1500' }}
         run: npm run build
+
+      - name: Check if music preview cache updated
+        id: check_preview_cache
+        run: |
+          if [ -f node_modules/.cache/music-previews/.dirty ]; then
+            echo "dirty=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dirty=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save music preview cache
+        if: steps.check_preview_cache.outputs.dirty == 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: node_modules/.cache/music-previews
+          key: music-previews-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3

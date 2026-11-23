@@ -2,6 +2,8 @@ import {
   cleanMatchText,
   extractPrimaryArtist,
   getMediumThumbUrl,
+  invalidateCachedAlbumPreview,
+  preloadPreviewManifest,
   resolveAlbumPreview
 } from './audio-preview';
 import {
@@ -870,23 +872,64 @@ export function initMusicMosaic(): () => void {
 
     audioAbortController = new AbortController();
     const signal = audioAbortController.signal;
+    let hasRetriedLive = false;
 
-    try {
-      const previewUrl = await resolveAlbumPreview(alb, signal);
+    const startPlayback = async (
+      previewUrl: string,
+      wasFromLiveBypass: boolean
+    ) => {
       if (signal.aborted || activeAlbumIdx !== albumIdx) return;
-
-      isAudioLoading = false;
-      if (!previewUrl) {
-        stopMosaicAudio();
-        return;
-      }
 
       const audio = new Audio(previewUrl);
       activeAudio = audio;
       const MAX_DURATION = 30;
+      let recoveryAttempted = false;
+
+      const recoverFromBrokenUrl = async (err?: any) => {
+        if (signal.aborted || activeAlbumIdx !== albumIdx) return;
+        if (err?.name === 'AbortError') return;
+        if (err?.name === 'NotAllowedError') {
+          if (activeAudio === audio) stopMosaicAudio();
+          return;
+        }
+        if (activeAudio !== audio || recoveryAttempted) return;
+        if (hasRetriedLive || wasFromLiveBypass) {
+          stopMosaicAudio();
+          return;
+        }
+
+        recoveryAttempted = true;
+        hasRetriedLive = true;
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+        activeAudio = null;
+
+        isAudioLoading = true;
+        syncTooltipAudioState(albumIdx);
+        scheduleRender();
+
+        invalidateCachedAlbumPreview(alb);
+        try {
+          const freshUrl = await resolveAlbumPreview(alb, signal, undefined, {
+            bypassCache: true
+          });
+          if (signal.aborted || activeAlbumIdx !== albumIdx) return;
+          isAudioLoading = false;
+          if (!freshUrl || freshUrl === previewUrl) {
+            stopMosaicAudio();
+            return;
+          }
+          await startPlayback(freshUrl, true);
+        } catch (retryErr: any) {
+          if (retryErr?.name !== 'AbortError') {
+            stopMosaicAudio();
+          }
+        }
+      };
 
       audio.addEventListener('timeupdate', () => {
-        if (activeAlbumIdx !== albumIdx) return;
+        if (activeAlbumIdx !== albumIdx || activeAudio !== audio) return;
         const cur = audio.currentTime || 0;
         if (cur >= MAX_DURATION) {
           stopMosaicAudio();
@@ -908,18 +951,43 @@ export function initMusicMosaic(): () => void {
       });
 
       audio.addEventListener('ended', () => {
-        if (activeAlbumIdx === albumIdx) stopMosaicAudio();
+        if (activeAlbumIdx === albumIdx && activeAudio === audio) {
+          stopMosaicAudio();
+        }
       });
 
       audio.addEventListener('error', () => {
-        if (activeAlbumIdx === albumIdx) stopMosaicAudio();
+        void recoverFromBrokenUrl();
       });
 
-      await audio.play();
-      syncTooltipAudioState(
-        hoveredCellIdx >= 0 ? grid[hoveredCellIdx] : albumIdx
-      );
-      scheduleRender();
+      try {
+        await audio.play();
+        if (
+          !signal.aborted &&
+          activeAlbumIdx === albumIdx &&
+          activeAudio === audio
+        ) {
+          syncTooltipAudioState(
+            hoveredCellIdx >= 0 ? grid[hoveredCellIdx] : albumIdx
+          );
+          scheduleRender();
+        }
+      } catch (playErr: any) {
+        await recoverFromBrokenUrl(playErr);
+      }
+    };
+
+    try {
+      const previewUrl = await resolveAlbumPreview(alb, signal);
+      if (signal.aborted || activeAlbumIdx !== albumIdx) return;
+
+      isAudioLoading = false;
+      if (!previewUrl) {
+        stopMosaicAudio();
+        return;
+      }
+
+      await startPlayback(previewUrl, false);
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
         stopMosaicAudio();
@@ -930,6 +998,7 @@ export function initMusicMosaic(): () => void {
   function enterMosaic(skipNormalFade: boolean) {
     if (isActive) return;
     isActive = true;
+    void preloadPreviewManifest();
 
     stopMosaicAudio();
     activePointers.clear();
@@ -1043,6 +1112,7 @@ export function initMusicMosaic(): () => void {
     captureSnapshot: buildMosaicSnapshot,
     prepareAsTarget: () => {
       if (!atlasLoaded || !atlasImg) return null;
+      void preloadPreviewManifest();
       normalView!.hidden = true;
       normalView!.classList.remove('is-fading-out', 'is-fading-in');
       mosaicStage!.hidden = false;
@@ -1110,9 +1180,10 @@ export function initMusicMosaic(): () => void {
     }
   };
 
-  // Preload atlas on button hover so first click is instantaneous
+  // Preload atlas and preview manifest on button hover so first click is instantaneous
   const onToggleHover = () => {
     ensureAtlasLoaded();
+    void preloadPreviewManifest();
   };
 
   const onResetZoomClick = () => {

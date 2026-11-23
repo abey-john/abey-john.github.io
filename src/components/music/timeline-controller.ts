@@ -1,4 +1,8 @@
-import { resolveAlbumPreview } from './audio-preview';
+import {
+  invalidateCachedAlbumPreview,
+  preloadPreviewManifest,
+  resolveAlbumPreview
+} from './audio-preview';
 import { createTimelineTrail } from './timeline-trail';
 import { createTimelineWaveTransition } from './timeline-transition';
 import {
@@ -221,39 +225,79 @@ export function initMusicTimeline(): () => void {
     audioAbortController = new AbortController();
     const signal = audioAbortController.signal;
 
-    try {
-      const albumId = tile.dataset.albumId
-        ? Number(tile.dataset.albumId)
-        : undefined;
-      const previewUrl = await resolveAlbumPreview(
-        {
-          id: albumId && !Number.isNaN(albumId) ? albumId : undefined,
-          title: tile.dataset.title || '',
-          artist: tile.dataset.artist || '',
-          primaryArtist: tile.dataset.primaryArtist || undefined
-        },
-        signal
-      );
+    const albumId = tile.dataset.albumId
+      ? Number(tile.dataset.albumId)
+      : undefined;
+    const targetAlbum = {
+      id: albumId && !Number.isNaN(albumId) ? albumId : undefined,
+      title: tile.dataset.title || '',
+      artist: tile.dataset.artist || '',
+      primaryArtist: tile.dataset.primaryArtist || undefined
+    };
+    let hasRetriedLive = false;
 
+    const startPlayback = async (
+      previewUrl: string,
+      wasFromLiveBypass: boolean
+    ) => {
       if (signal.aborted || activeTile !== tile) return;
-
-      isAudioLoading = false;
-      tile.classList.remove('is-loading');
-
-      if (!previewUrl) {
-        // Keep the artist trail visible even if no 30s audio snippet was found
-        activeTile = null;
-        tile.setAttribute('aria-pressed', 'false');
-        syncTooltipAudioState(hoveredTile);
-        return;
-      }
 
       const audio = new Audio(previewUrl);
       activeAudio = audio;
       const MAX_DURATION = 30;
+      let recoveryAttempted = false;
+
+      const recoverFromBrokenUrl = async (err?: any) => {
+        if (signal.aborted || activeTile !== tile) return;
+        if (err?.name === 'AbortError') return;
+        if (err?.name === 'NotAllowedError') {
+          if (activeAudio === audio) stopTimelineAudio();
+          return;
+        }
+        if (activeAudio !== audio || recoveryAttempted) return;
+        if (hasRetriedLive || wasFromLiveBypass) {
+          stopTimelineAudio();
+          return;
+        }
+
+        recoveryAttempted = true;
+        hasRetriedLive = true;
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+        activeAudio = null;
+
+        isAudioLoading = true;
+        tile.classList.remove('is-playing', 'is-paused');
+        tile.classList.add('is-loading');
+        syncTooltipAudioState(hoveredTile);
+
+        invalidateCachedAlbumPreview(targetAlbum);
+        try {
+          const freshUrl = await resolveAlbumPreview(
+            targetAlbum,
+            signal,
+            undefined,
+            { bypassCache: true }
+          );
+          if (signal.aborted || activeTile !== tile) return;
+          isAudioLoading = false;
+          tile.classList.remove('is-loading');
+
+          if (!freshUrl || freshUrl === previewUrl) {
+            stopTimelineAudio();
+            return;
+          }
+          await startPlayback(freshUrl, true);
+        } catch (retryErr: any) {
+          if (retryErr?.name !== 'AbortError') {
+            stopTimelineAudio();
+          }
+        }
+      };
 
       audio.addEventListener('timeupdate', () => {
-        if (activeTile !== tile) return;
+        if (activeTile !== tile || activeAudio !== audio) return;
         const cur = audio.currentTime || 0;
         if (cur >= MAX_DURATION) {
           stopTimelineAudio();
@@ -272,23 +316,44 @@ export function initMusicTimeline(): () => void {
       });
 
       audio.addEventListener('ended', () => {
-        if (activeTile === tile) {
+        if (activeTile === tile && activeAudio === audio) {
           stopTimelineAudio();
         }
       });
 
       audio.addEventListener('error', () => {
-        if (activeTile === tile) {
-          stopTimelineAudio();
-        }
+        void recoverFromBrokenUrl();
       });
 
-      await audio.play();
-      if (activeTile === tile) {
-        tile.classList.add('is-playing');
-        tile.classList.remove('is-paused');
-        syncTooltipAudioState(hoveredTile);
+      try {
+        await audio.play();
+        if (!signal.aborted && activeTile === tile && activeAudio === audio) {
+          tile.classList.add('is-playing');
+          tile.classList.remove('is-paused');
+          syncTooltipAudioState(hoveredTile);
+        }
+      } catch (playErr: any) {
+        await recoverFromBrokenUrl(playErr);
       }
+    };
+
+    try {
+      const previewUrl = await resolveAlbumPreview(targetAlbum, signal);
+
+      if (signal.aborted || activeTile !== tile) return;
+
+      isAudioLoading = false;
+      tile.classList.remove('is-loading');
+
+      if (!previewUrl) {
+        // Keep the artist trail visible even if no 30s audio snippet was found
+        activeTile = null;
+        tile.setAttribute('aria-pressed', 'false');
+        syncTooltipAudioState(hoveredTile);
+        return;
+      }
+
+      await startPlayback(previewUrl, false);
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
         stopTimelineAudio();
@@ -370,6 +435,7 @@ export function initMusicTimeline(): () => void {
     if (isActive) return;
     isActive = true;
     preloadMosaicAtlasForTransition();
+    void preloadPreviewManifest();
 
     waveTransition.cancel();
     if (transitionTimer !== null) {
@@ -489,6 +555,7 @@ export function initMusicTimeline(): () => void {
     captureVisibleSnapshot: () => captureVisibleTimelineTiles(false),
     prepareAsTarget: () => {
       waveTransition.cancel();
+      void preloadPreviewManifest();
       normalView!.hidden = true;
       normalView!.classList.remove('is-fading-out', 'is-fading-in');
       timelineStage!.classList.add('is-morphing-in');
@@ -516,6 +583,7 @@ export function initMusicTimeline(): () => void {
   // Event Listeners
   const onToggleHover = () => {
     preloadMosaicAtlasForTransition();
+    void preloadPreviewManifest();
   };
 
   const onViewModeChange = (e: Event) => {
