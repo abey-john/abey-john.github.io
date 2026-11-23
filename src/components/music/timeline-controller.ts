@@ -5,6 +5,11 @@ import {
   resetMusicViewMode,
   setMusicViewMode
 } from './view-mode';
+import {
+  preloadMosaicAtlasForTransition,
+  registerTimelineTransition,
+  type TimelineTileSnapshot
+} from './view-transition';
 
 export function initMusicTimeline(): () => void {
   const toggleBtn = document.querySelector<HTMLButtonElement>(
@@ -363,6 +368,7 @@ export function initMusicTimeline(): () => void {
   function enterTimeline(skipNormalFade: boolean) {
     if (isActive) return;
     isActive = true;
+    preloadMosaicAtlasForTransition();
 
     toggleBtn!.classList.add('is-active');
     toggleBtn!.setAttribute('aria-pressed', 'true');
@@ -444,13 +450,115 @@ export function initMusicTimeline(): () => void {
     }
   }
 
+  function captureVisibleTimelineTiles(
+    eagerLoad = false
+  ): TimelineTileSnapshot[] {
+    const vh = window.innerHeight;
+    const snapshots: TimelineTileSnapshot[] = [];
+    for (const tile of tiles) {
+      const r = tile.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      if (r.bottom < -120 || r.top > vh + 140) continue;
+
+      const imgEl = tile.querySelector<HTMLImageElement>('.tl-cover');
+      if (eagerLoad && imgEl && imgEl.loading !== 'eager') {
+        imgEl.loading = 'eager';
+      }
+
+      const span: 1 | 2 | 3 = tile.classList.contains('span-3')
+        ? 3
+        : tile.classList.contains('span-2')
+          ? 2
+          : 1;
+
+      snapshots.push({
+        albumId: tile.dataset.albumId || '',
+        albumKey: tile.dataset.albumKey || '',
+        span,
+        imgEl,
+        x: r.left,
+        y: r.top,
+        width: r.width,
+        height: r.height
+      });
+    }
+    return snapshots;
+  }
+
+  function hideTimelineImmediate() {
+    timelineStage!.classList.remove(
+      'is-morphing-in',
+      'is-fading-in',
+      'is-fading-out'
+    );
+    timelineStage!.style.removeProperty('--morph-chrome-opacity');
+    timelineStage!.hidden = true;
+  }
+
+  const unregisterTransition = registerTimelineTransition({
+    captureVisibleSnapshot: () => captureVisibleTimelineTiles(false),
+    prepareAsTarget: () => {
+      normalView!.hidden = true;
+      normalView!.classList.remove('is-fading-out', 'is-fading-in');
+      timelineStage!.classList.remove('is-fading-in', 'is-fading-out');
+      timelineStage!.classList.add('is-morphing-in');
+      timelineStage!.style.setProperty('--morph-chrome-opacity', '0');
+      timelineStage!.hidden = false;
+      window.scrollTo({ top: 0 });
+      return captureVisibleTimelineTiles(true);
+    },
+    setMorphChromeOpacity: (opacity: number) => {
+      timelineStage!.style.setProperty(
+        '--morph-chrome-opacity',
+        String(opacity)
+      );
+    },
+    finishReveal: () => {
+      timelineStage!.classList.remove('is-morphing-in');
+      timelineStage!.style.removeProperty('--morph-chrome-opacity');
+      if (isActive) {
+        setupYearObserver();
+      }
+    },
+    hideImmediate: hideTimelineImmediate
+  });
+
   // Event Listeners
   const onToggleClick = () => {
     setMusicViewMode(isActive ? 'overview' : 'timeline');
   };
 
+  const onToggleHover = () => {
+    preloadMosaicAtlasForTransition();
+  };
+
   const onViewModeChange = (e: Event) => {
-    const { prev, next } = (e as CustomEvent<MusicViewModeChangeDetail>).detail;
+    const { prev, next, morphing } = (
+      e as CustomEvent<MusicViewModeChangeDetail>
+    ).detail;
+    if (morphing) {
+      if (transitionTimer !== null) {
+        window.clearTimeout(transitionTimer);
+        transitionTimer = null;
+      }
+      if (next === 'timeline') {
+        isActive = true;
+        toggleBtn!.classList.add('is-active');
+        toggleBtn!.setAttribute('aria-pressed', 'true');
+        preloadMosaicAtlasForTransition();
+      } else if (prev === 'timeline') {
+        isActive = false;
+        toggleBtn!.classList.remove('is-active');
+        toggleBtn!.setAttribute('aria-pressed', 'false');
+        stopTimelineAudio();
+        trail.clear();
+        hideTooltip();
+        teardownYearObserver();
+        hideTimelineImmediate();
+      }
+      return;
+    }
+
     if (next === 'timeline') {
       enterTimeline(prev !== 'overview');
     } else if (next === 'overview') {
@@ -553,6 +661,8 @@ export function initMusicTimeline(): () => void {
   };
 
   toggleBtn.addEventListener('click', onToggleClick);
+  toggleBtn.addEventListener('mouseenter', onToggleHover);
+  toggleBtn.addEventListener('focus', onToggleHover);
   timelineStage.addEventListener('click', onStageClick);
   timelineContainer.addEventListener('click', onContainerClick);
   timelineContainer.addEventListener('pointerover', onContainerPointerOver);
@@ -567,6 +677,7 @@ export function initMusicTimeline(): () => void {
   window.addEventListener('music:view-mode-change', onViewModeChange);
 
   return () => {
+    unregisterTransition();
     if (transitionTimer !== null) {
       window.clearTimeout(transitionTimer);
       transitionTimer = null;
@@ -575,11 +686,18 @@ export function initMusicTimeline(): () => void {
     stopTimelineAudio();
     trail.destroy();
     hideTooltip();
-    timelineStage.classList.remove('is-fading-in', 'is-fading-out');
+    timelineStage.classList.remove(
+      'is-morphing-in',
+      'is-fading-in',
+      'is-fading-out'
+    );
+    timelineStage.style.removeProperty('--morph-chrome-opacity');
     normalView.classList.remove('is-fading-in', 'is-fading-out');
     resetMusicViewMode();
 
     toggleBtn.removeEventListener('click', onToggleClick);
+    toggleBtn.removeEventListener('mouseenter', onToggleHover);
+    toggleBtn.removeEventListener('focus', onToggleHover);
     timelineStage.removeEventListener('click', onStageClick);
     timelineContainer.removeEventListener('click', onContainerClick);
     timelineContainer.removeEventListener(

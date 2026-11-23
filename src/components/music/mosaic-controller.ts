@@ -1,9 +1,19 @@
-import { getMediumThumbUrl, resolveAlbumPreview } from './audio-preview';
+import {
+  cleanMatchText,
+  extractPrimaryArtist,
+  getMediumThumbUrl,
+  resolveAlbumPreview
+} from './audio-preview';
 import {
   type MusicViewModeChangeDetail,
   resetMusicViewMode,
   setMusicViewMode
 } from './view-mode';
+import {
+  type MosaicCellSnapshot,
+  type MosaicMorphSnapshot,
+  registerMosaicTransition
+} from './view-transition';
 
 export interface MosaicAlbum {
   id?: number;
@@ -155,6 +165,78 @@ export function initMusicMosaic(): () => void {
   let activeAlbumIdx = -1;
   let isAudioLoading = false;
   let audioAbortController: AbortController | null = null;
+
+  const mosaicAlbumIds = albums.map((a) => (a.id ? String(a.id) : ''));
+  const mosaicAlbumKeys = albums.map((a) => {
+    const stripped = a.title
+      .toLowerCase()
+      .replace(
+        /\s*[(\[]\s*(deluxe|remaster|expanded|bonus|edition|special|anniversary)[^)\]]*[)\]]/gi,
+        ''
+      )
+      .replace(
+        /\s*[-–—]\s*(deluxe|remaster|expanded|bonus|edition|special|anniversary).*$/gi,
+        ''
+      )
+      .trim();
+    const titleKey = cleanMatchText(stripped) || cleanMatchText(a.title);
+    const artistKey = cleanMatchText(extractPrimaryArtist(a.artist));
+    return `${titleKey}:::${artistKey}`;
+  });
+
+  function buildMosaicSnapshot(): MosaicMorphSnapshot | null {
+    if (!atlasLoaded || !atlasImg || !canvas || cssWidth <= 0) return null;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+
+    const tileSize = cellCss * scale;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const cells: MosaicCellSnapshot[] = [];
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (let r = 0; r < gridRows; r++) {
+      const rowOff = r * gridCols;
+      const y = rect.top + panY + (baseOffsetY + r * cellCss) * scale;
+      if (y + tileSize < -80 || y > vh + 80) continue;
+
+      for (let c = 0; c < gridCols; c++) {
+        const albumIdx = grid[rowOff + c];
+        if (albumIdx === undefined || albumIdx < 0) continue;
+        const x = rect.left + panX + (baseOffsetX + c * cellCss) * scale;
+        if (x + tileSize < -80 || x > vw + 80) continue;
+
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x + tileSize > maxX) maxX = x + tileSize;
+        if (y + tileSize > maxY) maxY = y + tileSize;
+
+        cells.push({
+          albumId: mosaicAlbumIds[albumIdx] || '',
+          albumKey: mosaicAlbumKeys[albumIdx] || '',
+          sx: c * tilePixelSize,
+          sy: r * tilePixelSize,
+          sSize: tilePixelSize,
+          x,
+          y,
+          size: tileSize
+        });
+      }
+    }
+
+    if (cells.length === 0) return null;
+
+    return {
+      atlasImg,
+      cells,
+      centerX: (minX + maxX) * 0.5,
+      centerY: (minY + maxY) * 0.5
+    };
+  }
 
   function ensureAtlasLoaded() {
     if (atlasImg) return;
@@ -951,13 +1033,89 @@ export function initMusicMosaic(): () => void {
     }
   }
 
+  function hideMosaicImmediate() {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    isRevealing = false;
+    isExiting = false;
+    canvas!.style.visibility = '';
+    mosaicStage!.hidden = true;
+  }
+
+  const unregisterTransition = registerMosaicTransition({
+    isAtlasReady: () => Boolean(atlasLoaded && atlasImg),
+    ensureAtlasLoaded,
+    captureSnapshot: buildMosaicSnapshot,
+    prepareAsTarget: () => {
+      if (!atlasLoaded || !atlasImg) return null;
+      normalView!.hidden = true;
+      normalView!.classList.remove('is-fading-out', 'is-fading-in');
+      mosaicStage!.hidden = false;
+      canvas!.style.visibility = 'hidden';
+      window.scrollTo({ top: 0 });
+      scale = 1;
+      panX = 0;
+      panY = 0;
+      hoveredCellIdx = -1;
+      isPointerInside = false;
+      tooltip!.hidden = true;
+      if (loupeCanvas) loupeCanvas.hidden = true;
+      updateResetZoomButton();
+      measureCanvas();
+      return buildMosaicSnapshot();
+    },
+    finishReveal: () => {
+      canvas!.style.visibility = '';
+      isRevealing = false;
+      isExiting = false;
+      renderFrame();
+    },
+    hideImmediate: hideMosaicImmediate
+  });
+
   // Event Listeners
   const onToggleClick = () => {
     setMusicViewMode(isActive ? 'overview' : 'mosaic');
   };
 
   const onViewModeChange = (e: Event) => {
-    const { prev, next } = (e as CustomEvent<MusicViewModeChangeDetail>).detail;
+    const { prev, next, morphing } = (
+      e as CustomEvent<MusicViewModeChangeDetail>
+    ).detail;
+    if (morphing) {
+      if (transitionTimer !== null) {
+        window.clearTimeout(transitionTimer);
+        transitionTimer = null;
+      }
+      if (next === 'mosaic') {
+        isActive = true;
+        toggleBtn!.classList.add('is-active');
+        toggleBtn!.setAttribute('aria-pressed', 'true');
+        stopMosaicAudio();
+        activePointers.clear();
+        isDragging = false;
+        isPinching = false;
+        isExiting = false;
+        isRevealing = false;
+      } else if (prev === 'mosaic') {
+        isActive = false;
+        toggleBtn!.classList.remove('is-active');
+        toggleBtn!.setAttribute('aria-pressed', 'false');
+        stopMosaicAudio();
+        activePointers.clear();
+        isDragging = false;
+        isPinching = false;
+        hoveredCellIdx = -1;
+        isPointerInside = false;
+        tooltip!.hidden = true;
+        if (loupeCanvas) loupeCanvas.hidden = true;
+        hideMosaicImmediate();
+      }
+      return;
+    }
+
     if (next === 'mosaic') {
       enterMosaic(prev !== 'overview');
     } else if (next === 'overview') {
@@ -1304,6 +1462,8 @@ export function initMusicMosaic(): () => void {
   window.addEventListener('music:view-mode-change', onViewModeChange);
 
   return () => {
+    unregisterTransition();
+    canvas.style.visibility = '';
     if (rafId !== null) {
       cancelAnimationFrame(rafId);
       rafId = null;

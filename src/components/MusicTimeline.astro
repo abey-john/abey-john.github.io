@@ -251,6 +251,17 @@ const { timeline } = Astro.props;
     display: none !important;
   }
 
+  .music-timeline-stage.is-morphing-in .tl-tile {
+    opacity: 0;
+    transition: none;
+  }
+
+  .music-timeline-stage.is-morphing-in .timeline-year-header,
+  .music-timeline-stage.is-morphing-in .timeline-sidebar,
+  .music-timeline-stage.is-morphing-in .timeline-spine-column::before {
+    opacity: var(--morph-chrome-opacity, 0);
+  }
+
   .music-timeline-stage.is-fading-in .timeline-layout {
     animation: timeline-fade-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
