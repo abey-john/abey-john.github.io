@@ -2,6 +2,7 @@ export interface AudioPreviewTarget {
   id?: number;
   title: string;
   artist: string;
+  primaryArtist?: string;
 }
 
 export interface TrackPreviewTarget {
@@ -12,7 +13,48 @@ export interface TrackPreviewTarget {
   fallbackSpotifyPreview?: string | null;
 }
 
-const previewUrlCache = new Map<string, string | null>();
+const previewUrlCache = new Map<string, string>();
+
+const COMMA_ARTIST_PREFIX =
+  /^(tyler,\s*the creator|black country,\s*new road|earth,\s*wind\s*&\s*fire|crosby,\s*stills,\s*nash(?:\s*&\s*young)?|emerson,\s*lake\s*&\s*palmer|peter,\s*paul\s*and\s*mary|blood,\s*sweat\s*&\s*tears)/i;
+
+function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException('Aborted', 'AbortError'));
+  }
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      globalThis.clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    const timer = globalThis.setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+async function fetchItunesJson(
+  url: string,
+  signal?: AbortSignal,
+  retryBudget?: { left: number }
+): Promise<any | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(url, { signal });
+    if (res.status === 403 || res.status === 429) {
+      if (retryBudget && retryBudget.left > 0) {
+        retryBudget.left--;
+        await sleepWithAbort(500, signal);
+        continue;
+      }
+      return null;
+    }
+    if (!res.ok) return null;
+    return await res.json();
+  }
+  return null;
+}
 
 export function getMediumThumbUrl(url: string): string {
   if (url.includes('i.scdn.co/image/ab67616d0000b273')) {
@@ -26,23 +68,45 @@ export function cleanMatchText(str: string): string {
     .toLowerCase()
     .replace(/\$/g, 's')
     .replace(/@/g, 'a')
+    .replace(/[ø]/g, 'o')
+    .replace(/æ/g, 'ae')
+    .replace(/œ/g, 'oe')
+    .replace(/ß/g, 'ss')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]/g, '');
 }
 
+export function extractPrimaryArtist(
+  artist: string,
+  explicitPrimary?: string
+): string {
+  if (explicitPrimary?.trim()) {
+    return explicitPrimary.trim();
+  }
+  const trimmed = (artist || '').trim();
+  const known = trimmed.match(COMMA_ARTIST_PREFIX);
+  if (known) {
+    return known[1];
+  }
+  return trimmed.split(',')[0].trim();
+}
+
 export function matchesArtistName(
   itemArtist: string,
-  targetArtist: string
+  targetArtist: string,
+  explicitPrimary?: string
 ): boolean {
   const ia = cleanMatchText(itemArtist);
-  const primaryTarget = cleanMatchText(targetArtist.split(',')[0]);
+  const primaryTarget = cleanMatchText(
+    extractPrimaryArtist(targetArtist, explicitPrimary)
+  );
   const fullTarget = cleanMatchText(targetArtist);
   if (!ia || !primaryTarget) return false;
   return (
     ia.includes(primaryTarget) ||
     primaryTarget.includes(ia) ||
-    ia.includes(fullTarget)
+    (fullTarget.length > 0 && ia.includes(fullTarget))
   );
 }
 
@@ -50,14 +114,8 @@ export function matchesAlbumTitle(
   itemAlbum: string,
   targetAlbum: string
 ): boolean {
-  const rawBaseItem = (itemAlbum || '')
-    .split(/[:(\[]/)[0]
-    .trim()
-    .toLowerCase();
-  const rawBaseTarget = (targetAlbum || '')
-    .split(/[:(\[]/)[0]
-    .trim()
-    .toLowerCase();
+  const rawBaseItem = getBaseTitle(itemAlbum).toLowerCase();
+  const rawBaseTarget = getBaseTitle(targetAlbum).toLowerCase();
   const taBase = cleanMatchText(rawBaseTarget);
 
   // Handle symbol-only album titles like Ed Sheeran's "÷", "+", "=", "-"
@@ -68,9 +126,18 @@ export function matchesAlbumTitle(
   const ia = cleanMatchText(itemAlbum);
   const ta = cleanMatchText(targetAlbum);
   if (!ia || !ta) return false;
-  if (ia.includes(ta) || ta.includes(ia)) return true;
-  const baseTarget = cleanMatchText(targetAlbum.split(/[:(\[-]/)[0]);
-  const baseItem = cleanMatchText(itemAlbum.split(/[:(\[-]/)[0]);
+  const baseTarget = cleanMatchText(rawBaseTarget);
+  const baseItem = cleanMatchText(rawBaseItem);
+
+  if (ia === ta || (baseItem.length >= 1 && baseItem === baseTarget)) {
+    return true;
+  }
+  if (
+    Math.min(ia.length, ta.length) >= 3 &&
+    (ia.includes(ta) || ta.includes(ia))
+  ) {
+    return true;
+  }
   if (
     baseTarget.length >= 3 &&
     baseItem.length >= 3 &&
@@ -82,13 +149,17 @@ export function matchesAlbumTitle(
 }
 
 export function getBaseTitle(str: string): string {
-  return (str || '')
+  const stripped = (str || '')
     .replace(
-      /\s*[-–—(\[]\s*(feat\.?|ft\.?|with\s|remaster|deluxe|bonus|explicit|clean|version|edition|stereo|mono)[^)\]]*[)\]]?/gi,
+      /\s*[-–—(\[]\s*(feat\.?|ft\.?|with\s|remaster|deluxe|bonus|explicit|clean|version|edition|stereo|mono|expanded|anniversary|special|standard|complete|original)[^)\]]*[)\]]?/gi,
       ''
     )
-    .split(/[:(\[\-–—]/)[0]
     .trim();
+  if (!stripped) return '';
+  if (stripped.startsWith('(') || stripped.startsWith('[')) {
+    return stripped.split(/\s+[-–—:]\s+/)[0].trim() || stripped;
+  }
+  return stripped.split(/[:(\[\-–—]/)[0].trim() || stripped;
 }
 
 export function getAlternatePenalty(
@@ -109,6 +180,16 @@ export function getAlternatePenalty(
     /\b(tribute|lullaby|karaoke|8-bit|music box|piano guys|vitamin string)\b/.test(
       `${trk} ${col} ${art}`
     )
+  ) {
+    penalty += 220;
+  }
+
+  // Heavy penalty for Broadway / musical cast recordings unless expected by context
+  if (
+    /\b(broadway|cast recording|original cast|musical cast|motion picture cast)\b/.test(
+      `${trk} ${col} ${art}`
+    ) &&
+    !/\b(broadway|cast|musical|soundtrack)\b/.test(ctx)
   ) {
     penalty += 220;
   }
@@ -198,17 +279,22 @@ async function searchItunesSongPreview(
   albumTitle: string,
   targetTrackName: string,
   allowedContext: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  explicitPrimary?: string,
+  retryBudget?: { left: number }
 ): Promise<string | null> {
+  let bestAcrossQueries: { url: string; score: number } | null = null;
+
   for (const sq of songQueries) {
-    const songRes = await fetch(
+    const songJson = await fetchItunesJson(
       `https://itunes.apple.com/search?term=${encodeURIComponent(sq)}&entity=song&limit=20`,
-      { signal }
+      signal,
+      retryBudget
     );
-    if (!songRes.ok) continue;
-    const songJson = await songRes.json();
+    if (!songJson) continue;
     const candidates = (songJson.results || []).filter(
-      (s: any) => s.previewUrl && matchesArtistName(s.artistName, artist)
+      (s: any) =>
+        s.previewUrl && matchesArtistName(s.artistName, artist, explicitPrimary)
     );
 
     const scoredSongs = candidates
@@ -232,10 +318,16 @@ async function searchItunesSongPreview(
       .sort((a: any, b: any) => b.score - a.score);
 
     if (scoredSongs.length > 0 && scoredSongs[0].score > 25) {
-      return scoredSongs[0].song.previewUrl;
+      const top = scoredSongs[0];
+      if (!bestAcrossQueries || top.score > bestAcrossQueries.score) {
+        bestAcrossQueries = { url: top.song.previewUrl, score: top.score };
+      }
+      if (!targetTrackName || top.score >= 130) {
+        return top.song.previewUrl;
+      }
     }
   }
-  return null;
+  return bestAcrossQueries ? bestAcrossQueries.url : null;
 }
 
 export async function resolveTrackPreview(
@@ -243,14 +335,16 @@ export async function resolveTrackPreview(
   signal?: AbortSignal
 ): Promise<string | null> {
   const cacheKey = `track:${cleanMatchText(track.title)}:::${cleanMatchText(track.artist)}:::${cleanMatchText(track.album || '')}`;
-  if (previewUrlCache.has(cacheKey)) {
-    return previewUrlCache.get(cacheKey) ?? null;
+  const cached = previewUrlCache.get(cacheKey);
+  if (cached) {
+    return cached;
   }
 
-  const primaryArtist = track.artist.split(',')[0].trim();
+  const primaryArtist = extractPrimaryArtist(track.artist);
   const baseTrack = getBaseTitle(track.title) || track.title;
   const baseAlbum = track.album ? getBaseTitle(track.album) || track.album : '';
   const allowedContext = `${track.title} ${track.album || ''}`.trim();
+  const retryBudget = { left: 1 };
 
   const songQueries = [
     ...(baseAlbum ? [`${baseTrack} ${primaryArtist} ${baseAlbum}`] : []),
@@ -265,7 +359,9 @@ export async function resolveTrackPreview(
       track.album || '',
       track.title,
       allowedContext,
-      signal
+      signal,
+      undefined,
+      retryBudget
     );
     if (url) {
       previewUrlCache.set(cacheKey, url);
@@ -280,7 +376,6 @@ export async function resolveTrackPreview(
     return track.fallbackSpotifyPreview;
   }
 
-  previewUrlCache.set(cacheKey, null);
   return null;
 }
 
@@ -295,12 +390,14 @@ export async function resolveAlbumPreview(
   username = 'itseebo'
 ): Promise<string | null> {
   const cacheKey = getPreviewCacheKey(alb);
-  if (previewUrlCache.has(cacheKey)) {
-    return previewUrlCache.get(cacheKey) ?? null;
+  const cached = previewUrlCache.get(cacheKey);
+  if (cached) {
+    return cached;
   }
 
-  const primaryArtist = alb.artist.split(',')[0].trim();
+  const primaryArtist = extractPrimaryArtist(alb.artist, alb.primaryArtist);
   const baseAlbumTitle = getBaseTitle(alb.title) || alb.title;
+  const retryBudget = { left: 2 };
   let preferredTrackName = '';
   let fallbackSpotifyPreview: string | null = null;
 
@@ -387,16 +484,16 @@ export async function resolveAlbumPreview(
     ];
 
     for (const q of albumQueries) {
-      const albRes = await fetch(
+      const albJson = await fetchItunesJson(
         `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=10`,
-        { signal }
+        signal,
+        retryBudget
       );
-      if (!albRes.ok) continue;
-      const albJson = await albRes.json();
+      if (!albJson) continue;
       const matchingCollections = (albJson.results || []).filter(
         (c: any) =>
           c.collectionId &&
-          matchesArtistName(c.artistName, alb.artist) &&
+          matchesArtistName(c.artistName, alb.artist, alb.primaryArtist) &&
           matchesAlbumTitle(c.collectionName, alb.title)
       );
 
@@ -408,12 +505,12 @@ export async function resolveAlbumPreview(
       );
 
       for (const col of matchingCollections.slice(0, 3)) {
-        const lookupRes = await fetch(
+        const lookupJson = await fetchItunesJson(
           `https://itunes.apple.com/lookup?id=${col.collectionId}&entity=song`,
-          { signal }
+          signal,
+          retryBudget
         );
-        if (!lookupRes.ok) continue;
-        const lookupJson = await lookupRes.json();
+        if (!lookupJson) continue;
         const tracks = (lookupJson.results || []).filter(
           (t: any) => t.wrapperType === 'track' && t.previewUrl
         );
@@ -459,7 +556,9 @@ export async function resolveAlbumPreview(
       alb.title,
       preferredTrackName,
       allowedContext,
-      signal
+      signal,
+      alb.primaryArtist,
+      retryBudget
     );
     if (fallbackUrl) {
       previewUrlCache.set(cacheKey, fallbackUrl);
@@ -474,6 +573,5 @@ export async function resolveAlbumPreview(
     return fallbackSpotifyPreview;
   }
 
-  previewUrlCache.set(cacheKey, null);
   return null;
 }

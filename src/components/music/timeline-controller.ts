@@ -223,7 +223,8 @@ export function initMusicTimeline(): () => void {
         {
           id: albumId && !Number.isNaN(albumId) ? albumId : undefined,
           title: tile.dataset.title || '',
-          artist: tile.dataset.artist || ''
+          artist: tile.dataset.artist || '',
+          primaryArtist: tile.dataset.primaryArtist || undefined
         },
         signal
       );
