@@ -62,7 +62,6 @@ export function initMusicMosaic(): () => void {
   );
 
   if (
-    !toggleBtn ||
     !normalView ||
     !mosaicStage ||
     !canvas ||
@@ -932,9 +931,6 @@ export function initMusicMosaic(): () => void {
     if (isActive) return;
     isActive = true;
 
-    toggleBtn!.classList.add('is-active');
-    toggleBtn!.setAttribute('aria-pressed', 'true');
-
     stopMosaicAudio();
     activePointers.clear();
     isDragging = false;
@@ -988,9 +984,6 @@ export function initMusicMosaic(): () => void {
   function exitMosaic(revealNormalView: boolean) {
     const wasActiveOrExiting = isActive || isExiting;
     isActive = false;
-
-    toggleBtn!.classList.remove('is-active');
-    toggleBtn!.setAttribute('aria-pressed', 'false');
 
     stopMosaicAudio();
     activePointers.clear();
@@ -1076,10 +1069,6 @@ export function initMusicMosaic(): () => void {
   });
 
   // Event Listeners
-  const onToggleClick = () => {
-    setMusicViewMode(isActive ? 'overview' : 'mosaic');
-  };
-
   const onViewModeChange = (e: Event) => {
     const { prev, next, morphing } = (
       e as CustomEvent<MusicViewModeChangeDetail>
@@ -1091,8 +1080,6 @@ export function initMusicMosaic(): () => void {
       }
       if (next === 'mosaic') {
         isActive = true;
-        toggleBtn!.classList.add('is-active');
-        toggleBtn!.setAttribute('aria-pressed', 'true');
         stopMosaicAudio();
         activePointers.clear();
         isDragging = false;
@@ -1101,8 +1088,6 @@ export function initMusicMosaic(): () => void {
         isRevealing = false;
       } else if (prev === 'mosaic') {
         isActive = false;
-        toggleBtn!.classList.remove('is-active');
-        toggleBtn!.setAttribute('aria-pressed', 'false');
         stopMosaicAudio();
         activePointers.clear();
         isDragging = false;
@@ -1443,9 +1428,8 @@ export function initMusicMosaic(): () => void {
     }
   };
 
-  toggleBtn.addEventListener('click', onToggleClick);
-  toggleBtn.addEventListener('mouseenter', onToggleHover);
-  toggleBtn.addEventListener('focus', onToggleHover);
+  toggleBtn?.addEventListener('mouseenter', onToggleHover);
+  toggleBtn?.addEventListener('focus', onToggleHover);
   resetZoomBtn?.addEventListener('click', onResetZoomClick);
   canvas.addEventListener('touchstart', onTouchStart, { passive: true });
   canvas.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -1481,9 +1465,8 @@ export function initMusicMosaic(): () => void {
     normalView?.classList.remove('is-fading-out', 'is-fading-in');
     stopMosaicAudio();
     resetMusicViewMode();
-    toggleBtn.removeEventListener('click', onToggleClick);
-    toggleBtn.removeEventListener('mouseenter', onToggleHover);
-    toggleBtn.removeEventListener('focus', onToggleHover);
+    toggleBtn?.removeEventListener('mouseenter', onToggleHover);
+    toggleBtn?.removeEventListener('focus', onToggleHover);
     resetZoomBtn?.removeEventListener('click', onResetZoomClick);
     canvas.removeEventListener('touchstart', onTouchStart);
     canvas.removeEventListener('touchmove', onTouchMove);

@@ -32,7 +32,6 @@ export function initMusicTimeline(): () => void {
   );
 
   if (
-    !toggleBtn ||
     !normalView ||
     !timelineStage ||
     !timelineContainer ||
@@ -372,9 +371,6 @@ export function initMusicTimeline(): () => void {
     isActive = true;
     preloadMosaicAtlasForTransition();
 
-    toggleBtn!.classList.add('is-active');
-    toggleBtn!.setAttribute('aria-pressed', 'true');
-
     waveTransition.cancel();
     if (transitionTimer !== null) {
       window.clearTimeout(transitionTimer);
@@ -410,9 +406,6 @@ export function initMusicTimeline(): () => void {
   function exitTimeline(revealNormalView: boolean) {
     const wasActive = isActive;
     isActive = false;
-
-    toggleBtn!.classList.remove('is-active');
-    toggleBtn!.setAttribute('aria-pressed', 'false');
 
     stopTimelineAudio();
     trail.clear();
@@ -521,10 +514,6 @@ export function initMusicTimeline(): () => void {
   });
 
   // Event Listeners
-  const onToggleClick = () => {
-    setMusicViewMode(isActive ? 'overview' : 'timeline');
-  };
-
   const onToggleHover = () => {
     preloadMosaicAtlasForTransition();
   };
@@ -541,13 +530,9 @@ export function initMusicTimeline(): () => void {
       }
       if (next === 'timeline') {
         isActive = true;
-        toggleBtn!.classList.add('is-active');
-        toggleBtn!.setAttribute('aria-pressed', 'true');
         preloadMosaicAtlasForTransition();
       } else if (prev === 'timeline') {
         isActive = false;
-        toggleBtn!.classList.remove('is-active');
-        toggleBtn!.setAttribute('aria-pressed', 'false');
         stopTimelineAudio();
         trail.clear();
         hideTooltip();
@@ -649,7 +634,7 @@ export function initMusicTimeline(): () => void {
     const target = e.target as Element | null;
     if (
       target?.closest(
-        '[data-tl-tile], [data-tl-trail-pill], [data-rail-year], [data-timeline-toggle]'
+        '[data-tl-tile], [data-tl-trail-pill], [data-rail-year], [data-music-view-toggle]'
       )
     ) {
       return;
@@ -658,9 +643,8 @@ export function initMusicTimeline(): () => void {
     trail.clear();
   };
 
-  toggleBtn.addEventListener('click', onToggleClick);
-  toggleBtn.addEventListener('mouseenter', onToggleHover);
-  toggleBtn.addEventListener('focus', onToggleHover);
+  toggleBtn?.addEventListener('mouseenter', onToggleHover);
+  toggleBtn?.addEventListener('focus', onToggleHover);
   timelineStage.addEventListener('click', onStageClick);
   timelineContainer.addEventListener('click', onContainerClick);
   timelineContainer.addEventListener('pointerover', onContainerPointerOver);
@@ -690,9 +674,8 @@ export function initMusicTimeline(): () => void {
     normalView.classList.remove('is-fading-in', 'is-fading-out');
     resetMusicViewMode();
 
-    toggleBtn.removeEventListener('click', onToggleClick);
-    toggleBtn.removeEventListener('mouseenter', onToggleHover);
-    toggleBtn.removeEventListener('focus', onToggleHover);
+    toggleBtn?.removeEventListener('mouseenter', onToggleHover);
+    toggleBtn?.removeEventListener('focus', onToggleHover);
     timelineStage.removeEventListener('click', onStageClick);
     timelineContainer.removeEventListener('click', onContainerClick);
     timelineContainer.removeEventListener(

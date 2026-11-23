@@ -1,0 +1,307 @@
+---
+interface Props {
+  hasMosaic?: boolean;
+  hasTimeline?: boolean;
+}
+
+const { hasMosaic = false, hasTimeline = false } = Astro.props;
+---
+
+{(hasMosaic || hasTimeline) && (
+  <div
+    class="music-view-toggle"
+    data-music-view-toggle
+    role="radiogroup"
+    aria-label="Music page view mode"
+  >
+    <span
+      class="view-toggle-indicator"
+      data-view-indicator
+      aria-hidden="true"
+    />
+
+    <button
+      type="button"
+      class="view-toggle-btn is-active"
+      role="radio"
+      aria-checked="true"
+      tabindex="0"
+      data-view-mode="overview"
+      data-overview-toggle
+      aria-label="Overview"
+      title="Overview"
+    >
+      <svg
+        class="view-toggle-icon"
+        viewBox="0 0 24 24"
+        width="15"
+        height="15"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="9" />
+        <path
+          d="M6.4 12a5.6 5.6 0 0 1 5.6-5.6"
+          stroke-width="1.5"
+          opacity="0.55"
+        />
+        <path
+          d="M17.6 12a5.6 5.6 0 0 1-5.6 5.6"
+          stroke-width="1.5"
+          opacity="0.55"
+        />
+        <circle cx="12" cy="12" r="2.4" stroke-width="1.7" />
+      </svg>
+      <span class="view-toggle-label">Overview</span>
+    </button>
+
+    {hasTimeline && (
+      <button
+        type="button"
+        class="view-toggle-btn"
+        role="radio"
+        aria-checked="false"
+        tabindex="-1"
+        data-view-mode="timeline"
+        data-timeline-toggle
+        aria-label="Listening Timeline"
+        title="Listening Timeline"
+      >
+        <svg
+          class="view-toggle-icon"
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <rect x="8" y="3" width="8" height="2.4" rx="1.2" opacity="0.72" />
+          <rect x="5" y="7.2" width="14" height="2.4" rx="1.2" />
+          <rect x="2.5" y="11.4" width="19" height="2.4" rx="1.2" />
+          <rect
+            x="6"
+            y="15.6"
+            width="12"
+            height="2.4"
+            rx="1.2"
+            opacity="0.72"
+          />
+          <rect x="9" y="19.8" width="6" height="2.4" rx="1.2" opacity="0.55" />
+        </svg>
+        <span class="view-toggle-label">Timeline</span>
+      </button>
+    )}
+
+    {hasMosaic && (
+      <button
+        type="button"
+        class="view-toggle-btn"
+        role="radio"
+        aria-checked="false"
+        tabindex="-1"
+        data-view-mode="mosaic"
+        data-mosaic-toggle
+        aria-label="Album Mosaic"
+        title="Album Mosaic"
+      >
+        <svg
+          class="view-toggle-icon"
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <rect x="2.5" y="2.5" width="5" height="5" rx="1" />
+          <rect x="9.5" y="2.5" width="5" height="5" rx="1" opacity="0.72" />
+          <rect x="16.5" y="2.5" width="5" height="5" rx="1" />
+          <rect x="2.5" y="9.5" width="5" height="5" rx="1" opacity="0.72" />
+          <rect x="9.5" y="9.5" width="5" height="5" rx="1" />
+          <rect x="16.5" y="9.5" width="5" height="5" rx="1" opacity="0.72" />
+          <rect x="2.5" y="16.5" width="5" height="5" rx="1" />
+          <rect x="9.5" y="16.5" width="5" height="5" rx="1" opacity="0.72" />
+          <rect x="16.5" y="16.5" width="5" height="5" rx="1" />
+        </svg>
+        <span class="view-toggle-label">Mosaic</span>
+      </button>
+    )}
+  </div>
+)}
+
+<script>
+  import { initMusicViewToggle } from './music/view-toggle-controller';
+
+  let cleanupViewToggle: (() => void) | null = null;
+
+  document.addEventListener('astro:page-load', () => {
+    if (cleanupViewToggle) {
+      cleanupViewToggle();
+      cleanupViewToggle = null;
+    }
+    cleanupViewToggle = initMusicViewToggle();
+  });
+
+  document.addEventListener('astro:before-swap', () => {
+    if (cleanupViewToggle) {
+      cleanupViewToggle();
+      cleanupViewToggle = null;
+    }
+  });
+</script>
+
+<style>
+  .music-view-toggle {
+    --toggle-track-bg: var(--color-border-subtle);
+    --toggle-pill-bg: var(--color-bg);
+    --toggle-pill-border: color-mix(
+      in srgb,
+      var(--color-accent) 30%,
+      var(--color-border)
+    );
+    --toggle-pill-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 9999px;
+    border: 1px solid var(--color-border);
+    background-color: var(--toggle-track-bg);
+  }
+
+  :global(html[data-theme='dark']) .music-view-toggle {
+    --toggle-track-bg: color-mix(
+      in srgb,
+      var(--color-border-subtle) 55%,
+      var(--color-bg)
+    );
+    --toggle-pill-bg: color-mix(
+      in srgb,
+      var(--color-accent) 14%,
+      var(--color-border-subtle)
+    );
+    --toggle-pill-border: color-mix(
+      in srgb,
+      var(--color-accent) 42%,
+      transparent
+    );
+    --toggle-pill-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme='light'])) .music-view-toggle {
+      --toggle-track-bg: color-mix(
+        in srgb,
+        var(--color-border-subtle) 55%,
+        var(--color-bg)
+      );
+      --toggle-pill-bg: color-mix(
+        in srgb,
+        var(--color-accent) 14%,
+        var(--color-border-subtle)
+      );
+      --toggle-pill-border: color-mix(
+        in srgb,
+        var(--color-accent) 42%,
+        transparent
+      );
+      --toggle-pill-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  .view-toggle-indicator {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 0;
+    border-radius: 9999px;
+    background-color: var(--toggle-pill-bg);
+    border: 1px solid var(--toggle-pill-border);
+    box-shadow: var(--toggle-pill-shadow);
+    transform: translateX(var(--indicator-x, 3px));
+    width: var(--indicator-w, 0px);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+    box-sizing: border-box;
+  }
+
+  .music-view-toggle.has-indicator .view-toggle-indicator {
+    opacity: 1;
+  }
+
+  .view-toggle-indicator.is-ready {
+    transition:
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .view-toggle-indicator.is-ready {
+      transition: none;
+    }
+  }
+
+  .view-toggle-btn {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: color 0.18s ease;
+  }
+
+  .view-toggle-btn:hover {
+    color: var(--color-text);
+  }
+
+  .view-toggle-btn.is-active {
+    color: var(--color-accent);
+  }
+
+  .music-view-toggle:not(.has-indicator) .view-toggle-btn.is-active {
+    background-color: var(--toggle-pill-bg);
+    border-color: var(--toggle-pill-border);
+    box-shadow: var(--toggle-pill-shadow);
+  }
+
+  .view-toggle-btn:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  .view-toggle-icon {
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 560px) {
+    .view-toggle-label {
+      display: none;
+    }
+
+    .view-toggle-btn {
+      width: 34px;
+      height: 30px;
+      padding: 0;
+    }
+  }
+</style>
