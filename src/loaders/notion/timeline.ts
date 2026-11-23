@@ -1,6 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { processInBatches } from './music-previews';
+import {
+  reorderArtistsByPrimary,
+  splitCreditArtists
+} from '../../utils/audio-preview-matching';
 
 export interface TimelineAlbumTile {
   id?: number;
@@ -105,18 +109,20 @@ function cleanAlbumsForYear(rawItems: any[]): RawAlbumEntry[] {
   for (const item of rawItems) {
     const rawImage = item?.album?.image;
     const title = (item?.album?.name || '').trim();
-    const artistsArr: string[] = Array.isArray(item?.album?.artists)
+    const rawArtists: string[] = Array.isArray(item?.album?.artists)
       ? item.album.artists
           .map((a: any) => (a?.name || '').trim())
           .filter(Boolean)
       : [];
 
     if (!rawImage || !title || !rawImage.startsWith('http')) continue;
-    if (artistsArr.length === 0) continue;
+    if (rawArtists.length === 0) continue;
 
+    const rawArtistJoined = rawArtists.join(', ');
+    if (rawArtistJoined.toLowerCase().includes('various artists')) continue;
+
+    const artistsArr = reorderArtistsByPrimary(rawArtists);
     const artist = artistsArr.join(', ');
-    if (artist.toLowerCase().includes('various artists')) continue;
-
     const primaryArtist = artistsArr[0];
     const artistKeys = Array.from(
       new Set(artistsArr.map(normalizeKey).filter(Boolean))
@@ -156,6 +162,39 @@ function cleanAlbumsForYear(rawItems: any[]): RawAlbumEntry[] {
   }
 
   return albums;
+}
+
+function normalizeCachedAlbumEntry(alb: RawAlbumEntry): RawAlbumEntry {
+  const split = splitCreditArtists(alb.artist || alb.primaryArtist || '');
+  const reordered = reorderArtistsByPrimary(split);
+  if (reordered.length === 0) return alb;
+
+  const artist = reordered.join(', ');
+  const primaryArtist = reordered[0];
+  const artistKeys = Array.from(
+    new Set(reordered.map(normalizeKey).filter(Boolean))
+  );
+  const primaryArtistKey = artistKeys[0] || normalizeKey(primaryArtist);
+  const baseTitleKey =
+    normalizeKey(stripEditionSuffix(alb.title)) || normalizeKey(alb.title);
+  const albumKey = `${baseTitleKey}:::${primaryArtistKey}`;
+
+  if (
+    artist === alb.artist &&
+    primaryArtist === alb.primaryArtist &&
+    albumKey === alb.albumKey &&
+    artistKeys[0] === alb.artistKeys?.[0]
+  ) {
+    return alb;
+  }
+
+  return {
+    ...alb,
+    artist,
+    primaryArtist,
+    artistKeys,
+    albumKey
+  };
 }
 
 function cleanTopGenres(rawItems: any[]): string[] {
@@ -554,7 +593,10 @@ export async function buildMusicTimeline(
       // Past years are immutable history: reuse cached JSON without hitting the network
       if (!isCurrentYear && diskRecord) {
         if (!diskRecord.empty && diskRecord.albums?.length > 0) {
-          loadedRecords.push(diskRecord);
+          loadedRecords.push({
+            ...diskRecord,
+            albums: diskRecord.albums.map(normalizeCachedAlbumEntry)
+          });
         }
         return;
       }
@@ -575,7 +617,10 @@ export async function buildMusicTimeline(
       }
 
       if (diskRecord && !diskRecord.empty && diskRecord.albums?.length > 0) {
-        loadedRecords.push(diskRecord);
+        loadedRecords.push({
+          ...diskRecord,
+          albums: diskRecord.albums.map(normalizeCachedAlbumEntry)
+        });
       }
     });
 
