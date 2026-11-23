@@ -1,5 +1,6 @@
 import { resolveAlbumPreview } from './audio-preview';
 import { createTimelineTrail } from './timeline-trail';
+import { createTimelineWaveTransition } from './timeline-transition';
 import {
   type MusicViewModeChangeDetail,
   resetMusicViewMode,
@@ -65,6 +66,7 @@ export function initMusicTimeline(): () => void {
     trailPill,
     () => stopTimelineAudio()
   );
+  const waveTransition = createTimelineWaveTransition(timelineStage);
 
   const CONTENT_FADE_MS = 220;
   let isActive = false;
@@ -373,6 +375,7 @@ export function initMusicTimeline(): () => void {
     toggleBtn!.classList.add('is-active');
     toggleBtn!.setAttribute('aria-pressed', 'true');
 
+    waveTransition.cancel();
     if (transitionTimer !== null) {
       window.clearTimeout(transitionTimer);
       transitionTimer = null;
@@ -383,13 +386,10 @@ export function initMusicTimeline(): () => void {
       normalView!.hidden = true;
       normalView!.classList.remove('is-fading-out', 'is-fading-in');
       timelineStage!.hidden = false;
-      timelineStage!.classList.remove('is-fading-out');
-      timelineStage!.classList.add('is-fading-in');
-      transitionTimer = window.setTimeout(() => {
-        transitionTimer = null;
-        timelineStage?.classList.remove('is-fading-in');
-      }, 320);
       window.scrollTo({ top: 0 });
+      if (!skipNormalFade) {
+        waveTransition.playEnter();
+      }
       setupYearObserver();
     };
 
@@ -418,6 +418,7 @@ export function initMusicTimeline(): () => void {
     trail.clear();
     hideTooltip();
     teardownYearObserver();
+    waveTransition.cancel();
 
     if (transitionTimer !== null) {
       window.clearTimeout(transitionTimer);
@@ -425,7 +426,6 @@ export function initMusicTimeline(): () => void {
     }
 
     if (!revealNormalView) {
-      timelineStage!.classList.remove('is-fading-in', 'is-fading-out');
       timelineStage!.hidden = true;
       return;
     }
@@ -433,17 +433,17 @@ export function initMusicTimeline(): () => void {
     if (!wasActive) return;
 
     if (!timelineStage!.hidden) {
-      timelineStage!.classList.remove('is-fading-in');
-      timelineStage!.classList.add('is-fading-out');
-      transitionTimer = window.setTimeout(() => {
-        transitionTimer = null;
+      waveTransition.playExit(() => {
         if (isActive) return;
         timelineStage!.hidden = true;
-        timelineStage!.classList.remove('is-fading-out');
         normalView!.hidden = false;
         normalView!.classList.remove('is-fading-out');
         normalView!.classList.add('is-fading-in');
-      }, CONTENT_FADE_MS);
+        transitionTimer = window.setTimeout(() => {
+          transitionTimer = null;
+          normalView?.classList.remove('is-fading-in');
+        }, 360);
+      });
     } else {
       timelineStage!.hidden = true;
       normalView!.hidden = false;
@@ -486,11 +486,8 @@ export function initMusicTimeline(): () => void {
   }
 
   function hideTimelineImmediate() {
-    timelineStage!.classList.remove(
-      'is-morphing-in',
-      'is-fading-in',
-      'is-fading-out'
-    );
+    waveTransition.cancel();
+    timelineStage!.classList.remove('is-morphing-in');
     timelineStage!.style.removeProperty('--morph-chrome-opacity');
     timelineStage!.hidden = true;
   }
@@ -498,9 +495,9 @@ export function initMusicTimeline(): () => void {
   const unregisterTransition = registerTimelineTransition({
     captureVisibleSnapshot: () => captureVisibleTimelineTiles(false),
     prepareAsTarget: () => {
+      waveTransition.cancel();
       normalView!.hidden = true;
       normalView!.classList.remove('is-fading-out', 'is-fading-in');
-      timelineStage!.classList.remove('is-fading-in', 'is-fading-out');
       timelineStage!.classList.add('is-morphing-in');
       timelineStage!.style.setProperty('--morph-chrome-opacity', '0');
       timelineStage!.hidden = false;
@@ -537,6 +534,7 @@ export function initMusicTimeline(): () => void {
       e as CustomEvent<MusicViewModeChangeDetail>
     ).detail;
     if (morphing) {
+      waveTransition.cancel();
       if (transitionTimer !== null) {
         window.clearTimeout(transitionTimer);
         transitionTimer = null;
@@ -678,6 +676,7 @@ export function initMusicTimeline(): () => void {
 
   return () => {
     unregisterTransition();
+    waveTransition.cancel();
     if (transitionTimer !== null) {
       window.clearTimeout(transitionTimer);
       transitionTimer = null;
@@ -686,11 +685,7 @@ export function initMusicTimeline(): () => void {
     stopTimelineAudio();
     trail.destroy();
     hideTooltip();
-    timelineStage.classList.remove(
-      'is-morphing-in',
-      'is-fading-in',
-      'is-fading-out'
-    );
+    timelineStage.classList.remove('is-morphing-in');
     timelineStage.style.removeProperty('--morph-chrome-opacity');
     normalView.classList.remove('is-fading-in', 'is-fading-out');
     resetMusicViewMode();
