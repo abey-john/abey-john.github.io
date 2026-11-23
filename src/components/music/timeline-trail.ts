@@ -84,7 +84,7 @@ export function createTimelineTrail(
         : sortedYears.length === 1
           ? String(sortedYears[0])
           : '';
-    const unit = count === 1 ? 'album' : 'albums';
+    const unit = count === 1 ? 'entry' : 'entries';
 
     if (artistEl) {
       artistEl.textContent = primaryArtist;
