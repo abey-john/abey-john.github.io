@@ -84,6 +84,10 @@ function getTimelineCoverUrl(url: string): string {
   if (url.includes('i.scdn.co/image/ab67616d0000b273')) {
     return url.replace('ab67616d0000b273', 'ab67616d00001e02');
   }
+  // Apple Music CDN supports 300x300 WebP thumbnails natively
+  if (url.includes('mzstatic.com/image/thumb/')) {
+    return url.replace(/\/\d+x\d+[^/]*\.(?:jpe?g|png)$/i, '/300x300bb.webp');
+  }
   return url;
 }
 
@@ -165,9 +169,12 @@ function cleanAlbumsForYear(rawItems: any[]): RawAlbumEntry[] {
 }
 
 function normalizeCachedAlbumEntry(alb: RawAlbumEntry): RawAlbumEntry {
+  const image = getTimelineCoverUrl(alb.image);
   const split = splitCreditArtists(alb.artist || alb.primaryArtist || '');
   const reordered = reorderArtistsByPrimary(split);
-  if (reordered.length === 0) return alb;
+  if (reordered.length === 0) {
+    return image === alb.image ? alb : { ...alb, image };
+  }
 
   const artist = reordered.join(', ');
   const primaryArtist = reordered[0];
@@ -180,6 +187,7 @@ function normalizeCachedAlbumEntry(alb: RawAlbumEntry): RawAlbumEntry {
   const albumKey = `${baseTitleKey}:::${primaryArtistKey}`;
 
   if (
+    image === alb.image &&
     artist === alb.artist &&
     primaryArtist === alb.primaryArtist &&
     albumKey === alb.albumKey &&
@@ -190,6 +198,7 @@ function normalizeCachedAlbumEntry(alb: RawAlbumEntry): RawAlbumEntry {
 
   return {
     ...alb,
+    image,
     artist,
     primaryArtist,
     artistKeys,
