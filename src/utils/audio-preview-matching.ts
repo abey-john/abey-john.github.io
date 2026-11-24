@@ -179,10 +179,85 @@ export function matchesArtistName(
   return false;
 }
 
+const EDITION_PARENS_REGEX =
+  /\s*[(\[]\s*(?:feat\.?|ft\.?|with\s|remaster(?:ed)?|deluxe|bonus|explicit|clean|version|edition|stereo|mono|expanded|anniversary|special|standard|complete|original|international|japan|tour|legacy|\d+(?:st|nd|rd|th)\s+anniversary|\d{4}\s+(?:remaster(?:ed)?|version|edition|mix))[^)\]]*[)\]]/gi;
+
+const EDITION_DASH_SUFFIX_REGEX =
+  /\s*[-–—]\s*(?:single|ep|deluxe(?:\s+edition)?|remaster(?:ed)?|expanded(?:\s+edition)?|bonus(?:\s+track)?(?:\s+edition)?|edition|tour\s+edition|the\s+\d+(?:st|nd|rd|th)\s+album).*$/gi;
+
+const ROMAN_NUMERAL_MAP: Record<string, string> = {
+  i: '1',
+  ii: '2',
+  iii: '3',
+  iv: '4',
+  v: '5',
+  vi: '6',
+  vii: '7',
+  viii: '8',
+  ix: '9',
+  x: '10'
+};
+
+function normalizeInstallmentValue(raw: string): string {
+  const lower = (raw || '').trim().toLowerCase();
+  return ROMAN_NUMERAL_MAP[lower] || lower;
+}
+
+/**
+ * Extracts a normalized installment/sequel identifier (e.g. "2", "3", "alpha", "beta")
+ * so sequel albums (e.g. "Curtain Call 2", "Minecraft - Volume Beta") never match
+ * originals or other installments while preserving real sequel matches.
+ */
+export function extractAlbumInstallment(title: string): string | null {
+  const cleaned = (title || '')
+    .replace(EDITION_PARENS_REGEX, '')
+    .replace(EDITION_DASH_SUFFIX_REGEX, '')
+    .trim();
+  if (!cleaned) return null;
+
+  const volMatch = cleaned.match(
+    /\b(?:vol(?:ume)?|pt|part|chapter|act|season)\.?\s*([1-9]\d?|[ivx]+|alpha|beta|gamma|delta)\b/i
+  );
+  if (volMatch) {
+    return normalizeInstallmentValue(volMatch[1]);
+  }
+
+  const mainPart = cleaned.split(/\s*[:(\[]\s*/)[0].trim();
+  if (!mainPart) return null;
+
+  const lpMatch = mainPart.match(/[a-z]{2,}.*\blp\s*([2-9])$/i);
+  if (lpMatch) {
+    return lpMatch[1];
+  }
+
+  const numMatch = mainPart.match(
+    /[a-z]{2,}.*?(?:\s+|[-–—]\s*)([1-9](?:\.0)?)$/i
+  );
+  if (numMatch) {
+    return normalizeInstallmentValue(numMatch[1]);
+  }
+
+  // Exclude trailing single "I" to avoid false positives on phrases like "You and I"
+  const romanMatch = mainPart.match(
+    /[a-z]{2,}.*\s+(ii|iii|iv|v|vi|vii|viii|ix|x)$/i
+  );
+  if (romanMatch) {
+    return normalizeInstallmentValue(romanMatch[1]);
+  }
+
+  return null;
+}
+
 export function matchesAlbumTitle(
   itemAlbum: string,
   targetAlbum: string
 ): boolean {
+  if (
+    extractAlbumInstallment(itemAlbum) !== extractAlbumInstallment(targetAlbum)
+  ) {
+    return false;
+  }
+
   const rawBaseItem = getBaseTitle(itemAlbum).toLowerCase();
   const rawBaseTarget = getBaseTitle(targetAlbum).toLowerCase();
   const taBase = cleanMatchText(rawBaseTarget);

@@ -5,6 +5,7 @@ import type { TimelineBuildData } from './timeline';
 import { createAppleMusicWebClient } from './apple-music-web';
 import {
   cleanMatchText,
+  extractAlbumInstallment,
   extractPrimaryArtist,
   getAlternatePenalty,
   getBaseTitle,
@@ -30,7 +31,8 @@ const CACHE_FILE_PATH = path.join(MUSIC_PREVIEWS_CACHE_DIR, 'cache.json');
 const MANIFEST_OUTPUT_PATH = path.resolve(
   'public/assets/notion/music-previews.json'
 );
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
+const V2_TO_V3_EVICT_KEYS = ['id:1457571', 'id:400931'];
 const NEGATIVE_MISS_TTL_MS = 30 * 86_400_000;
 const CURRENT_YEAR_REFRESH_TTL_MS = 21 * 86_400_000;
 const PRUNE_UNSEEN_TTL_MS = 90 * 86_400_000;
@@ -114,10 +116,13 @@ function parseEnvInt(
   return parsed;
 }
 
-function loadDiskCache(): PreviewDiskCache {
+function loadDiskCache(): { cache: PreviewDiskCache; migrated: boolean } {
   try {
     if (!fs.existsSync(CACHE_FILE_PATH)) {
-      return { version: CACHE_VERSION, entries: {} };
+      return {
+        cache: { version: CACHE_VERSION, entries: {} },
+        migrated: false
+      };
     }
     const parsed = JSON.parse(fs.readFileSync(CACHE_FILE_PATH, 'utf8'));
     if (
@@ -126,12 +131,32 @@ function loadDiskCache(): PreviewDiskCache {
       parsed.entries &&
       typeof parsed.entries === 'object'
     ) {
-      return parsed as PreviewDiskCache;
+      return { cache: parsed as PreviewDiskCache, migrated: false };
+    }
+    if (
+      parsed &&
+      parsed.version === 2 &&
+      parsed.entries &&
+      typeof parsed.entries === 'object'
+    ) {
+      const entries = {
+        ...(parsed.entries as Record<string, PreviewCacheEntry>)
+      };
+      for (const key of V2_TO_V3_EVICT_KEYS) {
+        delete entries[key];
+      }
+      return {
+        cache: { version: CACHE_VERSION, entries },
+        migrated: true
+      };
     }
   } catch {
     // Rebuild corrupt cache cleanly
   }
-  return { version: CACHE_VERSION, entries: {} };
+  return {
+    cache: { version: CACHE_VERSION, entries: {} },
+    migrated: false
+  };
 }
 
 function saveDiskCache(cache: PreviewDiskCache): void {
@@ -370,12 +395,14 @@ function seedEntriesFromOverview(
 
     if (!matched) {
       const baseKey = cleanMatchText(getBaseTitle(c.title) || c.title);
+      const candInstallment = extractAlbumInstallment(c.title);
       if (baseKey) {
         matched = byBaseTitle
           .get(baseKey)
           ?.find(
             (seed) =>
               hasSharedArtistToken(candArtists, seed.artists) &&
+              candInstallment === extractAlbumInstallment(seed.item.title) &&
               getAlternatePenalty('', c.title, c.artist, seed.item.title) ===
                 0 &&
               getAlternatePenalty(
@@ -640,7 +667,7 @@ export async function buildMusicPreviewManifest({
     process.argv.some((a) => a === 'check' || a === 'sync') ||
     process.env.SKIP_PREVIEW_RESOLUTION === '1';
 
-  const diskCache = loadDiskCache();
+  const { cache: diskCache, migrated } = loadDiskCache();
 
   if (skipNetwork) {
     const seededEntries: Record<string, PreviewCacheEntry> = {
@@ -659,7 +686,7 @@ export async function buildMusicPreviewManifest({
     return;
   }
 
-  let cacheChanged = false;
+  let cacheChanged = migrated;
 
   // Refresh lastSeenAt for existing active entries
   for (const c of candidates) {

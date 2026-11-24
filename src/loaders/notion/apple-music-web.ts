@@ -293,8 +293,10 @@ export function createAppleMusicWebClient(
 
     let sawTransient = false;
     const allowedContext = `${alb.title} ${preferredTrack}`.trim();
+    let bestOverall: { url: string; track?: string; score: number } | null =
+      null;
 
-    for (const cand of candidates.slice(0, 2)) {
+    for (const cand of candidates.slice(0, 3)) {
       if (!hasBudget()) {
         sawTransient = true;
         break;
@@ -354,6 +356,7 @@ export function createAppleMusicWebClient(
               : 0;
           return {
             track: t,
+            baseScore,
             score: baseScore + explicitBonus
           };
         })
@@ -361,13 +364,32 @@ export function createAppleMusicWebClient(
 
       const best = scored[0];
       if (best && best.score > 0 && best.track?.previewUrl) {
-        return {
-          status: 'hit',
+        const candResult = {
           url: best.track.previewUrl,
           track: preferredTrack || best.track.title || undefined,
-          transientError: false
+          score: best.score
         };
+        if (!bestOverall || candResult.score > bestOverall.score) {
+          bestOverall = candResult;
+        }
+        if (!preferredTrack || best.baseScore >= 65) {
+          return {
+            status: 'hit',
+            url: candResult.url,
+            track: candResult.track,
+            transientError: false
+          };
+        }
       }
+    }
+
+    if (bestOverall) {
+      return {
+        status: 'hit',
+        url: bestOverall.url,
+        track: bestOverall.track,
+        transientError: false
+      };
     }
 
     return { status: 'miss', transientError: sawTransient };

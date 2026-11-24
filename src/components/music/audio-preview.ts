@@ -469,6 +469,8 @@ export async function resolveAlbumPreview(
       : [])
   ];
 
+  let bestFallback: { url: string; score: number } | null = null;
+
   try {
     for (let qIdx = 0; qIdx < albumQueries.length; qIdx++) {
       const albJson =
@@ -531,7 +533,15 @@ export async function resolveAlbumPreview(
 
           const best = scoredTracks[0];
           if (best && best.score > 0 && best.track?.previewUrl) {
-            return rememberHit(best.track.previewUrl);
+            if (!preferredTrackName || best.score >= 65) {
+              return rememberHit(best.track.previewUrl);
+            }
+            if (!bestFallback || best.score > bestFallback.score) {
+              bestFallback = {
+                url: best.track.previewUrl,
+                score: best.score
+              };
+            }
           }
         }
       }
@@ -568,6 +578,10 @@ export async function resolveAlbumPreview(
     );
     if (fallbackUrl) {
       return rememberHit(fallbackUrl);
+    }
+
+    if (bestFallback) {
+      return rememberHit(bestFallback.url);
     }
 
     if (statsMeta.spotifyPreview) {
