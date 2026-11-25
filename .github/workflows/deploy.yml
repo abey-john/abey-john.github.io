@@ -121,7 +121,7 @@ jobs:
           key: timeline-covers-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ./dist
 
