@@ -11,7 +11,6 @@ import {
   setMusicViewMode
 } from './view-mode';
 import {
-  preloadMosaicAtlasForTransition,
   registerTimelineTransition,
   type TimelineTileSnapshot
 } from './view-transition';
@@ -75,6 +74,7 @@ export function initMusicTimeline(): () => void {
   let isActive = false;
   let transitionTimer: number | null = null;
   let yearObserver: IntersectionObserver | null = null;
+  let coverObserver: IntersectionObserver | null = null;
   const visibleYears = new Map<number, number>();
 
   // Hover state
@@ -431,10 +431,76 @@ export function initMusicTimeline(): () => void {
     visibleYears.clear();
   }
 
+  function hydrateCover(
+    img: HTMLImageElement | null,
+    priority: 'high' | 'auto' = 'auto'
+  ) {
+    if (!img || img.getAttribute('src') || !img.dataset.src) return;
+    if (priority === 'high') {
+      img.fetchPriority = 'high';
+    }
+    img.src = img.dataset.src;
+    delete img.dataset.src;
+  }
+
+  function hydrateYearSection(
+    section: HTMLElement | null | undefined,
+    priority: 'high' | 'auto' = 'auto'
+  ) {
+    if (!section || section.dataset.coversHydrated === '1') return;
+    section.dataset.coversHydrated = '1';
+    coverObserver?.unobserve(section);
+    const imgs = section.querySelectorAll<HTMLImageElement>('.tl-cover');
+    for (const img of imgs) {
+      hydrateCover(img, priority);
+    }
+  }
+
+  function teardownCoverObserver() {
+    if (coverObserver) {
+      coverObserver.disconnect();
+      coverObserver = null;
+    }
+  }
+
+  function setupCoverObserver() {
+    teardownCoverObserver();
+    hydrateYearSection(yearSections[0], 'high');
+    hydrateYearSection(yearSections[1], 'auto');
+
+    if (typeof IntersectionObserver === 'undefined') {
+      for (let i = 2; i < yearSections.length; i++) {
+        hydrateYearSection(yearSections[i], 'auto');
+      }
+      return;
+    }
+
+    coverObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const el = entry.target as HTMLElement;
+          hydrateYearSection(el, 'auto');
+          coverObserver?.unobserve(el);
+        }
+      },
+      {
+        rootMargin: '450px 0px',
+        threshold: 0
+      }
+    );
+
+    for (let i = 2; i < yearSections.length; i++) {
+      const section = yearSections[i];
+      if (section.dataset.coversHydrated !== '1') {
+        coverObserver.observe(section);
+      }
+    }
+  }
+
   function enterTimeline(skipNormalFade: boolean) {
     if (isActive) return;
     isActive = true;
-    preloadMosaicAtlasForTransition();
     void preloadPreviewManifest();
 
     waveTransition.cancel();
@@ -453,6 +519,7 @@ export function initMusicTimeline(): () => void {
         waveTransition.playEnter();
       }
       setupYearObserver();
+      setupCoverObserver();
     };
 
     if (skipNormalFade) {
@@ -477,6 +544,7 @@ export function initMusicTimeline(): () => void {
     trail.clear();
     hideTooltip();
     teardownYearObserver();
+    teardownCoverObserver();
     waveTransition.cancel();
 
     if (transitionTimer !== null) {
@@ -520,8 +588,8 @@ export function initMusicTimeline(): () => void {
       if (r.bottom < -120 || r.top > vh + 140) continue;
 
       const imgEl = tile.querySelector<HTMLImageElement>('.tl-cover');
-      if (eagerLoad && imgEl && imgEl.loading !== 'eager') {
-        imgEl.loading = 'eager';
+      if (eagerLoad) {
+        hydrateCover(imgEl, 'high');
       }
 
       const span: 1 | 2 | 3 = tile.classList.contains('span-3')
@@ -546,6 +614,7 @@ export function initMusicTimeline(): () => void {
 
   function hideTimelineImmediate() {
     waveTransition.cancel();
+    teardownCoverObserver();
     timelineStage!.classList.remove('is-morphing-in');
     timelineStage!.style.removeProperty('--morph-chrome-opacity');
     timelineStage!.hidden = true;
@@ -575,6 +644,7 @@ export function initMusicTimeline(): () => void {
       timelineStage!.style.removeProperty('--morph-chrome-opacity');
       if (isActive) {
         setupYearObserver();
+        setupCoverObserver();
       }
     },
     hideImmediate: hideTimelineImmediate
@@ -582,7 +652,6 @@ export function initMusicTimeline(): () => void {
 
   // Event Listeners
   const onToggleHover = () => {
-    preloadMosaicAtlasForTransition();
     void preloadPreviewManifest();
   };
 
@@ -598,13 +667,13 @@ export function initMusicTimeline(): () => void {
       }
       if (next === 'timeline') {
         isActive = true;
-        preloadMosaicAtlasForTransition();
       } else if (prev === 'timeline') {
         isActive = false;
         stopTimelineAudio();
         trail.clear();
         hideTooltip();
         teardownYearObserver();
+        teardownCoverObserver();
         hideTimelineImmediate();
       }
       return;
@@ -667,6 +736,12 @@ export function initMusicTimeline(): () => void {
       `#timeline-year-${year}`
     );
     if (section) {
+      const idx = yearSections.indexOf(section);
+      hydrateYearSection(section, 'high');
+      if (idx > 0) hydrateYearSection(yearSections[idx - 1], 'auto');
+      if (idx >= 0 && idx + 1 < yearSections.length) {
+        hydrateYearSection(yearSections[idx + 1], 'auto');
+      }
       section.scrollIntoView({ behavior: 'smooth', block: 'start' });
       setActiveRailYear(year);
     }
@@ -734,6 +809,7 @@ export function initMusicTimeline(): () => void {
       transitionTimer = null;
     }
     teardownYearObserver();
+    teardownCoverObserver();
     stopTimelineAudio();
     trail.destroy();
     hideTooltip();

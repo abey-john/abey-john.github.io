@@ -68,9 +68,8 @@ const { timeline } = Astro.props;
                   aria-pressed="false"
                 >
                   <img
-                    src={t.image}
+                    data-src={t.image}
                     alt=""
-                    loading="lazy"
                     decoding="async"
                     class="tl-cover"
                   />
@@ -501,6 +500,10 @@ const { timeline } = Astro.props;
     object-fit: cover;
     display: block;
     pointer-events: none;
+  }
+
+  .tl-cover:not([src]) {
+    opacity: 0;
   }
 
   /* Trail visual states */

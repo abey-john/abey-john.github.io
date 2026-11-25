@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { processInBatches } from './music-previews';
+import { syncTimelineCovers } from './timeline-covers';
 import {
   reorderArtistsByPrimary,
   splitCreditArtists
@@ -666,6 +667,8 @@ export async function buildMusicTimeline(
 
     // Sort newest-first (e.g. 2026 -> 2014)
     years.sort((a, b) => b.year - a.year);
+
+    await syncTimelineCovers(years, logger);
 
     logger?.info(
       `Loaded stats.fm soundwave timeline across ${years.length} years (${years[years.length - 1].year}–${years[0].year}).`
