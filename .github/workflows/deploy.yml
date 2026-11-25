@@ -45,7 +45,7 @@ jobs:
         run: npm run check:exif
 
       - name: Cache Notion route geometries
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: src/assets/notion/routes
           key: notion-routes-${{ runner.os }}
@@ -54,7 +54,7 @@ jobs:
 
       - name: Restore music preview cache
         continue-on-error: true
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: node_modules/.cache/music-previews
           key: music-previews-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -63,7 +63,7 @@ jobs:
 
       - name: Restore timeline cover cache
         continue-on-error: true
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: node_modules/.cache/timeline-covers
           key: timeline-covers-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -98,7 +98,7 @@ jobs:
       - name: Save music preview cache
         if: steps.check_preview_cache.outputs.dirty == 'true'
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: node_modules/.cache/music-previews
           key: music-previews-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -115,7 +115,7 @@ jobs:
       - name: Save timeline cover cache
         if: steps.check_timeline_covers.outputs.dirty == 'true'
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: node_modules/.cache/timeline-covers
           key: timeline-covers-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
