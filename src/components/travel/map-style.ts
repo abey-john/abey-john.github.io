@@ -12,14 +12,11 @@ export interface TravelFeatureCollection {
   features: Array<{
     type: 'Feature';
     properties: Record<string, string | number>;
-    geometry:
-      | { type: 'LineString'; coordinates: [number, number][] }
-      | { type: 'Point'; coordinates: [number, number] };
+    geometry: { type: 'LineString'; coordinates: [number, number][] };
   }>;
 }
 
 export const ROUTE_SOURCE_ID = 'trip-route-source';
-export const LEAD_SOURCE_ID = 'trip-lead-source';
 
 export const EMPTY_FEATURE_COLLECTION: TravelFeatureCollection = {
   type: 'FeatureCollection',
@@ -190,10 +187,15 @@ const ENGLISH_NAME_EXPR: maplibregl.ExpressionSpecification = [
   ['get', 'name']
 ];
 
+export function getRouteCasingColor(theme: MapTheme): string {
+  return theme === 'dark'
+    ? DARK_PALETTE.routeCasing
+    : LIGHT_PALETTE.routeCasing;
+}
+
 export function buildTravelMapStyle(
   theme: MapTheme,
-  routeData: TravelFeatureCollection = EMPTY_FEATURE_COLLECTION,
-  leadData: TravelFeatureCollection = EMPTY_FEATURE_COLLECTION
+  routeData: TravelFeatureCollection = EMPTY_FEATURE_COLLECTION
 ): TravelStyleSpecification {
   const C = theme === 'dark' ? DARK_PALETTE : LIGHT_PALETTE;
   const isDark = theme === 'dark';
@@ -206,6 +208,9 @@ export function buildTravelMapStyle(
 
   return {
     version: 8,
+    state: {
+      routeOpacity: { default: 1 }
+    },
     projection: { type: 'globe' },
     sky: C.sky,
     glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
@@ -226,10 +231,6 @@ export function buildTravelMapStyle(
       [ROUTE_SOURCE_ID]: {
         type: 'geojson',
         data: routeData
-      },
-      [LEAD_SOURCE_ID]: {
-        type: 'geojson',
-        data: leadData
       }
     },
     layers: [
@@ -800,7 +801,12 @@ export function buildTravelMapStyle(
         },
         paint: {
           'line-color': ['coalesce', ['get', 'color'], '#f59e0b'],
-          'line-opacity': 0.42,
+          'line-opacity': [
+            '*',
+            0.42,
+            ['coalesce', ['to-number', ['global-state', 'routeOpacity']], 1]
+          ],
+          'line-opacity-transition': { duration: 0 },
           'line-blur': 6,
           'line-width': [
             'interpolate',
@@ -825,7 +831,12 @@ export function buildTravelMapStyle(
         },
         paint: {
           'line-color': C.routeCasing,
-          'line-opacity': 0.9,
+          'line-opacity': [
+            '*',
+            0.9,
+            ['coalesce', ['to-number', ['global-state', 'routeOpacity']], 1]
+          ],
+          'line-opacity-transition': { duration: 0 },
           'line-width': [
             'interpolate',
             ['linear'],
@@ -850,6 +861,12 @@ export function buildTravelMapStyle(
         },
         paint: {
           'line-color': ['coalesce', ['get', 'color'], '#f59e0b'],
+          'line-opacity': [
+            'coalesce',
+            ['to-number', ['global-state', 'routeOpacity']],
+            1
+          ],
+          'line-opacity-transition': { duration: 0 },
           'line-width': [
             'interpolate',
             ['linear'],
@@ -874,6 +891,12 @@ export function buildTravelMapStyle(
         },
         paint: {
           'line-color': ['coalesce', ['get', 'color'], '#f59e0b'],
+          'line-opacity': [
+            'coalesce',
+            ['to-number', ['global-state', 'routeOpacity']],
+            1
+          ],
+          'line-opacity-transition': { duration: 0 },
           'line-width': [
             'interpolate',
             ['linear'],
@@ -886,30 +909,6 @@ export function buildTravelMapStyle(
             6
           ],
           'line-dasharray': [2.2, 1.6]
-        }
-      },
-      {
-        id: 'trip-lead-halo',
-        type: 'circle',
-        source: LEAD_SOURCE_ID,
-        paint: {
-          'circle-color': ['coalesce', ['get', 'color'], '#f59e0b'],
-          'circle-radius': ['coalesce', ['get', 'haloRadius'], 14],
-          'circle-opacity': ['coalesce', ['get', 'haloOpacity'], 0.4],
-          'circle-blur': 0.35,
-          'circle-pitch-alignment': 'viewport'
-        }
-      },
-      {
-        id: 'trip-lead-dot',
-        type: 'circle',
-        source: LEAD_SOURCE_ID,
-        paint: {
-          'circle-color': ['coalesce', ['get', 'color'], '#f59e0b'],
-          'circle-radius': 5.5,
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff',
-          'circle-pitch-alignment': 'viewport'
         }
       }
     ]

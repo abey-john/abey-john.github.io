@@ -21,10 +21,14 @@ import {
 } from './globe-rotation';
 import {
   getRouteGeoJSON,
-  getLeadGeoJSON,
+  getCurrentRouteOpacity,
+  initRouteDrawCanvas,
   syncRouteSources,
+  redrawRouteOverlay,
   clearRouteOverlay,
-  resetRouteOverlayState,
+  cancelRouteDrawCanvas,
+  getCurrentDrawnCoordinates,
+  destroyRouteOverlay,
   updateRouteOverlay,
   calculateStopIndices,
   calculateCumulativeDistances,
@@ -84,18 +88,14 @@ let cleanupKeyNavListener: (() => void) | null = null;
 let cleanupImageModalListener: (() => void) | null = null;
 let activeFlightId = 0;
 let activeRecenterId = 0;
+let lastVenueZoomVisible: boolean | null = null;
 
 function cancelCurrentAnimation() {
   if (routeAnimationId) {
     cancelAnimationFrame(routeAnimationId);
     routeAnimationId = null;
   }
-  updateRouteOverlay(
-    mapInstance,
-    activeTripCoordinates,
-    activeRouteStyle,
-    null
-  );
+  cancelRouteDrawCanvas(mapInstance);
 }
 
 function getOverviewResetDuration(map: maplibregl.Map): number {
@@ -293,6 +293,7 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
 
 function syncMarkerVisibility(): void {
   const currentZoom = mapInstance ? mapInstance.getZoom() : 0;
+  lastVenueZoomVisible = currentZoom >= VENUE_MIN_ZOOM;
 
   markerRecords.forEach(({ element, popup, type }) => {
     let isVisible = false;
@@ -300,8 +301,7 @@ function syncMarkerVisibility(): void {
       const categoryAllowsVenue =
         activeFilter === 'all' || activeFilter === 'city';
       const zoomAllowsVenue =
-        currentZoom >= VENUE_MIN_ZOOM ||
-        element.classList.contains('in-active-trip');
+        lastVenueZoomVisible || element.classList.contains('in-active-trip');
       isVisible = categoryAllowsVenue && zoomAllowsVenue;
     } else {
       isVisible = activeFilter === 'all' || type === activeFilter;
@@ -453,11 +453,7 @@ export function initTravelMap(): void {
 
   const map = new maplibregl.Map({
     container: mapEl,
-    style: buildTravelMapStyle(
-      getEffectiveMapTheme(),
-      getRouteGeoJSON(),
-      getLeadGeoJSON()
-    ),
+    style: buildTravelMapStyle(getEffectiveMapTheme(), getRouteGeoJSON()),
     center: INITIAL_GLOBE_CENTER,
     zoom: getInitialGlobeZoom(),
     minZoom: 1.1,
@@ -516,13 +512,19 @@ export function initTravelMap(): void {
   map.scrollZoom.enable();
   map.scrollZoom.setWheelZoomRate(1 / 450);
 
+  initRouteDrawCanvas(map, mapEl);
+
   cleanupThemeObserver = observeMapThemeChanges((nextTheme) => {
     if (!mapInstance) return;
-    mapInstance.setStyle(
-      buildTravelMapStyle(nextTheme, getRouteGeoJSON(), getLeadGeoJSON()),
-      { diff: true }
+    mapInstance.setStyle(buildTravelMapStyle(nextTheme, getRouteGeoJSON()), {
+      diff: true
+    });
+    mapInstance.setGlobalStateProperty(
+      'routeOpacity',
+      getCurrentRouteOpacity()
     );
     syncRouteSources(mapInstance);
+    redrawRouteOverlay(mapInstance);
   });
 
   globeRotation = createGlobeAutoRotation(map, mapEl);
@@ -542,10 +544,15 @@ export function initTravelMap(): void {
           0,
           currentTripStopIndices[currentStopIndex] + 1
         );
+        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle);
       } else if (currentStopIndex === 0) {
         activeTripCoordinates = null;
+        clearRouteOverlay(map);
+      } else {
+        activeTripCoordinates =
+          getCurrentDrawnCoordinates() || activeTripCoordinates;
+        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle);
       }
-      updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle, null);
     }
   });
 
@@ -560,7 +567,10 @@ export function initTravelMap(): void {
   });
 
   map.on('zoom', () => {
-    syncMarkerVisibility();
+    const isVenueZoomVisible = map.getZoom() >= VENUE_MIN_ZOOM;
+    if (isVenueZoomVisible !== lastVenueZoomVisible) {
+      syncMarkerVisibility();
+    }
   });
 
   // Create markers with callbacks
@@ -595,12 +605,7 @@ export function initTravelMap(): void {
               currentTripStopIndices[stopIdx] + 1
             );
           }
-          updateRouteOverlay(
-            map,
-            activeTripCoordinates,
-            activeRouteStyle,
-            null
-          );
+          updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle);
         }
       }
     },
@@ -653,7 +658,7 @@ export function initTravelMap(): void {
             currentTripStopIndices[toIdx] + 1
           );
         }
-        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle, null);
+        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle);
         const stop = currentTripStops[currentStopIndex];
         const currentTrip = rawTrips.find((t) => t.id === activeTripId);
         updateStepperUI(currentStopIndex, currentTripStops, currentTrip);
@@ -662,7 +667,7 @@ export function initTravelMap(): void {
         cancelCurrentAnimation();
         currentStopIndex = -1;
         activeTripCoordinates = fullTripCoordinates;
-        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle, null);
+        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle);
         const currentTrip = rawTrips.find((t) => t.id === activeTripId);
         updateStepperUI(currentStopIndex, currentTripStops, currentTrip);
         fitCurrentTripBounds(map, fullTripCoordinates, markerRecords);
@@ -680,12 +685,7 @@ export function initTravelMap(): void {
         if (fromIdx < 0) {
           cancelCurrentAnimation();
           activeTripCoordinates = null;
-          updateRouteOverlay(
-            map,
-            activeTripCoordinates,
-            activeRouteStyle,
-            null
-          );
+          updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle);
           const stop = currentTripStops[currentStopIndex];
           const currentTrip = rawTrips.find((t) => t.id === activeTripId);
           updateStepperUI(currentStopIndex, currentTripStops, currentTrip);
@@ -731,7 +731,7 @@ export function initTravelMap(): void {
         currentStopIndex = 0;
         cancelCurrentAnimation();
         activeTripCoordinates = null;
-        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle, null);
+        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle);
         const stop = currentTripStops[currentStopIndex];
         const currentTrip = rawTrips.find((t) => t.id === activeTripId);
         updateStepperUI(currentStopIndex, currentTripStops, currentTrip);
@@ -755,7 +755,7 @@ export function initTravelMap(): void {
       cancelCurrentAnimation();
       currentStopIndex = -1;
       activeTripCoordinates = fullTripCoordinates;
-      updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle, null);
+      updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle);
       const currentTrip = rawTrips.find((t) => t.id === activeTripId);
       updateStepperUI(currentStopIndex, currentTripStops, currentTrip);
       fitCurrentTripBounds(map, fullTripCoordinates, markerRecords);
@@ -851,7 +851,8 @@ export function cleanupTravelMap(): void {
     cancelAnimationFrame(routeAnimationId);
     routeAnimationId = null;
   }
-  resetRouteOverlayState();
+  destroyRouteOverlay(mapInstance);
+  lastVenueZoomVisible = null;
 
   if (mapInstance) {
     try {

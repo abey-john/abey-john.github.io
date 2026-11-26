@@ -1,27 +1,300 @@
-import type * as maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import type { RouteStyleState, TripData } from './types';
 import {
   EMPTY_FEATURE_COLLECTION,
-  LEAD_SOURCE_ID,
   ROUTE_SOURCE_ID,
+  getEffectiveMapTheme,
+  getRouteCasingColor,
   type TravelFeatureCollection
 } from './map-style';
 
-export interface RouteLeadPoint {
+interface RouteLeadPoint {
   coord: [number, number];
   haloRadius: number;
   haloOpacity: number;
 }
 
+interface ActiveDrawFrame {
+  coords: [number, number][];
+  endIdx: number;
+  tipPoint: [number, number] | null;
+  style: RouteStyleState;
+  leadPulse: RouteLeadPoint | null;
+}
+
+interface StagedRouteKey {
+  coordsRef: [number, number][];
+  sliceLength: number;
+  color: string;
+  mode: string;
+}
+
 let currentRouteGeoJSON: TravelFeatureCollection = EMPTY_FEATURE_COLLECTION;
-let currentLeadGeoJSON: TravelFeatureCollection = EMPTY_FEATURE_COLLECTION;
+let currentRouteOpacity = 1;
+let lastStagedKey: StagedRouteKey | null = null;
+
+let drawCanvas: HTMLCanvasElement | null = null;
+let drawCtx: CanvasRenderingContext2D | null = null;
+let canvasResizeObserver: ResizeObserver | null = null;
+let cssWidth = 0;
+let cssHeight = 0;
+let dpr = 1;
+
+let activeDrawFrame: ActiveDrawFrame | null = null;
+let renderListener: (() => void) | null = null;
+let pendingSourceDataListener:
+  ((e: maplibregl.MapSourceDataEvent) => void) | null = null;
+let pendingHandoffTimer: number | null = null;
+let handoffToken = 0;
+
+const scratchLngLat = new maplibregl.LngLat(0, 0);
 
 export function getRouteGeoJSON(): TravelFeatureCollection {
   return currentRouteGeoJSON;
 }
 
-export function getLeadGeoJSON(): TravelFeatureCollection {
-  return currentLeadGeoJSON;
+export function getCurrentRouteOpacity(): number {
+  return currentRouteOpacity;
+}
+
+function setWebGLRouteOpacity(
+  map: maplibregl.Map | null,
+  opacity: number
+): void {
+  currentRouteOpacity = opacity;
+  if (!map) return;
+  try {
+    map.setGlobalStateProperty('routeOpacity', opacity);
+  } catch (e) {
+    // Ignore if style is not yet ready; applied again on load/style sync
+  }
+}
+
+function updateCanvasBackingSize(mapEl: HTMLElement): void {
+  if (!drawCanvas) return;
+  cssWidth = mapEl.clientWidth;
+  cssHeight = mapEl.clientHeight;
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const nextWidth = Math.max(1, Math.round(cssWidth * dpr));
+  const nextHeight = Math.max(1, Math.round(cssHeight * dpr));
+  if (drawCanvas.width !== nextWidth || drawCanvas.height !== nextHeight) {
+    drawCanvas.width = nextWidth;
+    drawCanvas.height = nextHeight;
+  }
+}
+
+function clearDrawCanvas(): void {
+  if (!drawCanvas || !drawCtx) return;
+  drawCtx.setTransform(1, 0, 0, 1, 0, 0);
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  if (drawCanvas.style.display !== 'none') {
+    drawCanvas.style.display = 'none';
+  }
+}
+
+function cancelPendingHandoff(map: maplibregl.Map | null): void {
+  ++handoffToken;
+  if (pendingHandoffTimer !== null) {
+    window.clearTimeout(pendingHandoffTimer);
+    pendingHandoffTimer = null;
+  }
+  if (map && pendingSourceDataListener) {
+    map.off('sourcedata', pendingSourceDataListener);
+  }
+  pendingSourceDataListener = null;
+}
+
+interface MapWithTransform extends maplibregl.Map {
+  transform?: {
+    isLocationOccluded?: (lngLat: maplibregl.LngLat) => boolean;
+  };
+}
+
+function isLocationOccluded(
+  map: maplibregl.Map,
+  lng: number,
+  lat: number
+): boolean {
+  scratchLngLat.lng = lng;
+  scratchLngLat.lat = lat;
+  const transform = (map as MapWithTransform).transform;
+  if (transform && typeof transform.isLocationOccluded === 'function') {
+    return transform.isLocationOccluded(scratchLngLat);
+  }
+  return false;
+}
+
+function renderActiveDrawFrame(map: maplibregl.Map): void {
+  if (!activeDrawFrame || !drawCanvas || !drawCtx) return;
+  if (cssWidth === 0 || cssHeight === 0) return;
+
+  const { coords, endIdx, tipPoint, style, leadPulse } = activeDrawFrame;
+  const maxIdx = Math.min(endIdx, coords.length - 1);
+  if (maxIdx < 0) {
+    clearDrawCanvas();
+    return;
+  }
+
+  if (drawCanvas.style.display !== 'block') {
+    drawCanvas.style.display = 'block';
+  }
+
+  const ctx = drawCtx;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+  const zoom = map.getZoom();
+  const t2_4 = Math.max(0, Math.min(1, (zoom - 2) / 2));
+  const t4_12 = Math.max(0, Math.min(1, (zoom - 4) / 8));
+  const lineWidth = zoom <= 4 ? 2.2 + t2_4 * 0.6 : 2.8 + t4_12 * 3.2;
+  const casingWidth = zoom <= 4 ? 4.2 + t2_4 * 1.1 : 5.3 + t4_12 * 3.2;
+  const glowWidth = zoom <= 4 ? 6.0 + t2_4 * 1.5 : 7.5 + t4_12 * 7.5;
+
+  const path = new Path2D();
+  let penDown = false;
+  let lastX = 0;
+  let lastY = 0;
+  const wrapJumpThreshold = cssWidth * 0.6;
+
+  for (let i = 0; i <= maxIdx; i++) {
+    const c = coords[i];
+    if (isLocationOccluded(map, c[0], c[1])) {
+      penDown = false;
+      continue;
+    }
+    const pt = map.project(scratchLngLat);
+    if (!Number.isFinite(pt.x) || !Number.isFinite(pt.y)) {
+      penDown = false;
+      continue;
+    }
+
+    const isLastCoord = i === maxIdx && !tipPoint;
+    if (penDown) {
+      const dx = Math.abs(pt.x - lastX);
+      const dy = Math.abs(pt.y - lastY);
+      if (dx > wrapJumpThreshold) {
+        penDown = false;
+      } else if (!isLastCoord && dx + dy < 0.75) {
+        continue;
+      }
+    }
+
+    if (!penDown) {
+      path.moveTo(pt.x, pt.y);
+      penDown = true;
+    } else {
+      path.lineTo(pt.x, pt.y);
+    }
+    lastX = pt.x;
+    lastY = pt.y;
+  }
+
+  if (tipPoint && !isLocationOccluded(map, tipPoint[0], tipPoint[1])) {
+    const pt = map.project(scratchLngLat);
+    if (Number.isFinite(pt.x) && Number.isFinite(pt.y)) {
+      if (penDown && Math.abs(pt.x - lastX) > wrapJumpThreshold) {
+        penDown = false;
+      }
+      if (!penDown) {
+        path.moveTo(pt.x, pt.y);
+      } else {
+        path.lineTo(pt.x, pt.y);
+      }
+    }
+  }
+
+  const theme = getEffectiveMapTheme();
+  const casingColor = getRouteCasingColor(theme);
+
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  // 1. Glow stroke
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.strokeStyle = style.color;
+  ctx.lineWidth = glowWidth;
+  ctx.shadowColor = style.color;
+  ctx.shadowBlur = 6;
+  ctx.stroke(path);
+  ctx.restore();
+
+  // 2. Casing stroke
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = casingColor;
+  ctx.lineWidth = casingWidth;
+  ctx.stroke(path);
+
+  // 3. Core line stroke
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = style.color;
+  ctx.lineWidth = lineWidth;
+  if (style.mode === 'flight') {
+    ctx.lineCap = 'butt';
+    ctx.setLineDash([lineWidth * 2.2, lineWidth * 1.6]);
+  }
+  ctx.stroke(path);
+
+  // 4. Pulsing lead dot during animation
+  if (
+    leadPulse &&
+    !isLocationOccluded(map, leadPulse.coord[0], leadPulse.coord[1])
+  ) {
+    const pt = map.project(scratchLngLat);
+    if (Number.isFinite(pt.x) && Number.isFinite(pt.y)) {
+      ctx.setLineDash([]);
+      ctx.fillStyle = style.color;
+      ctx.globalAlpha = leadPulse.haloOpacity;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, leadPulse.haloRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+export function initRouteDrawCanvas(
+  map: maplibregl.Map,
+  mapEl: HTMLElement
+): void {
+  destroyRouteOverlay(map);
+
+  const canvasContainer = mapEl.querySelector('.maplibregl-canvas-container');
+  if (!canvasContainer) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'trip-route-draw-canvas';
+  canvas.setAttribute('aria-hidden', 'true');
+  canvasContainer.appendChild(canvas);
+
+  drawCanvas = canvas;
+  drawCtx = canvas.getContext('2d');
+  updateCanvasBackingSize(mapEl);
+
+  canvasResizeObserver = new ResizeObserver(() => {
+    updateCanvasBackingSize(mapEl);
+    if (activeDrawFrame) {
+      renderActiveDrawFrame(map);
+    }
+  });
+  canvasResizeObserver.observe(mapEl);
+
+  renderListener = () => {
+    if (activeDrawFrame) {
+      renderActiveDrawFrame(map);
+    }
+  };
+  map.on('render', renderListener);
 }
 
 export function syncRouteSources(map: maplibregl.Map | null): void {
@@ -31,74 +304,197 @@ export function syncRouteSources(map: maplibregl.Map | null): void {
   if (routeSource) {
     routeSource.setData(currentRouteGeoJSON);
   }
-  const leadSource = map.getSource(LEAD_SOURCE_ID) as
-    maplibregl.GeoJSONSource | undefined;
-  if (leadSource) {
-    leadSource.setData(currentLeadGeoJSON);
+  setWebGLRouteOpacity(map, currentRouteOpacity);
+}
+
+export function redrawRouteOverlay(map: maplibregl.Map | null): void {
+  if (map && activeDrawFrame) {
+    renderActiveDrawFrame(map);
   }
 }
 
 export function resetRouteOverlayState(): void {
   currentRouteGeoJSON = EMPTY_FEATURE_COLLECTION;
-  currentLeadGeoJSON = EMPTY_FEATURE_COLLECTION;
+  currentRouteOpacity = 1;
+  lastStagedKey = null;
+  activeDrawFrame = null;
+  clearDrawCanvas();
+}
+
+export function destroyRouteOverlay(map: maplibregl.Map | null): void {
+  cancelPendingHandoff(map);
+  if (map && renderListener) {
+    map.off('render', renderListener);
+  }
+  renderListener = null;
+
+  if (canvasResizeObserver) {
+    canvasResizeObserver.disconnect();
+    canvasResizeObserver = null;
+  }
+
+  if (drawCanvas) {
+    drawCanvas.remove();
+    drawCanvas = null;
+  }
+  drawCtx = null;
+  cssWidth = 0;
+  cssHeight = 0;
+  dpr = 1;
+  resetRouteOverlayState();
+}
+
+function stageWebGLRoute(
+  map: maplibregl.Map | null,
+  coords: [number, number][] | null,
+  sliceLength: number,
+  style: RouteStyleState,
+  visible: boolean
+): void {
+  setWebGLRouteOpacity(map, visible ? 1 : 0);
+
+  if (!coords || sliceLength < 2) {
+    if (currentRouteGeoJSON.features.length > 0) {
+      currentRouteGeoJSON = EMPTY_FEATURE_COLLECTION;
+      lastStagedKey = null;
+      const routeSource = map?.getSource(ROUTE_SOURCE_ID) as
+        maplibregl.GeoJSONSource | undefined;
+      routeSource?.setData(currentRouteGeoJSON);
+    }
+    return;
+  }
+
+  const clampedLen = Math.min(sliceLength, coords.length);
+  const alreadyStaged =
+    lastStagedKey !== null &&
+    lastStagedKey.coordsRef === coords &&
+    lastStagedKey.sliceLength === clampedLen &&
+    lastStagedKey.color === style.color &&
+    lastStagedKey.mode === style.mode;
+
+  if (alreadyStaged) {
+    return;
+  }
+
+  const stagedCoords =
+    clampedLen === coords.length ? coords : coords.slice(0, clampedLen);
+  currentRouteGeoJSON = {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: {
+          color: style.color,
+          glow: style.glow,
+          mode: style.mode
+        },
+        geometry: {
+          type: 'LineString',
+          coordinates: stagedCoords
+        }
+      }
+    ]
+  };
+  lastStagedKey = {
+    coordsRef: coords,
+    sliceLength: clampedLen,
+    color: style.color,
+    mode: style.mode
+  };
+
+  const routeSource = map?.getSource(ROUTE_SOURCE_ID) as
+    maplibregl.GeoJSONSource | undefined;
+  routeSource?.setData(currentRouteGeoJSON);
+}
+
+function handoffToWebGL(
+  map: maplibregl.Map | null,
+  coords: [number, number][],
+  sliceLength: number,
+  style: RouteStyleState
+): void {
+  cancelPendingHandoff(map);
+
+  if (!map || sliceLength < 2) {
+    clearRouteOverlay(map);
+    return;
+  }
+
+  stageWebGLRoute(map, coords, sliceLength, style, false);
+
+  const finishHandoff = () => {
+    cancelPendingHandoff(map);
+    activeDrawFrame = null;
+    clearDrawCanvas();
+    setWebGLRouteOpacity(map, 1);
+    map.triggerRepaint();
+  };
+
+  if (map.isSourceLoaded(ROUTE_SOURCE_ID)) {
+    finishHandoff();
+    return;
+  }
+
+  // Keep static slice painted on 2D canvas until WebGL GeoJSON worker finishes
+  activeDrawFrame = {
+    coords,
+    endIdx: Math.min(sliceLength, coords.length) - 1,
+    tipPoint: null,
+    style,
+    leadPulse: null
+  };
+  renderActiveDrawFrame(map);
+
+  const token = handoffToken;
+  const onSourceData = (e: maplibregl.MapSourceDataEvent) => {
+    if (token !== handoffToken) return;
+    if (e.sourceId === ROUTE_SOURCE_ID && map.isSourceLoaded(ROUTE_SOURCE_ID)) {
+      finishHandoff();
+    }
+  };
+  pendingSourceDataListener = onSourceData;
+  map.on('sourcedata', onSourceData);
+
+  pendingHandoffTimer = window.setTimeout(() => {
+    if (token === handoffToken) {
+      finishHandoff();
+    }
+  }, 350);
 }
 
 export function clearRouteOverlay(map: maplibregl.Map | null): void {
-  resetRouteOverlayState();
-  syncRouteSources(map);
+  cancelPendingHandoff(map);
+  activeDrawFrame = null;
+  clearDrawCanvas();
+  stageWebGLRoute(map, null, 0, { color: '', glow: '', mode: 'drive' }, true);
+}
+
+export function cancelRouteDrawCanvas(map: maplibregl.Map | null): void {
+  cancelPendingHandoff(map);
+  activeDrawFrame = null;
+  clearDrawCanvas();
+}
+
+export function getCurrentDrawnCoordinates(): [number, number][] | null {
+  if (!activeDrawFrame) return null;
+  const { coords, endIdx, tipPoint } = activeDrawFrame;
+  const slice = coords.slice(0, Math.min(endIdx + 1, coords.length));
+  if (tipPoint) {
+    slice.push(tipPoint);
+  }
+  return slice;
 }
 
 export function updateRouteOverlay(
   map: maplibregl.Map | null,
   activeCoordinates: [number, number][] | null,
-  style: RouteStyleState,
-  leadPoint: RouteLeadPoint | null = null
+  style: RouteStyleState
 ): void {
-  if (activeCoordinates && activeCoordinates.length >= 2) {
-    currentRouteGeoJSON = {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: {
-            color: style.color,
-            glow: style.glow,
-            mode: style.mode
-          },
-          geometry: {
-            type: 'LineString',
-            coordinates: activeCoordinates
-          }
-        }
-      ]
-    };
-  } else {
-    currentRouteGeoJSON = EMPTY_FEATURE_COLLECTION;
+  if (!activeCoordinates || activeCoordinates.length < 2) {
+    clearRouteOverlay(map);
+    return;
   }
-
-  if (leadPoint) {
-    currentLeadGeoJSON = {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: {
-            color: style.color,
-            haloRadius: leadPoint.haloRadius,
-            haloOpacity: leadPoint.haloOpacity
-          },
-          geometry: {
-            type: 'Point',
-            coordinates: leadPoint.coord
-          }
-        }
-      ]
-    };
-  } else {
-    currentLeadGeoJSON = EMPTY_FEATURE_COLLECTION;
-  }
-
-  syncRouteSources(map);
+  handoffToWebGL(map, activeCoordinates, activeCoordinates.length, style);
 }
 
 export function calculateStopIndices(
@@ -181,9 +577,14 @@ export function startRouteDrawAnimation(
   const len = coords.length;
   if (!coords || len < 2) {
     callbacks.onUpdateCoords(coords);
-    updateRouteOverlay(map, coords, style, null);
+    updateRouteOverlay(map, coords, style);
     return null;
   }
+
+  cancelPendingHandoff(map);
+  // Pre-stage full settled route once at t=0 while keeping WebGL invisible
+  stageWebGLRoute(map, coords, len, style, false);
+  callbacks.onUpdateCoords([coords[0], coords[0]]);
 
   const totalDist = tripCumulativeDistances[len - 1] || 0;
   const duration = Math.min(2600, Math.max(1800, 1600 + distanceMiles * 0.6));
@@ -192,8 +593,6 @@ export function startRouteDrawAnimation(
 
   function step(now: number) {
     if (callbacks.getCurrentStopIndex() !== -1) {
-      currentLeadGeoJSON = EMPTY_FEATURE_COLLECTION;
-      syncRouteSources(map);
       return;
     }
 
@@ -205,10 +604,7 @@ export function startRouteDrawAnimation(
     if (progress >= 1) {
       if (callbacks.getCurrentStopIndex() === -1) {
         callbacks.onUpdateCoords(coords);
-        updateRouteOverlay(map, coords, style, null);
-      } else {
-        currentLeadGeoJSON = EMPTY_FEATURE_COLLECTION;
-        syncRouteSources(map);
+        handoffToWebGL(map, coords, len, style);
       }
       callbacks.onComplete();
       return;
@@ -241,22 +637,26 @@ export function startRouteDrawAnimation(
       p1[1] + (p2[1] - p1[1]) * t
     ];
 
-    const currentSlice = coords.slice(0, segIdx + 1);
-    currentSlice.push(tipPoint);
-    callbacks.onUpdateCoords(currentSlice);
-    updateRouteOverlay(
-      map,
-      currentSlice,
+    activeDrawFrame = {
+      coords,
+      endIdx: segIdx,
+      tipPoint,
       style,
-      getPulseLeadPoint(tipPoint, elapsed)
-    );
+      leadPulse: getPulseLeadPoint(tipPoint, elapsed)
+    };
+    renderActiveDrawFrame(map);
 
     animationId = requestAnimationFrame(step);
   }
 
-  const initialSlice: [number, number][] = [coords[0], coords[0]];
-  callbacks.onUpdateCoords(initialSlice);
-  updateRouteOverlay(map, initialSlice, style, getPulseLeadPoint(coords[0], 0));
+  activeDrawFrame = {
+    coords,
+    endIdx: 0,
+    tipPoint: coords[0],
+    style,
+    leadPulse: getPulseLeadPoint(coords[0], 0)
+  };
+  renderActiveDrawFrame(map);
   animationId = requestAnimationFrame(step);
   return animationId;
 }
@@ -292,7 +692,7 @@ export function animateRouteSegment(
   if (startVertex >= endVertex) {
     const finalCoords = fullTripCoordinates.slice(0, endVertex + 1);
     callbacks.onUpdateCoords(finalCoords);
-    updateRouteOverlay(map, finalCoords, style, null);
+    handoffToWebGL(map, fullTripCoordinates, endVertex + 1, style);
     if (destStop) {
       map.jumpTo({ center: [destStop.lng, destStop.lat] });
       callbacks.activateStopMarker(destStop);
@@ -300,6 +700,10 @@ export function animateRouteSegment(
     callbacks.onComplete();
     return null;
   }
+
+  cancelPendingHandoff(map);
+  // Pre-stage settled leg slice once at t=0 while keeping WebGL invisible
+  stageWebGLRoute(map, fullTripCoordinates, endVertex + 1, style, false);
 
   const startDist = tripCumulativeDistances[startVertex] || 0;
   const endDist = tripCumulativeDistances[endVertex] || 0;
@@ -348,7 +752,7 @@ export function animateRouteSegment(
     if (progress >= 1) {
       const finalCoords = fullTripCoordinates.slice(0, endVertex + 1);
       callbacks.onUpdateCoords(finalCoords);
-      updateRouteOverlay(map, finalCoords, style, null);
+      handoffToWebGL(map, fullTripCoordinates, endVertex + 1, style);
 
       if (destStop) {
         callbacks.activateStopMarker(destStop);
@@ -384,10 +788,6 @@ export function animateRouteSegment(
       p1[1] + (p2[1] - p1[1]) * t
     ];
 
-    const currentSlice = fullTripCoordinates.slice(0, segIdx + 1);
-    currentSlice.push(tipPoint);
-    callbacks.onUpdateCoords(currentSlice);
-
     const dt = Math.min(50, Math.max(8, now - lastTime));
     lastTime = now;
 
@@ -412,12 +812,14 @@ export function animateRouteSegment(
       zoom: currentZoom
     });
 
-    updateRouteOverlay(
-      map,
-      currentSlice,
+    activeDrawFrame = {
+      coords: fullTripCoordinates,
+      endIdx: segIdx,
+      tipPoint,
       style,
-      getPulseLeadPoint(tipPoint, elapsed)
-    );
+      leadPulse: getPulseLeadPoint(tipPoint, elapsed)
+    };
+    renderActiveDrawFrame(map);
 
     animationId = requestAnimationFrame(step);
   }
