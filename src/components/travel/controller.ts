@@ -8,11 +8,24 @@ import type {
   TripStop,
   MarkerRecord,
   FilterCategory,
-  RouteSvgOverlayElements
+  RouteStyleState
 } from './types';
 import {
-  createRouteSvgOverlay,
-  updateRouteSvg,
+  buildTravelMapStyle,
+  getEffectiveMapTheme,
+  observeMapThemeChanges
+} from './map-style';
+import {
+  createGlobeAutoRotation,
+  type GlobeRotationController
+} from './globe-rotation';
+import {
+  getRouteGeoJSON,
+  getLeadGeoJSON,
+  syncRouteSources,
+  clearRouteOverlay,
+  resetRouteOverlayState,
+  updateRouteOverlay,
   calculateStopIndices,
   calculateCumulativeDistances,
   startRouteDrawAnimation,
@@ -32,12 +45,17 @@ import {
 
 maplibregl.setWorkerUrl(workerUrl);
 
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
-const DEFAULT_BOUNDS: [[number, number], [number, number]] = [
-  [-125.0, 24.39],
-  [-66.93, 49.38]
-];
+const INITIAL_GLOBE_CENTER: [number, number] = [-97.5, 36.0];
 const VENUE_MIN_ZOOM = 9;
+
+function getInitialGlobeZoom(): number {
+  if (typeof window === 'undefined') return 2.15;
+  const mapEl = document.getElementById('travel-map');
+  const w = mapEl?.clientWidth || window.innerWidth;
+  const h = mapEl?.clientHeight || Math.max(520, window.innerHeight - 65);
+  const targetDiameter = Math.min(w, h) * (w < 640 ? 0.86 : 0.78);
+  return Math.max(1.2, Math.min(2.65, Math.log2(targetDiameter / 139)));
+}
 
 let mapInstance: maplibregl.Map | null = null;
 let markerRecords: MarkerRecord[] = [];
@@ -47,15 +65,10 @@ let activeFilter: FilterCategory = 'all';
 
 let fullTripCoordinates: [number, number][] | null = null;
 let activeTripCoordinates: [number, number][] | null = null;
-let activeTripMode: string = 'drive';
-let overlayElements: RouteSvgOverlayElements = {
-  routeSvg: null,
-  routeGlowPath: null,
-  routeCasingPath: null,
-  routeLinePath: null,
-  routeLeadGroup: null,
-  routeLeadDot: null,
-  routeLeadHalo: null
+let activeRouteStyle: RouteStyleState = {
+  color: '#f59e0b',
+  glow: 'rgba(245, 158, 11, 0.45)',
+  mode: 'drive'
 };
 let routeAnimationId: number | null = null;
 let currentStopIndex = -1;
@@ -63,26 +76,31 @@ let currentTripStops: TripStop[] = [];
 let currentTripStopIndices: number[] = [];
 let tripCumulativeDistances: number[] = [];
 
+let globeRotation: GlobeRotationController | null = null;
+let cleanupThemeObserver: (() => void) | null = null;
 let cleanupDropdownListeners: (() => void) | null = null;
 let cleanupDirectoryListeners: (() => void) | null = null;
 let cleanupKeyNavListener: (() => void) | null = null;
 let cleanupImageModalListener: (() => void) | null = null;
 let activeFlightId = 0;
+let activeRecenterId = 0;
 
 function cancelCurrentAnimation() {
   if (routeAnimationId) {
     cancelAnimationFrame(routeAnimationId);
     routeAnimationId = null;
   }
-  if (overlayElements.routeLeadGroup) {
-    overlayElements.routeLeadGroup.style.display = 'none';
-  }
+  updateRouteOverlay(
+    mapInstance,
+    activeTripCoordinates,
+    activeRouteStyle,
+    null
+  );
 }
 
 function getOverviewResetDuration(map: maplibregl.Map): number {
   const currentCenter = map.getCenter();
-  const defaultCenterLng = -95.965;
-  const defaultCenterLat = 36.885;
+  const [defaultCenterLng, defaultCenterLat] = INITIAL_GLOBE_CENTER;
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(defaultCenterLat - currentCenter.lat);
   const dLng = toRad(defaultCenterLng - currentCenter.lng);
@@ -112,21 +130,28 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
     : undefined;
   updateTripsDropdownUI(activeTripId, currentTrip, rawTrips.length);
 
+  const containerEl = mapInstance
+    .getContainer()
+    .closest('.travel-map-container');
+  containerEl?.classList.toggle(
+    'has-active-trip',
+    Boolean(tripId && currentTrip)
+  );
+
   if (!tripId || !currentTrip) {
     cancelCurrentAnimation();
+    clearRouteOverlay(mapInstance);
     activeTripCoordinates = null;
     fullTripCoordinates = null;
-    activeTripMode = 'drive';
+    activeRouteStyle = {
+      color: '#f59e0b',
+      glow: 'rgba(245, 158, 11, 0.45)',
+      mode: 'drive'
+    };
     currentTripStops = [];
     currentStopIndex = -1;
     currentTripStopIndices = [];
     tripCumulativeDistances = [];
-    if (overlayElements.routeGlowPath)
-      overlayElements.routeGlowPath.removeAttribute('d');
-    if (overlayElements.routeCasingPath)
-      overlayElements.routeCasingPath.removeAttribute('d');
-    if (overlayElements.routeLinePath)
-      overlayElements.routeLinePath.removeAttribute('d');
 
     const stepperEl = document.getElementById('itinerary-stepper');
     if (stepperEl) {
@@ -150,8 +175,9 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
     syncMarkerVisibility();
 
     if (fitBounds) {
-      mapInstance.fitBounds(DEFAULT_BOUNDS, {
-        padding: window.innerWidth < 640 ? 20 : 40,
+      mapInstance.flyTo({
+        center: INITIAL_GLOBE_CENTER,
+        zoom: getInitialGlobeZoom(),
         bearing: 0,
         pitch: 0,
         duration: getOverviewResetDuration(mapInstance),
@@ -162,6 +188,8 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
     return;
   }
 
+  ++activeRecenterId;
+  globeRotation?.stop();
   cancelCurrentAnimation();
 
   // Close any open popups so the whole route can be viewed without obstruction
@@ -173,8 +201,12 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
 
   const theme = getTripTheme(currentTrip.color);
 
-  // Set route coordinates on SVG overlay & trigger draw animation
-  activeTripMode = currentTrip.mode || 'drive';
+  // Set route coordinates on WebGL source & trigger draw animation
+  activeRouteStyle = {
+    color: theme.line,
+    glow: theme.glow,
+    mode: currentTrip.mode || 'drive'
+  };
   currentTripStops = currentTrip.stops || [];
   currentStopIndex = -1;
   currentTripStopIndices = calculateStopIndices(
@@ -186,25 +218,12 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
   );
   fullTripCoordinates = currentTrip.geometry.coordinates;
 
-  if (overlayElements.routeLeadDot)
-    overlayElements.routeLeadDot.style.fill = theme.line;
-  if (overlayElements.routeLeadHalo)
-    overlayElements.routeLeadHalo.style.fill = theme.line;
-
-  if (overlayElements.routeLinePath) {
-    overlayElements.routeLinePath.style.stroke = theme.line;
-  }
-  if (overlayElements.routeGlowPath) {
-    overlayElements.routeGlowPath.style.stroke = theme.glow;
-  }
-
   routeAnimationId = startRouteDrawAnimation(
     mapInstance,
     currentTrip.geometry.coordinates,
     currentTrip.distanceMiles || 500,
-    activeTripMode,
+    activeRouteStyle,
     tripCumulativeDistances,
-    overlayElements,
     {
       getCurrentStopIndex: () => currentStopIndex,
       onUpdateCoords: (coords) => {
@@ -318,6 +337,10 @@ export function applyCategoryFilter(category: FilterCategory): void {
 export function recenterMap(): void {
   if (!mapInstance) return;
 
+  const currentRecenter = ++activeRecenterId;
+  ++activeFlightId;
+  globeRotation?.stop();
+
   setActiveTrip(null, false);
   applyCategoryFilter('all');
 
@@ -327,12 +350,19 @@ export function recenterMap(): void {
     }
   });
 
-  mapInstance.fitBounds(DEFAULT_BOUNDS, {
-    padding: window.innerWidth < 640 ? 20 : 40,
+  mapInstance.flyTo({
+    center: INITIAL_GLOBE_CENTER,
+    zoom: getInitialGlobeZoom(),
     bearing: 0,
     pitch: 0,
     duration: getOverviewResetDuration(mapInstance),
     essential: true
+  });
+
+  mapInstance.once('moveend', () => {
+    if (currentRecenter === activeRecenterId && mapInstance && !activeTripId) {
+      globeRotation?.start();
+    }
   });
 }
 
@@ -343,6 +373,8 @@ export function flyToPlace(
   type: string
 ): void {
   if (!mapInstance) return;
+  ++activeRecenterId;
+  globeRotation?.stop();
   const currentFlight = ++activeFlightId;
 
   markerRecords.forEach(({ popup }) => {
@@ -358,7 +390,7 @@ export function flyToPlace(
   const mapWrapper = document.getElementById('map-wrapper');
   if (mapWrapper) {
     const rect = mapWrapper.getBoundingClientRect();
-    const headerOffset = 90;
+    const headerOffset = 65;
     const targetScroll = window.scrollY + rect.top - headerOffset;
     window.scrollTo({
       top: Math.max(0, targetScroll),
@@ -421,21 +453,24 @@ export function initTravelMap(): void {
 
   const map = new maplibregl.Map({
     container: mapEl,
-    style: MAP_STYLE,
-    bounds: DEFAULT_BOUNDS,
-    fitBoundsOptions: {
-      padding:
-        typeof window !== 'undefined' && window.innerWidth < 640 ? 20 : 40,
-      duration: 0
-    },
-    minZoom: 1.5,
+    style: buildTravelMapStyle(
+      getEffectiveMapTheme(),
+      getRouteGeoJSON(),
+      getLeadGeoJSON()
+    ),
+    center: INITIAL_GLOBE_CENTER,
+    zoom: getInitialGlobeZoom(),
+    minZoom: 1.1,
     maxZoom: 19,
+    fadeDuration: 100,
+    maxTileCacheSize: 250,
+    maxTileCacheZoomLevels: 8,
+    cancelPendingTileRequestsWhileZooming: false,
+    refreshExpiredTiles: false,
     attributionControl: false,
     dragRotate: false,
     touchPitch: false,
     pitchWithRotate: false,
-    fadeDuration: 0,
-    maxTileCacheSize: 50,
     renderWorldCopies: true,
     crossSourceCollisions: false,
     collectResourceTiming: false
@@ -481,19 +516,23 @@ export function initTravelMap(): void {
   map.scrollZoom.enable();
   map.scrollZoom.setWheelZoomRate(1 / 450);
 
-  // Setup SVG route overlay inside canvas container
-  overlayElements = createRouteSvgOverlay(mapEl);
-
-  map.on('render', () => {
-    updateRouteSvg(map, activeTripCoordinates, overlayElements);
+  cleanupThemeObserver = observeMapThemeChanges((nextTheme) => {
+    if (!mapInstance) return;
+    mapInstance.setStyle(
+      buildTravelMapStyle(nextTheme, getRouteGeoJSON(), getLeadGeoJSON()),
+      { diff: true }
+    );
+    syncRouteSources(mapInstance);
   });
 
+  globeRotation = createGlobeAutoRotation(map, mapEl);
+
   map.on('dragstart', () => {
+    ++activeRecenterId;
+    globeRotation?.stop();
     if (routeAnimationId) {
       cancelAnimationFrame(routeAnimationId);
       routeAnimationId = null;
-      if (overlayElements.routeLeadGroup)
-        overlayElements.routeLeadGroup.style.display = 'none';
       if (
         currentStopIndex > 0 &&
         currentTripStopIndices[currentStopIndex] !== undefined &&
@@ -503,16 +542,21 @@ export function initTravelMap(): void {
           0,
           currentTripStopIndices[currentStopIndex] + 1
         );
-        updateRouteSvg(map, activeTripCoordinates, overlayElements);
       } else if (currentStopIndex === 0) {
         activeTripCoordinates = null;
-        updateRouteSvg(map, activeTripCoordinates, overlayElements);
       }
+      updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle, null);
     }
+  });
+
+  map.on('wheel', () => {
+    ++activeRecenterId;
+    globeRotation?.stop();
   });
 
   map.on('load', () => {
     syncMarkerVisibility();
+    syncRouteSources(map);
   });
 
   map.on('zoom', () => {
@@ -525,6 +569,8 @@ export function initTravelMap(): void {
       setActiveTrip(tripId, true);
     },
     onMarkerClick: (place) => {
+      ++activeRecenterId;
+      globeRotation?.stop();
       if (activeTripId && currentTripStops.length > 0 && fullTripCoordinates) {
         const stopIdx = currentTripStops.findIndex(
           (s) =>
@@ -549,7 +595,12 @@ export function initTravelMap(): void {
               currentTripStopIndices[stopIdx] + 1
             );
           }
-          updateRouteSvg(map, activeTripCoordinates, overlayElements);
+          updateRouteOverlay(
+            map,
+            activeTripCoordinates,
+            activeRouteStyle,
+            null
+          );
         }
       }
     },
@@ -602,7 +653,7 @@ export function initTravelMap(): void {
             currentTripStopIndices[toIdx] + 1
           );
         }
-        updateRouteSvg(map, activeTripCoordinates, overlayElements);
+        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle, null);
         const stop = currentTripStops[currentStopIndex];
         const currentTrip = rawTrips.find((t) => t.id === activeTripId);
         updateStepperUI(currentStopIndex, currentTripStops, currentTrip);
@@ -611,7 +662,7 @@ export function initTravelMap(): void {
         cancelCurrentAnimation();
         currentStopIndex = -1;
         activeTripCoordinates = fullTripCoordinates;
-        updateRouteSvg(map, activeTripCoordinates, overlayElements);
+        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle, null);
         const currentTrip = rawTrips.find((t) => t.id === activeTripId);
         updateStepperUI(currentStopIndex, currentTripStops, currentTrip);
         fitCurrentTripBounds(map, fullTripCoordinates, markerRecords);
@@ -629,7 +680,12 @@ export function initTravelMap(): void {
         if (fromIdx < 0) {
           cancelCurrentAnimation();
           activeTripCoordinates = null;
-          updateRouteSvg(map, activeTripCoordinates, overlayElements);
+          updateRouteOverlay(
+            map,
+            activeTripCoordinates,
+            activeRouteStyle,
+            null
+          );
           const stop = currentTripStops[currentStopIndex];
           const currentTrip = rawTrips.find((t) => t.id === activeTripId);
           updateStepperUI(currentStopIndex, currentTripStops, currentTrip);
@@ -646,7 +702,7 @@ export function initTravelMap(): void {
             currentTripStopIndices,
             tripCumulativeDistances,
             currentTripStops,
-            overlayElements,
+            activeRouteStyle,
             {
               onClosePopups: () => {
                 markerRecords.forEach(({ popup }) => {
@@ -675,7 +731,7 @@ export function initTravelMap(): void {
         currentStopIndex = 0;
         cancelCurrentAnimation();
         activeTripCoordinates = null;
-        updateRouteSvg(map, activeTripCoordinates, overlayElements);
+        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle, null);
         const stop = currentTripStops[currentStopIndex];
         const currentTrip = rawTrips.find((t) => t.id === activeTripId);
         updateStepperUI(currentStopIndex, currentTripStops, currentTrip);
@@ -699,7 +755,7 @@ export function initTravelMap(): void {
       cancelCurrentAnimation();
       currentStopIndex = -1;
       activeTripCoordinates = fullTripCoordinates;
-      updateRouteSvg(map, activeTripCoordinates, overlayElements);
+      updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle, null);
       const currentTrip = rawTrips.find((t) => t.id === activeTripId);
       updateStepperUI(currentStopIndex, currentTripStops, currentTrip);
       fitCurrentTripBounds(map, fullTripCoordinates, markerRecords);
@@ -750,10 +806,24 @@ export function initTravelMap(): void {
     }
   });
 
+  const scrollToDirBtn = document.getElementById('scroll-to-directory-btn');
+  if (scrollToDirBtn) {
+    scrollToDirBtn.onclick = () => {
+      const dirSection = document.getElementById('places-directory-section');
+      const detailsEl =
+        dirSection?.querySelector<HTMLDetailsElement>('.places-details');
+      if (detailsEl) {
+        detailsEl.open = true;
+      }
+      dirSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+  }
+
   // Apply active category filter state
   applyCategoryFilter(activeFilter);
 
   cleanupImageModalListener = initImageModal();
+  globeRotation.start();
 
   requestAnimationFrame(() => {
     map.resize();
@@ -764,6 +834,25 @@ export function initTravelMap(): void {
 }
 
 export function cleanupTravelMap(): void {
+  const scrollToDirBtn = document.getElementById('scroll-to-directory-btn');
+  if (scrollToDirBtn) {
+    scrollToDirBtn.onclick = null;
+  }
+  if (globeRotation) {
+    globeRotation.destroy();
+    globeRotation = null;
+  }
+  if (cleanupThemeObserver) {
+    cleanupThemeObserver();
+    cleanupThemeObserver = null;
+  }
+
+  if (routeAnimationId) {
+    cancelAnimationFrame(routeAnimationId);
+    routeAnimationId = null;
+  }
+  resetRouteOverlayState();
+
   if (mapInstance) {
     try {
       mapInstance.remove();
@@ -772,13 +861,17 @@ export function cleanupTravelMap(): void {
   }
   markerRecords = [];
   activeTripId = null;
-  cancelCurrentAnimation();
   currentTripStops = [];
   currentStopIndex = -1;
   currentTripStopIndices = [];
   tripCumulativeDistances = [];
   activeTripCoordinates = null;
   fullTripCoordinates = null;
+  activeRouteStyle = {
+    color: '#f59e0b',
+    glow: 'rgba(245, 158, 11, 0.45)',
+    mode: 'drive'
+  };
 
   if (cleanupDropdownListeners) {
     cleanupDropdownListeners();
@@ -796,14 +889,4 @@ export function cleanupTravelMap(): void {
     cleanupImageModalListener();
     cleanupImageModalListener = null;
   }
-
-  overlayElements = {
-    routeSvg: null,
-    routeGlowPath: null,
-    routeCasingPath: null,
-    routeLinePath: null,
-    routeLeadGroup: null,
-    routeLeadDot: null,
-    routeLeadHalo: null
-  };
 }

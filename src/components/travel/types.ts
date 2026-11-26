@@ -61,12 +61,8 @@ export interface MarkerRecord {
 
 export type FilterCategory = 'all' | 'park' | 'city' | 'landmark';
 
-export interface RouteSvgOverlayElements {
-  routeSvg: SVGSVGElement | null;
-  routeGlowPath: SVGPathElement | null;
-  routeCasingPath: SVGPathElement | null;
-  routeLinePath: SVGPathElement | null;
-  routeLeadGroup: SVGGElement | null;
-  routeLeadDot: SVGCircleElement | null;
-  routeLeadHalo: SVGCircleElement | null;
+export interface RouteStyleState {
+  color: string;
+  glow: string;
+  mode: string;
 }

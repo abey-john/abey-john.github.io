@@ -8,7 +8,11 @@ function ensurePopupInView(
   popup: maplibregl.Popup
 ): void {
   requestAnimationFrame(() => {
-    if (!popup.isOpen() || map.isMoving()) return;
+    if (!popup.isOpen()) return;
+    if (map.isMoving()) {
+      map.once('moveend', () => ensurePopupInView(map, mapEl, popup));
+      return;
+    }
     const popupEl = popup.getElement();
     if (!popupEl || !popupEl.isConnected) return;
 
@@ -24,12 +28,12 @@ function ensurePopupInView(
       return;
     }
 
-    // Safe padding from map edges (clearing the floating filter bar only if genuinely clipped)
+    // Safe padding from map edges (clearing floating filter bar and bottom HUD)
     const PADDING = {
-      top: 54,
-      bottom: 36,
-      left: 16,
-      right: 16
+      top: 72,
+      bottom: 48,
+      left: 20,
+      right: 20
     };
 
     let dx = 0;
@@ -428,7 +432,9 @@ export function createMarkers(
 
     const marker = new maplibregl.Marker({
       element: el,
-      anchor: 'center'
+      anchor: 'center',
+      opacityWhenCovered: '0',
+      subpixelPositioning: true
     })
       .setLngLat([place.lng, place.lat])
       .setPopup(popup)

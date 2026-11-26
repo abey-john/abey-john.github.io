@@ -201,13 +201,19 @@ export function fitCurrentTripBounds(
     // so flying to/from Europe feels smooth and majestic rather than an instant warp.
     const duration = approxMiles > 2500 ? 2200 : 900;
 
+    const isMobile = window.innerWidth < 640;
     map.fitBounds(
       [
         [minLng, minLat],
         [maxLng, maxLat]
       ],
       {
-        padding: window.innerWidth < 640 ? 40 : 80,
+        padding: {
+          top: isMobile ? 88 : 96,
+          bottom: isMobile ? 92 : 96,
+          left: isMobile ? 32 : 80,
+          right: isMobile ? 32 : 80
+        },
         duration,
         essential: true
       }

@@ -1,123 +1,104 @@
 import type * as maplibregl from 'maplibre-gl';
-import type { RouteSvgOverlayElements, TripData } from './types';
+import type { RouteStyleState, TripData } from './types';
+import {
+  EMPTY_FEATURE_COLLECTION,
+  LEAD_SOURCE_ID,
+  ROUTE_SOURCE_ID,
+  type TravelFeatureCollection
+} from './map-style';
 
-export function createRouteSvgOverlay(
-  mapEl: HTMLElement
-): RouteSvgOverlayElements {
-  const canvasContainer = mapEl.querySelector('.maplibregl-canvas-container');
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const existingSvg = mapEl.querySelector('.trip-route-svg');
-  if (existingSvg) existingSvg.remove();
-
-  if (!canvasContainer) {
-    return {
-      routeSvg: null,
-      routeGlowPath: null,
-      routeCasingPath: null,
-      routeLinePath: null,
-      routeLeadGroup: null,
-      routeLeadDot: null,
-      routeLeadHalo: null
-    };
-  }
-
-  const routeSvg = document.createElementNS(svgNS, 'svg') as SVGSVGElement;
-  routeSvg.setAttribute('class', 'trip-route-svg');
-  routeSvg.setAttribute('aria-hidden', 'true');
-
-  const routeGlowPath = document.createElementNS(
-    svgNS,
-    'path'
-  ) as SVGPathElement;
-  routeGlowPath.setAttribute('class', 'route-svg-glow');
-
-  const routeCasingPath = document.createElementNS(
-    svgNS,
-    'path'
-  ) as SVGPathElement;
-  routeCasingPath.setAttribute('class', 'route-svg-casing');
-
-  const routeLinePath = document.createElementNS(
-    svgNS,
-    'path'
-  ) as SVGPathElement;
-  routeLinePath.setAttribute('class', 'route-svg-line');
-
-  const routeLeadGroup = document.createElementNS(svgNS, 'g') as SVGGElement;
-  routeLeadGroup.setAttribute('class', 'route-lead-marker');
-  routeLeadGroup.style.display = 'none';
-
-  const routeLeadHalo = document.createElementNS(
-    svgNS,
-    'circle'
-  ) as SVGCircleElement;
-  routeLeadHalo.setAttribute('class', 'route-lead-halo');
-  routeLeadHalo.setAttribute('r', '14');
-  routeLeadHalo.setAttribute('cx', '0');
-  routeLeadHalo.setAttribute('cy', '0');
-
-  const routeLeadDot = document.createElementNS(
-    svgNS,
-    'circle'
-  ) as SVGCircleElement;
-  routeLeadDot.setAttribute('class', 'route-lead-dot');
-  routeLeadDot.setAttribute('r', '5.5');
-  routeLeadDot.setAttribute('cx', '0');
-  routeLeadDot.setAttribute('cy', '0');
-
-  routeLeadGroup.appendChild(routeLeadHalo);
-  routeLeadGroup.appendChild(routeLeadDot);
-
-  routeSvg.appendChild(routeGlowPath);
-  routeSvg.appendChild(routeCasingPath);
-  routeSvg.appendChild(routeLinePath);
-  routeSvg.appendChild(routeLeadGroup);
-
-  canvasContainer.appendChild(routeSvg);
-
-  return {
-    routeSvg,
-    routeGlowPath,
-    routeCasingPath,
-    routeLinePath,
-    routeLeadGroup,
-    routeLeadDot,
-    routeLeadHalo
-  };
+export interface RouteLeadPoint {
+  coord: [number, number];
+  haloRadius: number;
+  haloOpacity: number;
 }
 
-export function updateRouteSvg(
+let currentRouteGeoJSON: TravelFeatureCollection = EMPTY_FEATURE_COLLECTION;
+let currentLeadGeoJSON: TravelFeatureCollection = EMPTY_FEATURE_COLLECTION;
+
+export function getRouteGeoJSON(): TravelFeatureCollection {
+  return currentRouteGeoJSON;
+}
+
+export function getLeadGeoJSON(): TravelFeatureCollection {
+  return currentLeadGeoJSON;
+}
+
+export function syncRouteSources(map: maplibregl.Map | null): void {
+  if (!map) return;
+  const routeSource = map.getSource(ROUTE_SOURCE_ID) as
+    maplibregl.GeoJSONSource | undefined;
+  if (routeSource) {
+    routeSource.setData(currentRouteGeoJSON);
+  }
+  const leadSource = map.getSource(LEAD_SOURCE_ID) as
+    maplibregl.GeoJSONSource | undefined;
+  if (leadSource) {
+    leadSource.setData(currentLeadGeoJSON);
+  }
+}
+
+export function resetRouteOverlayState(): void {
+  currentRouteGeoJSON = EMPTY_FEATURE_COLLECTION;
+  currentLeadGeoJSON = EMPTY_FEATURE_COLLECTION;
+}
+
+export function clearRouteOverlay(map: maplibregl.Map | null): void {
+  resetRouteOverlayState();
+  syncRouteSources(map);
+}
+
+export function updateRouteOverlay(
   map: maplibregl.Map | null,
   activeCoordinates: [number, number][] | null,
-  overlay: RouteSvgOverlayElements
-) {
-  const { routeLinePath, routeGlowPath, routeCasingPath } = overlay;
-  if (!map || !activeCoordinates || activeCoordinates.length === 0) {
-    if (routeLinePath && routeLinePath.hasAttribute('d')) {
-      routeGlowPath?.removeAttribute('d');
-      routeCasingPath?.removeAttribute('d');
-      routeLinePath.removeAttribute('d');
-    }
-    return;
+  style: RouteStyleState,
+  leadPoint: RouteLeadPoint | null = null
+): void {
+  if (activeCoordinates && activeCoordinates.length >= 2) {
+    currentRouteGeoJSON = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {
+            color: style.color,
+            glow: style.glow,
+            mode: style.mode
+          },
+          geometry: {
+            type: 'LineString',
+            coordinates: activeCoordinates
+          }
+        }
+      ]
+    };
+  } else {
+    currentRouteGeoJSON = EMPTY_FEATURE_COLLECTION;
   }
 
-  const len = activeCoordinates.length;
-  let d = '';
-  for (let i = 0; i < len; i++) {
-    const pt = map.project(activeCoordinates[i]);
-    d += (i === 0 ? 'M' : 'L') + pt.x.toFixed(1) + ' ' + pt.y.toFixed(1);
+  if (leadPoint) {
+    currentLeadGeoJSON = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {
+            color: style.color,
+            haloRadius: leadPoint.haloRadius,
+            haloOpacity: leadPoint.haloOpacity
+          },
+          geometry: {
+            type: 'Point',
+            coordinates: leadPoint.coord
+          }
+        }
+      ]
+    };
+  } else {
+    currentLeadGeoJSON = EMPTY_FEATURE_COLLECTION;
   }
 
-  if (routeGlowPath) routeGlowPath.setAttribute('d', d);
-  if (routeCasingPath) routeCasingPath.setAttribute('d', d);
-  if (routeLinePath) routeLinePath.setAttribute('d', d);
-
-  const zoom = map.getZoom();
-  const baseWidth = Math.max(2.2, Math.min(8, 2.8 + (zoom - 4) * (3.2 / 8)));
-  if (routeLinePath) routeLinePath.style.strokeWidth = `${baseWidth}px`;
-  if (routeCasingPath)
-    routeCasingPath.style.strokeWidth = `${baseWidth + 2.5}px`;
-  if (routeGlowPath) routeGlowPath.style.strokeWidth = `${baseWidth * 2.5}px`;
+  syncRouteSources(map);
 }
 
 export function calculateStopIndices(
@@ -173,56 +154,46 @@ export function calculateCumulativeDistances(
   return cumulative;
 }
 
-export interface RouteAnimationCallbacks {
-  onUpdateCoords: (coords: [number, number][]) => void;
-  onComplete: () => void;
-  activateStopMarker?: (stop: TripData['stops'][0]) => void;
+function getPulseLeadPoint(
+  coord: [number, number],
+  elapsedMs: number
+): RouteLeadPoint {
+  const pulse = (elapsedMs % 1200) / 1200;
+  return {
+    coord,
+    haloRadius: 5 + pulse * 13,
+    haloOpacity: 0.55 * (1 - pulse)
+  };
 }
 
 export function startRouteDrawAnimation(
   map: maplibregl.Map,
   coords: [number, number][],
   distanceMiles: number,
-  mode: string,
+  style: RouteStyleState,
   tripCumulativeDistances: number[],
-  overlay: RouteSvgOverlayElements,
   callbacks: {
     getCurrentStopIndex: () => number;
     onUpdateCoords: (coords: [number, number][]) => void;
     onComplete: () => void;
   }
 ): number | null {
-  const { routeLinePath, routeCasingPath, routeGlowPath, routeLeadGroup } =
-    overlay;
   const len = coords.length;
   if (!coords || len < 2) {
     callbacks.onUpdateCoords(coords);
-    updateRouteSvg(map, coords, overlay);
+    updateRouteOverlay(map, coords, style, null);
     return null;
   }
 
   const totalDist = tripCumulativeDistances[len - 1] || 0;
-
-  if (routeLinePath) {
-    routeLinePath.style.strokeDasharray = mode === 'flight' ? '12 8' : 'none';
-    routeLinePath.style.strokeDashoffset = '0';
-  }
-  if (routeCasingPath) {
-    routeCasingPath.style.strokeDasharray = 'none';
-    routeCasingPath.style.strokeDashoffset = '0';
-  }
-  if (routeGlowPath) {
-    routeGlowPath.style.strokeDasharray = 'none';
-    routeGlowPath.style.strokeDashoffset = '0';
-  }
-
   const duration = Math.min(2600, Math.max(1800, 1600 + distanceMiles * 0.6));
   const startTime = performance.now();
   let animationId: number | null = null;
 
   function step(now: number) {
     if (callbacks.getCurrentStopIndex() !== -1) {
-      if (routeLeadGroup) routeLeadGroup.style.display = 'none';
+      currentLeadGeoJSON = EMPTY_FEATURE_COLLECTION;
+      syncRouteSources(map);
       return;
     }
 
@@ -234,10 +205,10 @@ export function startRouteDrawAnimation(
     if (progress >= 1) {
       if (callbacks.getCurrentStopIndex() === -1) {
         callbacks.onUpdateCoords(coords);
-        updateRouteSvg(map, coords, overlay);
-      }
-      if (routeLeadGroup) {
-        routeLeadGroup.style.display = 'none';
+        updateRouteOverlay(map, coords, style, null);
+      } else {
+        currentLeadGeoJSON = EMPTY_FEATURE_COLLECTION;
+        syncRouteSources(map);
       }
       callbacks.onComplete();
       return;
@@ -273,23 +244,19 @@ export function startRouteDrawAnimation(
     const currentSlice = coords.slice(0, segIdx + 1);
     currentSlice.push(tipPoint);
     callbacks.onUpdateCoords(currentSlice);
-    updateRouteSvg(map, currentSlice, overlay);
-
-    if (routeLeadGroup) {
-      const pt = map.project(tipPoint);
-      routeLeadGroup.setAttribute(
-        'transform',
-        `translate(${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`
-      );
-      routeLeadGroup.style.display = 'block';
-    }
+    updateRouteOverlay(
+      map,
+      currentSlice,
+      style,
+      getPulseLeadPoint(tipPoint, elapsed)
+    );
 
     animationId = requestAnimationFrame(step);
   }
 
   const initialSlice: [number, number][] = [coords[0], coords[0]];
   callbacks.onUpdateCoords(initialSlice);
-  updateRouteSvg(map, initialSlice, overlay);
+  updateRouteOverlay(map, initialSlice, style, getPulseLeadPoint(coords[0], 0));
   animationId = requestAnimationFrame(step);
   return animationId;
 }
@@ -302,7 +269,7 @@ export function animateRouteSegment(
   currentTripStopIndices: number[],
   tripCumulativeDistances: number[],
   currentTripStops: TripData['stops'],
-  overlay: RouteSvgOverlayElements,
+  style: RouteStyleState,
   callbacks: {
     onClosePopups: () => void;
     onUpdateCoords: (coords: [number, number][]) => void;
@@ -310,7 +277,6 @@ export function animateRouteSegment(
     onComplete: () => void;
   }
 ): number | null {
-  const { routeLeadGroup } = overlay;
   const startVertex =
     fromStopIdx >= 0 && fromStopIdx < currentTripStopIndices.length
       ? currentTripStopIndices[fromStopIdx]
@@ -326,8 +292,7 @@ export function animateRouteSegment(
   if (startVertex >= endVertex) {
     const finalCoords = fullTripCoordinates.slice(0, endVertex + 1);
     callbacks.onUpdateCoords(finalCoords);
-    updateRouteSvg(map, finalCoords, overlay);
-    if (routeLeadGroup) routeLeadGroup.style.display = 'none';
+    updateRouteOverlay(map, finalCoords, style, null);
     if (destStop) {
       map.jumpTo({ center: [destStop.lng, destStop.lat] });
       callbacks.activateStopMarker(destStop);
@@ -383,12 +348,7 @@ export function animateRouteSegment(
     if (progress >= 1) {
       const finalCoords = fullTripCoordinates.slice(0, endVertex + 1);
       callbacks.onUpdateCoords(finalCoords);
-
-      if (routeLeadGroup) {
-        routeLeadGroup.style.display = 'none';
-      }
-
-      updateRouteSvg(map, finalCoords, overlay);
+      updateRouteOverlay(map, finalCoords, style, null);
 
       if (destStop) {
         callbacks.activateStopMarker(destStop);
@@ -452,16 +412,12 @@ export function animateRouteSegment(
       zoom: currentZoom
     });
 
-    updateRouteSvg(map, currentSlice, overlay);
-
-    if (routeLeadGroup) {
-      const pt = map.project(tipPoint);
-      routeLeadGroup.setAttribute(
-        'transform',
-        `translate(${pt.x.toFixed(1)}, ${pt.y.toFixed(1)})`
-      );
-      routeLeadGroup.style.display = 'block';
-    }
+    updateRouteOverlay(
+      map,
+      currentSlice,
+      style,
+      getPulseLeadPoint(tipPoint, elapsed)
+    );
 
     animationId = requestAnimationFrame(step);
   }

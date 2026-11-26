@@ -182,3 +182,9 @@ a:hover {
   padding-top: var(--space-xl);
   padding-bottom: var(--space-2xl);
 }
+
+.main-full-bleed {
+  width: 100%;
+  padding-top: 0;
+  padding-bottom: var(--space-2xl);
+}

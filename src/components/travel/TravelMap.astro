@@ -493,21 +493,52 @@ const placesData = places.map((p) => {
       </div>
     </div>
   </div>
-</div>
-<p class="map-subtext">
-  Map data &copy;{' '}
-  <a
-    href="https://www.openstreetmap.org/copyright"
-    target="_blank"
-    rel="noopener noreferrer"
+  <button
+    type="button"
+    class="directory-jump-pill"
+    id="scroll-to-directory-btn"
+    aria-label="Scroll down to full list of visited places"
   >
-    OpenStreetMap
-  </a>{' '}
-  contributors &bull; Tiles by{' '}
-  <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">
-    OpenFreeMap
-  </a>
-</p>
+    <span>All {totalCount} places</span>
+    <svg
+      viewBox="0 0 24 24"
+      width="13"
+      height="13"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <polyline points="19 12 12 19 5 12"></polyline>
+    </svg>
+  </button>
+
+  <p class="map-subtext">
+    Map data &copy;{' '}
+    <a
+      href="https://www.openstreetmap.org/copyright"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      OpenStreetMap
+    </a>{' '}
+    contributors &bull; Tiles by{' '}
+    <a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">
+      OpenFreeMap
+    </a>{' '}
+    &bull; Terrain by{' '}
+    <a
+      href="https://registry.opendata.aws/terrain-tiles/"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Mapzen
+    </a>
+  </p>
+</div>
 
 <script>
   import { initTravelMap, cleanupTravelMap } from './controller';
