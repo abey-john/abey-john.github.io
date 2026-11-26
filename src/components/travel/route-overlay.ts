@@ -150,56 +150,95 @@ function renderActiveDrawFrame(map: maplibregl.Map): void {
   const casingWidth = zoom <= 4 ? 4.2 + t2_4 * 1.1 : 5.3 + t4_12 * 3.2;
   const glowWidth = zoom <= 4 ? 6.0 + t2_4 * 1.5 : 7.5 + t4_12 * 7.5;
 
+  const margin = Math.max(48, glowWidth * 2);
+  const minX = -margin;
+  const maxX = cssWidth + margin;
+  const minY = -margin;
+  const maxY = cssHeight + margin;
+
   const path = new Path2D();
-  let penDown = false;
-  let lastX = 0;
-  let lastY = 0;
+  let hasPrev = false;
+  let prevX = 0;
+  let prevY = 0;
+  let hasPen = false;
+  let penX = 0;
+  let penY = 0;
+  let hasVisibleSegment = false;
   const wrapJumpThreshold = cssWidth * 0.6;
+
+  function appendProjectedPoint(
+    ptX: number,
+    ptY: number,
+    forceEmit: boolean
+  ): void {
+    if (!hasPrev) {
+      prevX = ptX;
+      prevY = ptY;
+      hasPrev = true;
+      hasPen = false;
+      return;
+    }
+
+    if (Math.abs(ptX - prevX) > wrapJumpThreshold) {
+      prevX = ptX;
+      prevY = ptY;
+      hasPen = false;
+      return;
+    }
+
+    const intersectsViewport =
+      Math.max(prevX, ptX) >= minX &&
+      Math.min(prevX, ptX) <= maxX &&
+      Math.max(prevY, ptY) >= minY &&
+      Math.min(prevY, ptY) <= maxY;
+
+    if (intersectsViewport) {
+      if (!hasPen) {
+        path.moveTo(prevX, prevY);
+        path.lineTo(ptX, ptY);
+        hasPen = true;
+        penX = ptX;
+        penY = ptY;
+        hasVisibleSegment = true;
+      } else if (
+        forceEmit ||
+        Math.abs(ptX - penX) + Math.abs(ptY - penY) >= 0.75
+      ) {
+        path.lineTo(ptX, ptY);
+        penX = ptX;
+        penY = ptY;
+        hasVisibleSegment = true;
+      }
+    } else {
+      hasPen = false;
+    }
+
+    prevX = ptX;
+    prevY = ptY;
+  }
 
   for (let i = 0; i <= maxIdx; i++) {
     const c = coords[i];
     if (isLocationOccluded(map, c[0], c[1])) {
-      penDown = false;
+      hasPrev = false;
+      hasPen = false;
       continue;
     }
     const pt = map.project(scratchLngLat);
     if (!Number.isFinite(pt.x) || !Number.isFinite(pt.y)) {
-      penDown = false;
+      hasPrev = false;
+      hasPen = false;
       continue;
     }
 
     const isLastCoord = i === maxIdx && !tipPoint;
-    if (penDown) {
-      const dx = Math.abs(pt.x - lastX);
-      const dy = Math.abs(pt.y - lastY);
-      if (dx > wrapJumpThreshold) {
-        penDown = false;
-      } else if (!isLastCoord && dx + dy < 0.75) {
-        continue;
-      }
-    }
-
-    if (!penDown) {
-      path.moveTo(pt.x, pt.y);
-      penDown = true;
-    } else {
-      path.lineTo(pt.x, pt.y);
-    }
-    lastX = pt.x;
-    lastY = pt.y;
+    appendProjectedPoint(pt.x, pt.y, isLastCoord);
   }
 
   if (tipPoint && !isLocationOccluded(map, tipPoint[0], tipPoint[1])) {
     const pt = map.project(scratchLngLat);
     if (Number.isFinite(pt.x) && Number.isFinite(pt.y)) {
-      if (penDown && Math.abs(pt.x - lastX) > wrapJumpThreshold) {
-        penDown = false;
-      }
-      if (!penDown) {
-        path.moveTo(pt.x, pt.y);
-      } else {
-        path.lineTo(pt.x, pt.y);
-      }
+      appendProjectedPoint(pt.x, pt.y, true);
     }
   }
 
@@ -210,31 +249,33 @@ function renderActiveDrawFrame(map: maplibregl.Map): void {
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
 
-  // 1. Glow stroke
-  ctx.save();
-  ctx.globalAlpha = 0.3;
-  ctx.strokeStyle = style.color;
-  ctx.lineWidth = glowWidth;
-  ctx.shadowColor = style.color;
-  ctx.shadowBlur = 6;
-  ctx.stroke(path);
-  ctx.restore();
+  if (hasVisibleSegment) {
+    // 1. Glow strokes (zero-blur translucent passes instead of shadowBlur)
+    ctx.strokeStyle = style.color;
+    ctx.globalAlpha = 0.14;
+    ctx.lineWidth = glowWidth * 1.45;
+    ctx.stroke(path);
 
-  // 2. Casing stroke
-  ctx.globalAlpha = 0.9;
-  ctx.strokeStyle = casingColor;
-  ctx.lineWidth = casingWidth;
-  ctx.stroke(path);
+    ctx.globalAlpha = 0.24;
+    ctx.lineWidth = glowWidth;
+    ctx.stroke(path);
 
-  // 3. Core line stroke
-  ctx.globalAlpha = 1;
-  ctx.strokeStyle = style.color;
-  ctx.lineWidth = lineWidth;
-  if (style.mode === 'flight') {
-    ctx.lineCap = 'butt';
-    ctx.setLineDash([lineWidth * 2.2, lineWidth * 1.6]);
+    // 2. Casing stroke
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = casingColor;
+    ctx.lineWidth = casingWidth;
+    ctx.stroke(path);
+
+    // 3. Core line stroke
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = style.color;
+    ctx.lineWidth = lineWidth;
+    if (style.mode === 'flight') {
+      ctx.lineCap = 'butt';
+      ctx.setLineDash([lineWidth * 2.2, lineWidth * 1.6]);
+    }
+    ctx.stroke(path);
   }
-  ctx.stroke(path);
 
   // 4. Pulsing lead dot during animation
   if (
@@ -807,11 +848,6 @@ export function animateRouteSegment(
       targetCamLat = camLat + (destLat - camLat) * settleEase;
     }
 
-    map.jumpTo({
-      center: [targetCamLng, targetCamLat],
-      zoom: currentZoom
-    });
-
     activeDrawFrame = {
       coords: fullTripCoordinates,
       endIdx: segIdx,
@@ -819,7 +855,12 @@ export function animateRouteSegment(
       style,
       leadPulse: getPulseLeadPoint(tipPoint, elapsed)
     };
-    renderActiveDrawFrame(map);
+
+    map.jumpTo({
+      center: [targetCamLng, targetCamLat],
+      zoom: currentZoom
+    });
+    map.triggerRepaint();
 
     animationId = requestAnimationFrame(step);
   }
