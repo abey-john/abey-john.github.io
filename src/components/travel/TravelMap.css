@@ -465,12 +465,162 @@ html[data-theme='dark'] .trips-dropdown-item:hover {
   width: 100%;
   height: 100%;
   background: transparent;
+  opacity: 0;
+  transform: scale(0.9);
+  transition:
+    opacity 0.42s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.52s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
   z-index: 1;
   view-transition-name: none;
   user-select: none;
   -webkit-user-select: none;
   touch-action: pan-x pan-y;
   cursor: grab;
+}
+
+.travel-map.is-ready {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.globe-loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  animation: globe-loader-appear 0.2s ease 0.08s forwards;
+  transition: opacity 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.globe-loader.is-hidden {
+  opacity: 0;
+  animation: none;
+}
+
+.globe-loader-sphere {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: #8fbdd6;
+  border: 1.5px solid #5f93b3;
+  box-shadow: 0 8px 24px rgba(15, 36, 62, 0.14);
+  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.globe-loader.is-hidden .globe-loader-sphere {
+  transform: scale(4.2);
+}
+
+.globe-loader-continents {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 400%;
+  height: 100%;
+  animation: globe-loader-spin-land 5.5s linear infinite;
+}
+
+.globe-loader-land {
+  fill: #efe4cb;
+}
+
+.globe-loader-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 34% 30%,
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(255, 255, 255, 0) 52%,
+    rgba(15, 32, 54, 0.22) 100%
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme='light']) .globe-loader-sphere {
+    background-color: #14232f;
+    border-color: #2e4659;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.42);
+  }
+
+  html:not([data-theme='light']) .globe-loader-land {
+    fill: #2d2924;
+  }
+
+  html:not([data-theme='light']) .globe-loader-sheen {
+    background: radial-gradient(
+      circle at 34% 30%,
+      rgba(191, 219, 254, 0.12) 0%,
+      rgba(0, 0, 0, 0) 50%,
+      rgba(0, 0, 0, 0.42) 100%
+    );
+  }
+}
+
+html[data-theme='dark'] .globe-loader-sphere {
+  background-color: #14232f;
+  border-color: #2e4659;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.42);
+}
+
+html[data-theme='dark'] .globe-loader-land {
+  fill: #2d2924;
+}
+
+html[data-theme='dark'] .globe-loader-sheen {
+  background: radial-gradient(
+    circle at 34% 30%,
+    rgba(191, 219, 254, 0.12) 0%,
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 0.42) 100%
+  );
+}
+
+@keyframes globe-loader-appear {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes globe-loader-spin-land {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .travel-map {
+    transform: none;
+    transition: none;
+  }
+
+  .globe-loader {
+    animation: none;
+    transition: none;
+    opacity: 1;
+  }
+
+  .globe-loader-sphere,
+  .globe-loader.is-hidden .globe-loader-sphere {
+    transform: none;
+    transition: none;
+  }
+
+  .globe-loader-continents {
+    animation: none;
+  }
 }
 
 .travel-map:active,

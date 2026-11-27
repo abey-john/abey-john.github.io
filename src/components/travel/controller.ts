@@ -89,6 +89,7 @@ let cleanupImageModalListener: (() => void) | null = null;
 let activeFlightId = 0;
 let activeRecenterId = 0;
 let lastVenueZoomVisible: boolean | null = null;
+let mapReadyTimeoutId: number | null = null;
 
 function cancelCurrentAnimation() {
   if (routeAnimationId) {
@@ -445,6 +446,10 @@ export function initTravelMap(): void {
   if (!mapEl || !mapEl.dataset.places) return;
 
   cleanupTravelMap();
+  mapEl.classList.remove('is-ready');
+  const loaderEl = document.getElementById('globe-loader');
+  loaderEl?.classList.remove('is-hidden');
+  const startToken = activeRecenterId;
 
   const rawPlaces: PlaceData[] = JSON.parse(mapEl.dataset.places);
   rawTrips = JSON.parse(
@@ -564,10 +569,32 @@ export function initTravelMap(): void {
     globeRotation?.stop();
   });
 
+  let mapReadyDone = false;
+  const markMapReady = () => {
+    if (mapReadyDone) return;
+    mapReadyDone = true;
+    if (mapReadyTimeoutId !== null) {
+      window.clearTimeout(mapReadyTimeoutId);
+      mapReadyTimeoutId = null;
+    }
+    loaderEl?.classList.add('is-hidden');
+    requestAnimationFrame(() => {
+      if (mapInstance === map) {
+        mapEl.classList.add('is-ready');
+        if (!activeTripId && activeRecenterId === startToken) {
+          globeRotation?.start();
+        }
+      }
+    });
+  };
+  mapReadyTimeoutId = window.setTimeout(markMapReady, 2500);
+
   map.on('load', () => {
     syncMarkerVisibility();
     syncRouteSources(map);
   });
+
+  map.once('idle', markMapReady);
 
   map.on('zoom', () => {
     const isVenueZoomVisible = map.getZoom() >= VENUE_MIN_ZOOM;
@@ -826,7 +853,6 @@ export function initTravelMap(): void {
   applyCategoryFilter(activeFilter);
 
   cleanupImageModalListener = initImageModal();
-  globeRotation.start();
 
   requestAnimationFrame(() => {
     map.resize();
@@ -837,6 +863,10 @@ export function cleanupTravelMap(): void {
   const scrollToDirBtn = document.getElementById('scroll-to-directory-btn');
   if (scrollToDirBtn) {
     scrollToDirBtn.onclick = null;
+  }
+  if (mapReadyTimeoutId !== null) {
+    window.clearTimeout(mapReadyTimeoutId);
+    mapReadyTimeoutId = null;
   }
   if (globeRotation) {
     globeRotation.destroy();
