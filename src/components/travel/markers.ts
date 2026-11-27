@@ -229,7 +229,7 @@ export function createMarkers(
         </div>`;
 
     const popup = new maplibregl.Popup({
-      offset: 16,
+      offset: 12,
       closeButton: true,
       closeOnClick: true,
       className: popupClass,

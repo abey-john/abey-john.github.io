@@ -940,8 +940,8 @@ html[data-theme='light'] .itinerary-stepper {
 .custom-map-icon.in-active-trip .pin-city,
 .custom-map-icon.in-active-trip .pin-venue {
   box-shadow:
-    0 0 0 3.5px var(--active-trip-color, #f59e0b),
-    0 0 16px var(--active-trip-glow, rgba(245, 158, 11, 0.55)) !important;
+    0 0 0 2.5px var(--active-trip-color, #f59e0b),
+    0 0 12px var(--active-trip-glow, rgba(245, 158, 11, 0.55)) !important;
   transform: scale(1.12);
 }
 
@@ -953,8 +953,8 @@ html[data-theme='light'] .itinerary-stepper {
 
 .custom-map-icon.in-active-trip .pin-landmark::before {
   box-shadow:
-    0 0 0 3.5px var(--active-trip-color, #f59e0b),
-    0 0 16px var(--active-trip-glow, rgba(245, 158, 11, 0.55)) !important;
+    0 0 0 2.5px var(--active-trip-color, #f59e0b),
+    0 0 12px var(--active-trip-glow, rgba(245, 158, 11, 0.55)) !important;
 }
 
 .custom-map-icon.in-active-trip .pin-landmark:hover::before {
@@ -965,15 +965,15 @@ html[data-theme='light'] .itinerary-stepper {
 
 .trip-stop-badge {
   position: absolute;
-  top: -8px;
-  right: -8px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
+  top: -6px;
+  right: -6px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
   border-radius: 9999px;
   background-color: var(--active-trip-color, #f59e0b);
   color: #ffffff;
-  font-size: 0.625rem;
+  font-size: 0.5625rem;
   font-weight: 800;
   font-family: var(--font-mono);
   display: none;
@@ -987,8 +987,8 @@ html[data-theme='light'] .itinerary-stepper {
 }
 
 .pin-marker {
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -996,13 +996,15 @@ html[data-theme='light'] .itinerary-stepper {
     transform 0.15s ease,
     box-shadow 0.15s ease;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
 }
 
 .pin-marker svg {
+  width: 10px;
+  height: 10px;
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
@@ -1080,24 +1082,29 @@ html[data-theme='light'] .itinerary-stepper {
   background-color: #059669;
   color: #ffffff;
   border-radius: 50%;
-  border: 2px solid #ffffff;
+  border: 1.5px solid #ffffff;
 }
 
 .pin-city {
   background-color: #2563eb;
   color: #ffffff;
-  border-radius: 6px;
-  border: 2px solid #ffffff;
+  border-radius: 5px;
+  border: 1.5px solid #ffffff;
 }
 
 .pin-venue {
-  width: 20px;
-  height: 20px;
+  width: 15px;
+  height: 15px;
   background-color: #e11d48;
   color: #ffffff;
-  border-radius: 5px;
+  border-radius: 4px;
   border: 1.5px solid #ffffff;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+
+.pin-venue svg {
+  width: 8px;
+  height: 8px;
 }
 
 .pin-landmark {
@@ -1111,12 +1118,12 @@ html[data-theme='light'] .itinerary-stepper {
 .pin-landmark::before {
   content: '';
   position: absolute;
-  inset: 3px;
+  inset: 2px;
   background-color: #d97706;
-  border: 2px solid #ffffff;
-  border-radius: 4px;
+  border: 1.5px solid #ffffff;
+  border-radius: 3px;
   transform: rotate(45deg);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
