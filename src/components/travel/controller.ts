@@ -451,6 +451,7 @@ export function initTravelMap(): void {
     document.getElementById('trips-json')?.textContent || '[]'
   );
 
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
   const map = new maplibregl.Map({
     container: mapEl,
     style: buildTravelMapStyle(getEffectiveMapTheme(), getRouteGeoJSON()),
@@ -458,6 +459,8 @@ export function initTravelMap(): void {
     zoom: getInitialGlobeZoom(),
     minZoom: 1.1,
     maxZoom: 19,
+    pixelRatio: Math.min(dpr, 2),
+    canvasContextAttributes: { antialias: dpr < 2 },
     fadeDuration: 100,
     maxTileCacheSize: 250,
     maxTileCacheZoomLevels: 8,
@@ -828,9 +831,6 @@ export function initTravelMap(): void {
   requestAnimationFrame(() => {
     map.resize();
   });
-  setTimeout(() => {
-    map.resize();
-  }, 200);
 }
 
 export function cleanupTravelMap(): void {
