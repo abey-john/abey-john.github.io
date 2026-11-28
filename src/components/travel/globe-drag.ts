@@ -10,8 +10,10 @@ const DRAG_THRESHOLD_PX = 5;
 const MIN_ZOOM_BLEND = 3.5;
 const MAX_ZOOM_BLEND = 8.5;
 const GLOBE_DRAG_SCALE = 0.88;
+const TOUCH_GLOBE_DRAG_SCALE = 1.35;
 const MAP_DRAG_SCALE = 1.0;
 const GLOBE_DRAG_DAMPING = 0.14;
+const TOUCH_GLOBE_DRAG_DAMPING = 0.24;
 const MAP_DRAG_DAMPING = 0.3;
 const GLOBE_GLIDE_DAMPING = 0.055;
 const MAP_GLIDE_DAMPING = 0.1;
@@ -38,7 +40,7 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-function getZoomParams(zoom: number) {
+function getZoomParams(zoom: number, isTouch: boolean) {
   const degPerPx = 360 / (512 * Math.pow(2, zoom));
   const t = clamp(
     (zoom - MIN_ZOOM_BLEND) / (MAX_ZOOM_BLEND - MIN_ZOOM_BLEND),
@@ -48,8 +50,16 @@ function getZoomParams(zoom: number) {
 
   return {
     degPerPx,
-    dragScale: lerp(GLOBE_DRAG_SCALE, MAP_DRAG_SCALE, t),
-    dragDamping: lerp(GLOBE_DRAG_DAMPING, MAP_DRAG_DAMPING, t),
+    dragScale: lerp(
+      isTouch ? TOUCH_GLOBE_DRAG_SCALE : GLOBE_DRAG_SCALE,
+      MAP_DRAG_SCALE,
+      t
+    ),
+    dragDamping: lerp(
+      isTouch ? TOUCH_GLOBE_DRAG_DAMPING : GLOBE_DRAG_DAMPING,
+      MAP_DRAG_DAMPING,
+      t
+    ),
     glideDamping: lerp(GLOBE_GLIDE_DAMPING, MAP_GLIDE_DAMPING, t),
     mercatorBlend: clamp((zoom - 4) / 3, 0, 1)
   };
@@ -86,6 +96,7 @@ export function createGlobeDrag(
 
   const activePointers = new Set<number>();
   let pointerId: number | null = null;
+  let activePointerType = 'mouse';
   let isPointerDown = false;
   let hasMoved = false;
   let startX = 0;
@@ -132,7 +143,8 @@ export function createGlobeDrag(
     lastTime = now;
 
     const { degPerPx, dragDamping, glideDamping } = getZoomParams(
-      map.getZoom()
+      map.getZoom(),
+      activePointerType === 'touch'
     );
     const activelyDragging = isPointerDown && hasMoved;
     const damping = activelyDragging
@@ -207,6 +219,7 @@ export function createGlobeDrag(
     stopRaf();
 
     pointerId = e.pointerId;
+    activePointerType = e.pointerType;
     isPointerDown = true;
     hasMoved = false;
     startX = e.clientX;
@@ -231,10 +244,6 @@ export function createGlobeDrag(
       hasMoved = true;
       mapEl.classList.add('is-dragging');
       callbacks?.onDragStart?.();
-      lastX = e.clientX;
-      lastY = e.clientY;
-      ensureRaf();
-      return;
     }
 
     const dx = e.clientX - lastX;
@@ -242,7 +251,10 @@ export function createGlobeDrag(
     lastX = e.clientX;
     lastY = e.clientY;
 
-    const { degPerPx, dragScale, mercatorBlend } = getZoomParams(map.getZoom());
+    const { degPerPx, dragScale, mercatorBlend } = getZoomParams(
+      map.getZoom(),
+      activePointerType === 'touch'
+    );
     const center = map.getCenter();
     const latCos = Math.max(0.2, Math.cos((center.lat * Math.PI) / 180));
     const latFactor = 1 - mercatorBlend * (1 - latCos);
@@ -278,7 +290,8 @@ export function createGlobeDrag(
       }
 
       const { degPerPx, dragDamping, glideDamping } = getZoomParams(
-        map.getZoom()
+        map.getZoom(),
+        activePointerType === 'touch'
       );
       const ratio = dragDamping / glideDamping;
       const maxGlide = Math.min(120, MAX_GLIDE_PX * degPerPx);
