@@ -7,6 +7,27 @@ export interface ImageModalData {
 }
 
 let previousFocusedElement: HTMLElement | null = null;
+let modalLoadToken = 0;
+
+function clearModalImage(): void {
+  const pictureSource = document.getElementById(
+    'travel-modal-source'
+  ) as HTMLSourceElement | null;
+  const imgEl = document.getElementById(
+    'travel-modal-img'
+  ) as HTMLImageElement | null;
+
+  if (pictureSource) {
+    pictureSource.removeAttribute('srcset');
+  }
+  if (imgEl) {
+    imgEl.onload = null;
+    imgEl.onerror = null;
+    imgEl.classList.remove('is-loaded');
+    imgEl.removeAttribute('src');
+    imgEl.alt = '';
+  }
+}
 
 export function isImageModalOpen(): boolean {
   const modalEl = document.getElementById('travel-image-modal');
@@ -16,6 +37,9 @@ export function isImageModalOpen(): boolean {
 export function openImageModal(data: ImageModalData): void {
   const modalEl = document.getElementById('travel-image-modal');
   if (!modalEl) return;
+
+  const token = ++modalLoadToken;
+  clearModalImage();
 
   const pictureSource = document.getElementById(
     'travel-modal-source'
@@ -31,12 +55,21 @@ export function openImageModal(data: ImageModalData): void {
   ) as HTMLButtonElement | null;
 
   if (imgEl) {
+    const markLoaded = () => {
+      if (token !== modalLoadToken) return;
+      imgEl.classList.add('is-loaded');
+    };
     const webpUrl = data.url.replace(/\.(png|jpe?g)$/i, '.webp');
+    imgEl.onload = markLoaded;
+    imgEl.onerror = markLoaded;
     if (pictureSource) {
       pictureSource.srcset = webpUrl;
     }
     imgEl.src = data.url;
     imgEl.alt = data.name;
+    if (imgEl.complete && imgEl.naturalWidth > 0) {
+      markLoaded();
+    }
   }
 
   if (tagEl) {
@@ -78,9 +111,11 @@ export function closeImageModal(): void {
   const modalEl = document.getElementById('travel-image-modal');
   if (!modalEl || !modalEl.classList.contains('is-open')) return;
 
+  ++modalLoadToken;
   modalEl.classList.remove('is-open');
   modalEl.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('travel-modal-open');
+  clearModalImage();
 
   if (
     previousFocusedElement &&

@@ -1798,6 +1798,12 @@ body.travel-modal-open {
   object-fit: cover;
   object-position: center 20%;
   display: block;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.travel-modal-img.is-loaded {
+  opacity: 1;
 }
 
 .travel-modal-caption {
