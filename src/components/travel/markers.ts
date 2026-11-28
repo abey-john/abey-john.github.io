@@ -328,91 +328,9 @@ export function createMarkers(
     stopBadge.setAttribute('aria-hidden', 'true');
     el.appendChild(stopBadge);
 
-    // Seamless drag forwarding
-    let isDown = false;
-    let startX = 0;
-    let startY = 0;
-    let lastX = 0;
-    let lastY = 0;
-    let didDrag = false;
-    let velX = 0;
-    let velY = 0;
-    let lastTime = 0;
-
-    el.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
-      isDown = true;
-      didDrag = false;
-      startX = e.clientX;
-      startY = e.clientY;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      lastTime = performance.now();
-      velX = 0;
-      velY = 0;
-      try {
-        el.setPointerCapture(e.pointerId);
-      } catch (err) {}
-    });
-
-    el.addEventListener('pointermove', (e) => {
-      if (!isDown) return;
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      const totalDist = Math.hypot(e.clientX - startX, e.clientY - startY);
-
-      if (totalDist > 4) {
-        didDrag = true;
-        mapEl.classList.add('is-dragging');
-
-        map.panBy([-dx, -dy], { duration: 0 });
-
-        const now = performance.now();
-        const dt = Math.max(1, now - lastTime);
-        velX = dx / dt;
-        velY = dy / dt;
-        lastTime = now;
-        lastX = e.clientX;
-        lastY = e.clientY;
-      }
-    });
-
-    const onPointerUp = (e: PointerEvent) => {
-      if (!isDown) return;
-      isDown = false;
-      try {
-        el.releasePointerCapture(e.pointerId);
-      } catch (err) {}
-      mapEl.classList.remove('is-dragging');
-
-      if (didDrag) {
-        const speed = Math.hypot(velX, velY);
-        if (speed > 0.12) {
-          const momentumFactor = Math.min(speed * 280, 420);
-          map.panBy([-velX * momentumFactor, -velY * momentumFactor], {
-            duration: Math.min(800, Math.max(250, speed * 550)),
-            easing: (t) => t * (2 - t)
-          });
-        }
-      }
-    };
-
-    el.addEventListener('pointerup', onPointerUp);
-    el.addEventListener('pointercancel', () => {
-      isDown = false;
-      didDrag = false;
-      mapEl.classList.remove('is-dragging');
-    });
-
     el.addEventListener(
       'click',
-      (e) => {
-        if (didDrag) {
-          e.stopPropagation();
-          e.preventDefault();
-          didDrag = false;
-          return;
-        }
+      () => {
         const pinEl = el.querySelector('.pin-marker');
         if (pinEl) {
           pinEl.classList.add('pin-pulse');

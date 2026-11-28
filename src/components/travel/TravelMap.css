@@ -475,8 +475,18 @@ html[data-theme='dark'] .trips-dropdown-item:hover {
   view-transition-name: none;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: pan-x pan-y;
+  touch-action: none;
   cursor: grab;
+}
+
+.travel-map .maplibregl-canvas-container,
+.travel-map .maplibregl-canvas,
+.travel-map .maplibregl-marker {
+  touch-action: none;
+}
+
+.travel-map .maplibregl-popup {
+  touch-action: auto;
 }
 
 .travel-map.is-ready {
@@ -624,7 +634,10 @@ html[data-theme='dark'] .globe-loader-sheen {
 }
 
 .travel-map:active,
-.travel-map.is-dragging {
+.travel-map.is-dragging,
+.travel-map.is-dragging .maplibregl-canvas-container,
+.travel-map.is-dragging .maplibregl-canvas,
+.travel-map.is-dragging .maplibregl-marker {
   cursor: grabbing !important;
 }
 

@@ -19,6 +19,7 @@ import {
   createGlobeAutoRotation,
   type GlobeRotationController
 } from './globe-rotation';
+import { createGlobeDrag, type GlobeDragController } from './globe-drag';
 import {
   getRouteGeoJSON,
   getCurrentRouteOpacity,
@@ -81,6 +82,7 @@ let currentTripStopIndices: number[] = [];
 let tripCumulativeDistances: number[] = [];
 
 let globeRotation: GlobeRotationController | null = null;
+let globeDrag: GlobeDragController | null = null;
 let cleanupThemeObserver: (() => void) | null = null;
 let cleanupDropdownListeners: (() => void) | null = null;
 let cleanupDirectoryListeners: (() => void) | null = null;
@@ -176,6 +178,7 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
     syncMarkerVisibility();
 
     if (fitBounds) {
+      globeDrag?.stop();
       mapInstance.flyTo({
         center: INITIAL_GLOBE_CENTER,
         zoom: getInitialGlobeZoom(),
@@ -191,6 +194,7 @@ export function setActiveTrip(tripId: string | null, fitBounds = false): void {
 
   ++activeRecenterId;
   globeRotation?.stop();
+  globeDrag?.stop();
   cancelCurrentAnimation();
 
   // Close any open popups so the whole route can be viewed without obstruction
@@ -341,6 +345,7 @@ export function recenterMap(): void {
   const currentRecenter = ++activeRecenterId;
   ++activeFlightId;
   globeRotation?.stop();
+  globeDrag?.stop();
 
   setActiveTrip(null, false);
   applyCategoryFilter('all');
@@ -376,6 +381,7 @@ export function flyToPlace(
   if (!mapInstance) return;
   ++activeRecenterId;
   globeRotation?.stop();
+  globeDrag?.stop();
   const currentFlight = ++activeFlightId;
 
   markerRecords.forEach(({ popup }) => {
@@ -509,13 +515,6 @@ export function initTravelMap(): void {
     ctrlGroup.appendChild(recenterBtn);
   }
 
-  // Tune drag pan momentum & physics for fluid feel
-  map.dragPan.enable({
-    linearity: 0.25,
-    maxSpeed: 2200,
-    deceleration: 2200
-  });
-
   // Keep scroll zoom smoothly enabled at all times
   map.scrollZoom.enable();
   map.scrollZoom.setWheelZoomRate(1 / 450);
@@ -536,30 +535,31 @@ export function initTravelMap(): void {
   });
 
   globeRotation = createGlobeAutoRotation(map, mapEl);
-
-  map.on('dragstart', () => {
-    ++activeRecenterId;
-    globeRotation?.stop();
-    if (routeAnimationId) {
-      cancelAnimationFrame(routeAnimationId);
-      routeAnimationId = null;
-      if (
-        currentStopIndex > 0 &&
-        currentTripStopIndices[currentStopIndex] !== undefined &&
-        fullTripCoordinates
-      ) {
-        activeTripCoordinates = fullTripCoordinates.slice(
-          0,
-          currentTripStopIndices[currentStopIndex] + 1
-        );
-        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle);
-      } else if (currentStopIndex === 0) {
-        activeTripCoordinates = null;
-        clearRouteOverlay(map);
-      } else {
-        activeTripCoordinates =
-          getCurrentDrawnCoordinates() || activeTripCoordinates;
-        updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle);
+  globeDrag = createGlobeDrag(map, mapEl, {
+    onDragStart: () => {
+      ++activeRecenterId;
+      globeRotation?.stop();
+      if (routeAnimationId) {
+        cancelAnimationFrame(routeAnimationId);
+        routeAnimationId = null;
+        if (
+          currentStopIndex > 0 &&
+          currentTripStopIndices[currentStopIndex] !== undefined &&
+          fullTripCoordinates
+        ) {
+          activeTripCoordinates = fullTripCoordinates.slice(
+            0,
+            currentTripStopIndices[currentStopIndex] + 1
+          );
+          updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle);
+        } else if (currentStopIndex === 0) {
+          activeTripCoordinates = null;
+          clearRouteOverlay(map);
+        } else {
+          activeTripCoordinates =
+            getCurrentDrawnCoordinates() || activeTripCoordinates;
+          updateRouteOverlay(map, activeTripCoordinates, activeRouteStyle);
+        }
       }
     }
   });
@@ -567,6 +567,14 @@ export function initTravelMap(): void {
   map.on('wheel', () => {
     ++activeRecenterId;
     globeRotation?.stop();
+    globeDrag?.stop();
+  });
+
+  map.on('zoomstart', (e) => {
+    if ((e as { globeDrag?: boolean }).globeDrag) return;
+    if (!globeDrag?.isDragging()) {
+      globeDrag?.stop();
+    }
   });
 
   let mapReadyDone = false;
@@ -611,6 +619,7 @@ export function initTravelMap(): void {
     onMarkerClick: (place) => {
       ++activeRecenterId;
       globeRotation?.stop();
+      globeDrag?.stop();
       if (activeTripId && currentTripStops.length > 0 && fullTripCoordinates) {
         const stopIdx = currentTripStops.findIndex(
           (s) =>
@@ -673,6 +682,7 @@ export function initTravelMap(): void {
 
   if (stepperPrev) {
     stepperPrev.onclick = () => {
+      globeDrag?.stop();
       if (currentStopIndex > 0) {
         const toIdx = currentStopIndex - 1;
         currentStopIndex = toIdx;
@@ -707,6 +717,7 @@ export function initTravelMap(): void {
 
   if (stepperNext) {
     stepperNext.onclick = () => {
+      globeDrag?.stop();
       if (currentStopIndex < currentTripStops.length - 1) {
         const fromIdx = currentStopIndex;
         const toIdx = currentStopIndex + 1;
@@ -757,6 +768,7 @@ export function initTravelMap(): void {
 
   if (stepperContent) {
     const handleContentAction = () => {
+      globeDrag?.stop();
       if (currentStopIndex < 0) {
         currentStopIndex = 0;
         cancelCurrentAnimation();
@@ -782,6 +794,7 @@ export function initTravelMap(): void {
 
   if (stepperFit) {
     stepperFit.onclick = () => {
+      globeDrag?.stop();
       cancelCurrentAnimation();
       currentStopIndex = -1;
       activeTripCoordinates = fullTripCoordinates;
@@ -867,6 +880,10 @@ export function cleanupTravelMap(): void {
   if (mapReadyTimeoutId !== null) {
     window.clearTimeout(mapReadyTimeoutId);
     mapReadyTimeoutId = null;
+  }
+  if (globeDrag) {
+    globeDrag.destroy();
+    globeDrag = null;
   }
   if (globeRotation) {
     globeRotation.destroy();
