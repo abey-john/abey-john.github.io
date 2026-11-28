@@ -51,15 +51,49 @@ import {
 maplibregl.setWorkerUrl(workerUrl);
 
 const INITIAL_GLOBE_CENTER: [number, number] = [-97.5, 36.0];
+// MapLibre's globe mode defines minZoom at the equator (lat = 0) and shifts it by
+// log2(cos(lat)) at other latitudes, so subtracting getLatZoomOffset(INITIAL_GLOBE_CENTER[1])
+// locks the minimum visual globe diameter to match getMinGlobeZoomAtInitialLat() everywhere on the sphere.
+const MAX_VALID_LATITUDE = 85.051129;
 const VENUE_MIN_ZOOM = 9;
 
-function getInitialGlobeZoom(): number {
-  if (typeof window === 'undefined') return 2.15;
+function getLatZoomOffset(lat: number): number {
+  const clamped = Math.min(Math.abs(lat), MAX_VALID_LATITUDE);
+  return Math.log(Math.cos((clamped * Math.PI) / 180)) / Math.LN2;
+}
+
+function getResponsiveGlobeZoom(
+  mobileRatio: number,
+  desktopRatio: number,
+  minZoom: number,
+  maxZoom: number,
+  ssrFallback: number
+): number {
+  if (typeof window === 'undefined') return ssrFallback;
   const mapEl = document.getElementById('travel-map');
   const w = mapEl?.clientWidth || window.innerWidth;
   const h = mapEl?.clientHeight || Math.max(520, window.innerHeight - 65);
-  const targetDiameter = Math.min(w, h) * (w < 640 ? 0.86 : 0.78);
-  return Math.max(1.2, Math.min(2.65, Math.log2(targetDiameter / 139)));
+  const targetDiameter =
+    Math.min(w, h) * (w < 640 ? mobileRatio : desktopRatio);
+  return Math.max(minZoom, Math.min(maxZoom, Math.log2(targetDiameter / 139)));
+}
+
+function getInitialGlobeZoom(): number {
+  return getResponsiveGlobeZoom(0.86, 0.78, 1.2, 2.65, 2.15);
+}
+
+function getMinGlobeZoomAtInitialLat(): number {
+  return getResponsiveGlobeZoom(0.68, 0.65, 0.8, 2.38, 1.85);
+}
+
+function getMinGlobeZoom(): number {
+  return (
+    getMinGlobeZoomAtInitialLat() - getLatZoomOffset(INITIAL_GLOBE_CENTER[1])
+  );
+}
+
+function getConstrainedMinGlobeZoom(map: maplibregl.Map): number {
+  return map.getMinZoom() + getLatZoomOffset(map.getCenter().lat);
 }
 
 let mapInstance: maplibregl.Map | null = null;
@@ -468,7 +502,7 @@ export function initTravelMap(): void {
     style: buildTravelMapStyle(getEffectiveMapTheme(), getRouteGeoJSON()),
     center: INITIAL_GLOBE_CENTER,
     zoom: getInitialGlobeZoom(),
-    minZoom: 1.1,
+    minZoom: getMinGlobeZoomAtInitialLat(),
     maxZoom: 19,
     pixelRatio: Math.min(dpr, 2),
     canvasContextAttributes: { antialias: dpr < 2 },
@@ -489,6 +523,21 @@ export function initTravelMap(): void {
 
   const navControl = new maplibregl.NavigationControl({ showCompass: false });
   map.addControl(navControl, 'top-left');
+
+  const zoomOutBtn = mapEl.querySelector<HTMLButtonElement>(
+    '.maplibregl-ctrl-zoom-out'
+  );
+  const syncZoomOutButton = () => {
+    if (!zoomOutBtn || mapInstance !== map) return;
+    const effectiveMin =
+      map.getProjection()?.type === 'globe'
+        ? getConstrainedMinGlobeZoom(map)
+        : map.getMinZoom();
+    const isAtMin = map.getZoom() <= effectiveMin + 1e-3;
+    zoomOutBtn.disabled = isAtMin;
+    zoomOutBtn.setAttribute('aria-disabled', String(isAtMin));
+  };
+  map.on('move', syncZoomOutButton);
 
   const ctrlGroup = mapEl.querySelector(
     '.maplibregl-ctrl-top-left .maplibregl-ctrl-group'
@@ -597,9 +646,23 @@ export function initTravelMap(): void {
   };
   mapReadyTimeoutId = window.setTimeout(markMapReady, 2500);
 
+  const syncMinGlobeZoom = () => {
+    if (mapInstance !== map) return;
+    if (map.getProjection()?.type !== 'globe') return;
+    const nextMinZoom = getMinGlobeZoom();
+    if (Math.abs(map.getMinZoom() - nextMinZoom) > 1e-4) {
+      map.setMinZoom(nextMinZoom);
+    }
+    syncZoomOutButton();
+  };
+
+  map.on('style.load', syncMinGlobeZoom);
+  map.on('resize', syncMinGlobeZoom);
+
   map.on('load', () => {
     syncMarkerVisibility();
     syncRouteSources(map);
+    syncZoomOutButton();
   });
 
   map.once('idle', markMapReady);

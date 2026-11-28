@@ -16,11 +16,22 @@ const MAP_DRAG_DAMPING = 0.3;
 const GLOBE_GLIDE_DAMPING = 0.055;
 const MAP_GLIDE_DAMPING = 0.1;
 const MAX_LAT = 82;
+const MAX_VALID_LATITUDE = 85.051129;
 const MAX_GLIDE_PX = 500;
 const STOP_EPS_PX = 0.08;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function getLatZoomAdjustment(fromLat: number, toLat: number): number {
+  const fromCos = Math.cos(
+    (Math.min(Math.abs(fromLat), MAX_VALID_LATITUDE) * Math.PI) / 180
+  );
+  const toCos = Math.cos(
+    (Math.min(Math.abs(toLat), MAX_VALID_LATITUDE) * Math.PI) / 180
+  );
+  return Math.log(toCos / fromCos) / Math.LN2;
 }
 
 function lerp(a: number, b: number, t: number): number {
@@ -150,7 +161,12 @@ export function createGlobeDrag(
         remLat = 0;
       }
 
-      map.jumpTo({ center: [nextLng, nextLat] }, { globeDrag: true });
+      const nextZoom =
+        map.getZoom() + getLatZoomAdjustment(center.lat, nextLat);
+      map.jumpTo(
+        { center: [nextLng, nextLat], zoom: nextZoom },
+        { globeDrag: true }
+      );
     }
 
     const eps = STOP_EPS_PX * degPerPx;
